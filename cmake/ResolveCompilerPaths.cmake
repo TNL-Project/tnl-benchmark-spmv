@@ -1,4 +1,4 @@
-ResolveCompilerPaths - this module defines two macros
+#ResolveCompilerPaths - this module defines two macros
 #
 # RESOLVE_LIBRARIES (XXX_LIBRARIES LINK_LINE)
 #  This macro is intended to be used by FindXXX.cmake modules.
