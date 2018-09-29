@@ -250,7 +250,7 @@ double benchmarkMatrix( const Matrix& matrix,
       matrix.vectorProduct( x, b );
 #ifdef HAVE_CUDA
       if( std::is_same< typename Matrix::DeviceType, Devices::Cuda >::value )
-         cudaThreadSynchronize();
+         cudaDeviceSynchronize();
 #endif
       time = timer.getRealTime();
       iterations++;
