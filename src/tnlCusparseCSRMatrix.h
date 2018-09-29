@@ -60,7 +60,7 @@ class CusparseCSRBase
       void vectorProduct( const InVector& inVector,
                           OutVector& outVector ) const
       {
-         TNL_ASSERT( matrix, );
+         TNL_ASSERT_TRUE( matrix, "matrix was not initialized" );
 #ifdef HAVE_CUDA
          cusparseDcsrmv( *( this->cusparseHandle ),
                          CUSPARSE_OPERATION_NON_TRANSPOSE,
@@ -103,7 +103,7 @@ class CusparseCSR< double > : public CusparseCSRBase< double >
       void vectorProduct( const InVector& inVector,
                           OutVector& outVector ) const
       {
-         TNL_ASSERT( matrix, "" );
+         TNL_ASSERT_TRUE( matrix, "matrix was not initialized" );
 #ifdef HAVE_CUDA  
 	 double d = 1.0;       
          double* alpha = &d;
@@ -134,7 +134,7 @@ class CusparseCSR< float > : public CusparseCSRBase< float >
       void vectorProduct( const InVector& inVector,
                           OutVector& outVector ) const
       {
-         TNL_ASSERT( matrix, "" );
+         TNL_ASSERT_TRUE( matrix, "matrix was not initialized" );
 #ifdef HAVE_CUDA         
          float d = 1.0;       
          float* alpha = &d;
