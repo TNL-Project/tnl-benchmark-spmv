@@ -64,6 +64,7 @@ void
 setupConfig( Config::ConfigDescription & config )
 {
    config.addDelimiter( "Benchmark settings:" );
+   config.addRequiredEntry< String >( "input-file", "Input file name." );
    config.addEntry< String >( "log-file", "Log file name.", "tnl-benchmark-blas.log");
    config.addEntry< String >( "output-mode", "Mode for opening the log file.", "overwrite" );
    config.addEntryEnum( "append" );

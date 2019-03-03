@@ -20,12 +20,24 @@
 #include <TNL/Matrices/SlicedEllpack.h>
 #include <TNL/Matrices/ChunkedEllpack.h>
 
+//#include <TNL/Matrices/MatrixReader.h>
+
 namespace TNL {
 namespace Benchmarks {
 
 // silly alias to match the number of template parameters with other formats
 template< typename Real, typename Device, typename Index >
 using SlicedEllpack = Matrices::SlicedEllpack< Real, Device, Index >;
+
+//template< typename Matrix >
+//void printMatrixInfo( const String& inputFileName,
+//                      const Matrix& matrix,
+//                      std::ostream& str )
+//{
+//   str << " Rows: " << std::setw( 8 ) << matrix.getRows();
+//   str << " Columns: " << std::setw( 8 ) << matrix.getColumns();
+//   str << " Nonzero Elements: " << std::setw( 10 ) << matrix.getNumberOfNonzeroMatrixElements();
+//}
 
 template< typename Matrix >
 int setHostTestMatrix( Matrix& matrix,
@@ -176,6 +188,21 @@ benchmarkSpmvSynthetic( Benchmark & benchmark,
                         const int & size,
                         const int & elementsPerRow )
 {
+//    typedef Matrices::CSR< Real, Devices::Host, int > CSRType;
+//    CSRType csrMatrix;
+//    try
+//    {
+//       if( ! MatrixReader< CSRType >::readMtxFile( inputFileName, csrMatrix ) )
+//       {
+//          std::cerr << "I am not able to read the matrix file " << inputFileName << "." << std::endl;
+//          return false;
+//       }
+//    }
+//    catch( std::bad_alloc )
+//    {
+//       std::cerr << "Not enough memory to read the matrix." << std::endl;
+//       return false;
+//    }
    bool result = true;
    // TODO: benchmark all formats from tnl-benchmark-spmv (different parameters of the base formats)
    result |= benchmarkSpMV< Real, Matrices::CSR >( benchmark, size, elementsPerRow );
