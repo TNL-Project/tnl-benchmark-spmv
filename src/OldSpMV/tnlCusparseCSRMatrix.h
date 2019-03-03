@@ -8,6 +8,8 @@
 
 /* See Copyright Notice in tnl/Copyright */
 
+#ifdef NOT_USED_ANYMORE
+
 #include <TNL/Assert.h>
 #include <TNL/Devices/Cuda.h>
 #ifdef HAVE_CUDA
@@ -157,3 +159,4 @@ class CusparseCSR< float > : public CusparseCSRBase< float >
 
 } // namespace TNL
 
+#endif
