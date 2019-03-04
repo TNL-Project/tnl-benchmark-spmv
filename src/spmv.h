@@ -20,7 +20,8 @@
 #include <TNL/Matrices/SlicedEllpack.h>
 #include <TNL/Matrices/ChunkedEllpack.h>
 
-//#include <TNL/Matrices/MatrixReader.h>
+#include <TNL/Matrices/MatrixReader.h>
+using namespace TNL::Matrices;
 
 namespace TNL {
 namespace Benchmarks {
@@ -28,16 +29,6 @@ namespace Benchmarks {
 // silly alias to match the number of template parameters with other formats
 template< typename Real, typename Device, typename Index >
 using SlicedEllpack = Matrices::SlicedEllpack< Real, Device, Index >;
-
-//template< typename Matrix >
-//void printMatrixInfo( const String& inputFileName,
-//                      const Matrix& matrix,
-//                      std::ostream& str )
-//{
-//   str << " Rows: " << std::setw( 8 ) << matrix.getRows();
-//   str << " Columns: " << std::setw( 8 ) << matrix.getColumns();
-//   str << " Nonzero Elements: " << std::setw( 10 ) << matrix.getNumberOfNonzeroMatrixElements();
-//}
 
 template< typename Matrix >
 int setHostTestMatrix( Matrix& matrix,
@@ -106,106 +97,75 @@ template< typename Real,
           template< typename, typename, typename > class Vector = Containers::Vector >
 bool
 benchmarkSpMV( Benchmark & benchmark,
-               const int & size,
-               const int elementsPerRow = 5 )
+               const String & inputFileName )
 {
-   typedef Matrix< Real, Devices::Host, int > HostMatrix;
-   typedef Matrix< Real, Devices::Cuda, int > DeviceMatrix;
-   typedef Containers::Vector< Real, Devices::Host, int > HostVector;
-   typedef Containers::Vector< Real, Devices::Cuda, int > CudaVector;
+    typedef Matrix< Real, Devices::Host, int > HostMatrix;
+    typedef Matrix< Real, Devices::Cuda, int > DeviceMatrix;
+    typedef Containers::Vector< Real, Devices::Host, int > HostVector;
+    typedef Containers::Vector< Real, Devices::Cuda, int > CudaVector;
+    
+    HostMatrix hostMatrix;
+    DeviceMatrix deviceMatrix;
+    HostVector hostVector, hostVector2;
+    CudaVector deviceVector, deviceVector2;
+    
+    if( ! MatrixReader< HostMatrix >::readMtxFile(inputFileName, hostMatrix ) )
+        std::cerr << "I am not able to read the matrix file " << inputFileName << "." << std::endl;
+    else
+    {
+    #ifdef HAVE_CUDA
+        if( ! MatrixReader< DeviceMatrix >::readMtxFile(inputFileName, deviceMatrix ) )
+            std::cerr << "I am not able to read the matrix file " << inputFileName << "." << std::endl;
+    #endif
 
-   HostMatrix hostMatrix;
-   DeviceMatrix deviceMatrix;
-   Containers::Vector< int, Devices::Host, int > hostRowLengths;
-   Containers::Vector< int, Devices::Cuda, int > deviceRowLengths;
-   HostVector hostVector, hostVector2;
-   CudaVector deviceVector, deviceVector2;
+        hostVector.setSize( hostMatrix.getColumns() );
+        hostVector2.setSize( hostMatrix.getRows() );
 
-   // create benchmark group
-   const std::vector< String > parsedType = parseObjectType( HostMatrix::getType() );
-#ifdef HAVE_CUDA
-   benchmark.createHorizontalGroup( parsedType[ 0 ], 2 );
-#else
-   benchmark.createHorizontalGroup( parsedType[ 0 ], 1 );
-#endif
+    #ifdef HAVE_CUDA
+        deviceVector.setSize( deviceMatrix.getColumns() );
+        deviceVector2.setSize( deviceMatrix.getRows() );
+    #endif
 
-   hostRowLengths.setSize( size );
-   hostMatrix.setDimensions( size, size );
-   hostVector.setSize( size );
-   hostVector2.setSize( size );
-#ifdef HAVE_CUDA
-   deviceRowLengths.setSize( size );
-   deviceMatrix.setDimensions( size, size );
-   deviceVector.setSize( size );
-   deviceVector2.setSize( size );
-#endif
+        // reset function
+        auto reset = [&]() {
+           hostVector.setValue( 1.0 );
+           hostVector2.setValue( 0.0 );
+     #ifdef HAVE_CUDA
+           deviceVector.setValue( 1.0 );
+           deviceVector2.setValue( 0.0 );
+     #endif
+        };
+        
+        const int elements = hostMatrix.getNumberOfNonzeroMatrixElements();
+        
+        const double datasetSize = (double) elements * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
+        
+        // compute functions
+        auto spmvHost = [&]() {
+           hostMatrix.vectorProduct( hostVector, hostVector2 );
+        };
+        auto spmvCuda = [&]() {
+           deviceMatrix.vectorProduct( deviceVector, deviceVector2 );
+        };
 
-   hostRowLengths.setValue( elementsPerRow );
-#ifdef HAVE_CUDA
-   deviceRowLengths.setValue( elementsPerRow );
-#endif
-
-   hostMatrix.setCompressedRowLengths( hostRowLengths );
-#ifdef HAVE_CUDA
-   deviceMatrix.setCompressedRowLengths( deviceRowLengths );
-#endif
-
-   const int elements = setHostTestMatrix< HostMatrix >( hostMatrix, elementsPerRow );
-   setCudaTestMatrix< DeviceMatrix >( deviceMatrix, elementsPerRow );
-   const double datasetSize = (double) elements * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
-
-   // reset function
-   auto reset = [&]() {
-      hostVector.setValue( 1.0 );
-      hostVector2.setValue( 0.0 );
-#ifdef HAVE_CUDA
-      deviceVector.setValue( 1.0 );
-      deviceVector2.setValue( 0.0 );
-#endif
-   };
-
-   // compute functions
-   auto spmvHost = [&]() {
-      hostMatrix.vectorProduct( hostVector, hostVector2 );
-   };
-   auto spmvCuda = [&]() {
-      deviceMatrix.vectorProduct( deviceVector, deviceVector2 );
-   };
-
-   benchmark.setOperation( datasetSize );
-   benchmark.time< Devices::Host >( reset, "CPU", spmvHost );
-#ifdef HAVE_CUDA
-   benchmark.time< Devices::Cuda >( reset, "GPU", spmvCuda );
-#endif
-
-   return true;
+        benchmark.setOperation( datasetSize );
+        benchmark.time< Devices::Host >( reset, "CPU", spmvHost );
+     #ifdef HAVE_CUDA
+        benchmark.time< Devices::Cuda >( reset, "GPU", spmvCuda );
+     #endif
+        return true;
+    }
 }
 
 template< typename Real = double,
           typename Index = int >
 bool
 benchmarkSpmvSynthetic( Benchmark & benchmark,
-                        const int & size,
-                        const int & elementsPerRow )
+                        const String& inputFileName )
 {
-//    typedef Matrices::CSR< Real, Devices::Host, int > CSRType;
-//    CSRType csrMatrix;
-//    try
-//    {
-//       if( ! MatrixReader< CSRType >::readMtxFile( inputFileName, csrMatrix ) )
-//       {
-//          std::cerr << "I am not able to read the matrix file " << inputFileName << "." << std::endl;
-//          return false;
-//       }
-//    }
-//    catch( std::bad_alloc )
-//    {
-//       std::cerr << "Not enough memory to read the matrix." << std::endl;
-//       return false;
-//    }
    bool result = true;
    // TODO: benchmark all formats from tnl-benchmark-spmv (different parameters of the base formats)
-   result |= benchmarkSpMV< Real, Matrices::CSR >( benchmark, size, elementsPerRow );
+   result |= benchmarkSpMV< Real, Matrices::CSR >( benchmark, inputFileName );
 //   result |= benchmarkSpMV< Real, Matrices::Ellpack >( benchmark, size, elementsPerRow );
 //   result |= benchmarkSpMV< Real, SlicedEllpack >( benchmark, size, elementsPerRow );
 //   result |= benchmarkSpMV< Real, Matrices::ChunkedEllpack >( benchmark, size, elementsPerRow );

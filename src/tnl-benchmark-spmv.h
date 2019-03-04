@@ -21,43 +21,51 @@
 #include <Benchmarks/BLAS/vector-operations.h>
 #include "spmv.h"
 
+#include <TNL/Matrices/MatrixReader.h>
+using namespace TNL::Matrices;
+
 using namespace TNL;
 using namespace TNL::Benchmarks;
 
+//template< typename Matrix >
+//void printMatrixInfo( const String& inputFileName,
+//                      const Matrix& matrix,
+//                      std::ostream& str )
+//{
+//   str << " Rows: " << std::setw( 8 ) << matrix.getRows();
+//   str << " Columns: " << std::setw( 8 ) << matrix.getColumns();
+//   str << " Nonzero Elements: " << std::setw( 10 ) << matrix.getNumberOfNonzeroMatrixElements();
+//}
 
 template< typename Real >
 void
 runSpMVBenchmarks( Benchmark & benchmark,
                    Benchmark::MetadataMap metadata,
-                   const std::size_t & size,
-                   const int & elementsPerRow )
+                   const String & inputFileName )
 {
-   const String precision = getType< Real >();
-   metadata["precision"] = precision;
+   // DO: get rows and cols from inputFileName (/TNL/Matrices/MatrixReader_impl.h)
+    
+    typedef Matrices::CSR< Real, Devices::Host, int > CSRType;
+    CSRType csrMatrix;
+    
+    if( ! MatrixReader< CSRType >::readMtxFile( inputFileName, csrMatrix ) )
+        std::cerr << "I am not able to read the matrix file " << inputFileName << "." << std::endl;
+    else
+    {
+        const std::size_t rows = csrMatrix.getRows();
+        const std::size_t cols = csrMatrix.getColumns();
+        const String precision = getType< Real >();
+        metadata["precision"] = precision;
 
-   // Array operations
-   benchmark.newBenchmark( String("Array operations (") + precision + ")",
-                           metadata );
-   benchmark.setMetadataColumns( Benchmark::MetadataColumns({
-         { "size", convertToString( size ) }, } ));
-   benchmarkArrayOperations< Real >( benchmark, size );
-
-   // Vector operations
-   benchmark.newBenchmark( String("Vector operations (") + precision + ")",
-                           metadata );
-   benchmark.setMetadataColumns( Benchmark::MetadataColumns({
-         { "size", convertToString( size ) }, } ));
-   benchmarkVectorOperations< Real >( benchmark, size );
-
-   // Sparse matrix-vector multiplication
-   benchmark.newBenchmark( String("Sparse matrix-vector multiplication (") + precision + ")",
-                           metadata );
-   benchmark.setMetadataColumns( Benchmark::MetadataColumns({
-         { "rows", convertToString( size ) },
-         { "columns", convertToString( size ) },
-         { "elements per row", convertToString( elementsPerRow ) },
-      } ));
-   benchmarkSpmvSynthetic< Real >( benchmark, size, elementsPerRow );
+        // Sparse matrix-vector multiplication
+        benchmark.newBenchmark( String("Sparse matrix-vector multiplication (") + precision + ")",
+                                metadata );
+        benchmark.setMetadataColumns( Benchmark::MetadataColumns({
+              { "rows", convertToString( rows ) },
+              { "columns", convertToString( cols ) }
+           } ));
+        benchmarkSpmvSynthetic< Real >( benchmark, inputFileName );
+    }
 }
 
 void
@@ -73,9 +81,7 @@ setupConfig( Config::ConfigDescription & config )
    config.addEntryEnum( "float" );
    config.addEntryEnum( "double" );
    config.addEntryEnum( "all" );
-   config.addEntry< int >( "size", "Size of arrays/vectors used in the benchmark.", 100000 );
    config.addEntry< int >( "loops", "Number of iterations for every computation.", 10 );
-   config.addEntry< int >( "elements-per-row", "Number of elements per row of the sparse matrix used in the matrix-vector multiplication benchmark.", 5 );
    config.addEntry< int >( "verbose", "Verbose mode.", 1 );
 
    config.addDelimiter( "Device settings:" );
@@ -100,6 +106,7 @@ main( int argc, char* argv[] )
        ! Devices::Cuda::setup( parameters ) )
       return EXIT_FAILURE;
 
+   const String & inputFileName = parameters.getParameter< String >( "input-file" );
    const String & logFileName = parameters.getParameter< String >( "log-file" );
    const String & outputMode = parameters.getParameter< String >( "output-mode" );
    const String & precision = parameters.getParameter< String >( "precision" );
@@ -108,9 +115,7 @@ main( int argc, char* argv[] )
    // to pass 64-bit integer values
 //   const std::size_t minSize = parameters.getParameter< std::size_t >( "min-size" );
 //   const std::size_t maxSize = parameters.getParameter< std::size_t >( "max-size" );
-   const std::size_t size = parameters.getParameter< int >( "size" );
    const int loops = parameters.getParameter< int >( "loops" );
-   const int elementsPerRow = parameters.getParameter< int >( "elements-per-row" );
    const int verbose = parameters.getParameter< int >( "verbose" );
 
    // open log file
@@ -124,16 +129,19 @@ main( int argc, char* argv[] )
 
    // prepare global metadata
    Benchmark::MetadataMap metadata = getHardwareMetadata();
-
+   
+   
+   // DO: Pass the inputFileName parameter and get rows and cols from it to create the cout GUI.
    if( precision == "all" || precision == "float" )
-      runSpMVBenchmarks< float >( benchmark, metadata, size, elementsPerRow );
+      runSpMVBenchmarks< float >( benchmark, metadata, inputFileName );
    if( precision == "all" || precision == "double" )
-      runSpMVBenchmarks< double >( benchmark, metadata, size, elementsPerRow );
+      runSpMVBenchmarks< double >( benchmark, metadata, inputFileName );
 
    if( ! benchmark.save( logFile ) ) {
       std::cerr << "Failed to write the benchmark results to file '" << parameters.getParameter< String >( "log-file" ) << "'." << std::endl;
       return EXIT_FAILURE;
    }
 
+   std::cout << "== BENCHMARK FINISHED ==" << std::endl;
    return EXIT_SUCCESS;
 }
