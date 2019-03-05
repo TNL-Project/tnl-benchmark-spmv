@@ -43,29 +43,13 @@ runSpMVBenchmarks( Benchmark & benchmark,
                    Benchmark::MetadataMap metadata,
                    const String & inputFileName )
 {
-   // DO: get rows and cols from inputFileName (/TNL/Matrices/MatrixReader_impl.h)
-    
-    typedef Matrices::CSR< Real, Devices::Host, int > CSRType;
-    CSRType csrMatrix;
-    
-    if( ! MatrixReader< CSRType >::readMtxFile( inputFileName, csrMatrix ) )
-        std::cerr << "I am not able to read the matrix file " << inputFileName << "." << std::endl;
-    else
-    {
-        const std::size_t rows = csrMatrix.getRows();
-        const std::size_t cols = csrMatrix.getColumns();
-        const String precision = getType< Real >();
-        metadata["precision"] = precision;
+    const String precision = getType< Real >();
+    metadata["precision"] = precision;
 
-        // Sparse matrix-vector multiplication
-        benchmark.newBenchmark( String("Sparse matrix-vector multiplication (") + precision + ")",
-                                metadata );
-        benchmark.setMetadataColumns( Benchmark::MetadataColumns({
-              { "rows", convertToString( rows ) },
-              { "columns", convertToString( cols ) }
-           } ));
-        benchmarkSpmvSynthetic< Real >( benchmark, inputFileName );
-    }
+    // Sparse matrix-vector multiplication
+    benchmark.newBenchmark( String("Sparse matrix-vector multiplication (") + precision + ")",
+                            metadata );
+    benchmarkSpmvSynthetic< Real >( benchmark, inputFileName );
 }
 
 void
@@ -73,11 +57,11 @@ setupConfig( Config::ConfigDescription & config )
 {
    config.addDelimiter( "Benchmark settings:" );
    config.addRequiredEntry< String >( "input-file", "Input file name." );
-   config.addEntry< String >( "log-file", "Log file name.", "tnl-benchmark-blas.log");
+   config.addEntry< String >( "log-file", "Log file name.", "tnl-benchmark-spmv.log");
    config.addEntry< String >( "output-mode", "Mode for opening the log file.", "overwrite" );
    config.addEntryEnum( "append" );
    config.addEntryEnum( "overwrite" );
-   config.addEntry< String >( "precision", "Precision of the arithmetics.", "double" );
+   config.addEntry< String >( "precision", "Precision of the arithmetics.", "all" );
    config.addEntryEnum( "float" );
    config.addEntryEnum( "double" );
    config.addEntryEnum( "all" );
@@ -110,11 +94,6 @@ main( int argc, char* argv[] )
    const String & logFileName = parameters.getParameter< String >( "log-file" );
    const String & outputMode = parameters.getParameter< String >( "output-mode" );
    const String & precision = parameters.getParameter< String >( "precision" );
-   // FIXME: getParameter< std::size_t >() does not work with parameters added with addEntry< int >(),
-   // which have a default value. The workaround below works for int values, but it is not possible
-   // to pass 64-bit integer values
-//   const std::size_t minSize = parameters.getParameter< std::size_t >( "min-size" );
-//   const std::size_t maxSize = parameters.getParameter< std::size_t >( "max-size" );
    const int loops = parameters.getParameter< int >( "loops" );
    const int verbose = parameters.getParameter< int >( "verbose" );
 
@@ -142,6 +121,6 @@ main( int argc, char* argv[] )
       return EXIT_FAILURE;
    }
 
-   std::cout << "== BENCHMARK FINISHED ==" << std::endl;
+   std::cout << "\n== BENCHMARK FINISHED ==" << std::endl;
    return EXIT_SUCCESS;
 }

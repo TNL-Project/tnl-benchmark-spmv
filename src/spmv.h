@@ -31,65 +31,20 @@ template< typename Real, typename Device, typename Index >
 using SlicedEllpack = Matrices::SlicedEllpack< Real, Device, Index >;
 
 template< typename Matrix >
-int setHostTestMatrix( Matrix& matrix,
-                       const int elementsPerRow )
+void printMatrixInfo( const String& inputFileName,
+                      const Matrix& matrix,
+                      std::ostream& str )
 {
-   const int size = matrix.getRows();
-   int elements( 0 );
-   for( int row = 0; row < size; row++ ) {
-      int col = row - elementsPerRow / 2;
-      for( int element = 0; element < elementsPerRow; element++ ) {
-         if( col + element >= 0 &&
-            col + element < size )
-         {
-            matrix.setElement( row, col + element, element + 1 );
-            elements++;
-         }
-      }
-   }
-   return elements;
+    // Get only the name of the format from getType().
+    std::string mtrxFullType = matrix.getType();
+    std::string mtrxType = mtrxFullType.substr(0, mtrxFullType.find("<"));
+    std::string type = mtrxType.substr(mtrxType.find(':') + 2);
+    
+    str << "\n Format: " << type << std::endl;
+    str << " Rows: " << matrix.getRows() << std::endl;
+    str << " Cols: " << matrix.getColumns() << std::endl;
+    str << " Nonzero Elements: " << matrix.getNumberOfNonzeroMatrixElements() << std::endl;
 }
-
-#ifdef HAVE_CUDA
-template< typename Matrix >
-__global__ void setCudaTestMatrixKernel( Matrix* matrix,
-                                         const int elementsPerRow,
-                                         const int gridIdx )
-{
-   const int rowIdx = ( gridIdx * Devices::Cuda::getMaxGridSize() + blockIdx.x ) * blockDim.x + threadIdx.x;
-   if( rowIdx >= matrix->getRows() )
-      return;
-   int col = rowIdx - elementsPerRow / 2;
-   for( int element = 0; element < elementsPerRow; element++ ) {
-      if( col + element >= 0 &&
-         col + element < matrix->getColumns() )
-         matrix->setElementFast( rowIdx, col + element, element + 1 );
-   }
-}
-#endif
-
-template< typename Matrix >
-void setCudaTestMatrix( Matrix& matrix,
-                        const int elementsPerRow )
-{
-#ifdef HAVE_CUDA
-   typedef typename Matrix::IndexType IndexType;
-   typedef typename Matrix::RealType RealType;
-   Pointers::DevicePointer< Matrix > kernel_matrix( matrix );
-   dim3 cudaBlockSize( 256 ), cudaGridSize( Devices::Cuda::getMaxGridSize() );
-   const IndexType cudaBlocks = roundUpDivision( matrix.getRows(), cudaBlockSize.x );
-   const IndexType cudaGrids = roundUpDivision( cudaBlocks, Devices::Cuda::getMaxGridSize() );
-   for( IndexType gridIdx = 0; gridIdx < cudaGrids; gridIdx++ ) {
-      if( gridIdx == cudaGrids - 1 )
-         cudaGridSize.x = cudaBlocks % Devices::Cuda::getMaxGridSize();
-      setCudaTestMatrixKernel< Matrix >
-         <<< cudaGridSize, cudaBlockSize >>>
-         ( &kernel_matrix.template modifyData< Devices::Cuda >(), elementsPerRow, gridIdx );
-        TNL_CHECK_CUDA_DEVICE;
-   }
-#endif
-}
-
 
 // TODO: rename as benchmark_SpMV_synthetic and move to spmv-synthetic.h
 template< typename Real,
@@ -109,52 +64,67 @@ benchmarkSpMV( Benchmark & benchmark,
     HostVector hostVector, hostVector2;
     CudaVector deviceVector, deviceVector2;
     
-    if( ! MatrixReader< HostMatrix >::readMtxFile(inputFileName, hostMatrix ) )
-        std::cerr << "I am not able to read the matrix file " << inputFileName << "." << std::endl;
-    else
-    {
-    #ifdef HAVE_CUDA
-        if( ! MatrixReader< DeviceMatrix >::readMtxFile(inputFileName, deviceMatrix ) )
+    try
+      {
+         if( ! MatrixReader< HostMatrix >::readMtxFile( inputFileName, hostMatrix ) )
+         {
             std::cerr << "I am not able to read the matrix file " << inputFileName << "." << std::endl;
-    #endif
+            return false;
+         }
+      }
+      catch( std::bad_alloc )
+      {
+         std::cerr << "Not enough memory to read the matrix." << std::endl;
+         return false;
+      }
+    printMatrixInfo( inputFileName, hostMatrix, std::cout );
+#ifdef HAVE_CUDA
+    // FIXME: This doesn't work for ChunkedEllpack, because
+    //        its cross-device assignment is not implemented yet.
+    deviceMatrix = hostMatrix;
+#endif
 
-        hostVector.setSize( hostMatrix.getColumns() );
-        hostVector2.setSize( hostMatrix.getRows() );
+    benchmark.setMetadataColumns( Benchmark::MetadataColumns({
+          { "rows", convertToString( hostMatrix.getRows() ) },
+          { "columns", convertToString( hostMatrix.getColumns() ) }
+       } ));
 
-    #ifdef HAVE_CUDA
-        deviceVector.setSize( deviceMatrix.getColumns() );
-        deviceVector2.setSize( deviceMatrix.getRows() );
-    #endif
+    hostVector.setSize( hostMatrix.getColumns() );
+    hostVector2.setSize( hostMatrix.getRows() );
 
-        // reset function
-        auto reset = [&]() {
-           hostVector.setValue( 1.0 );
-           hostVector2.setValue( 0.0 );
-     #ifdef HAVE_CUDA
-           deviceVector.setValue( 1.0 );
-           deviceVector2.setValue( 0.0 );
-     #endif
-        };
-        
-        const int elements = hostMatrix.getNumberOfNonzeroMatrixElements();
-        
-        const double datasetSize = (double) elements * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
-        
-        // compute functions
-        auto spmvHost = [&]() {
-           hostMatrix.vectorProduct( hostVector, hostVector2 );
-        };
-        auto spmvCuda = [&]() {
-           deviceMatrix.vectorProduct( deviceVector, deviceVector2 );
-        };
+#ifdef HAVE_CUDA
+    deviceVector.setSize( hostMatrix.getColumns() );
+    deviceVector2.setSize( hostMatrix.getRows() );
+#endif
 
-        benchmark.setOperation( datasetSize );
-        benchmark.time< Devices::Host >( reset, "CPU", spmvHost );
-     #ifdef HAVE_CUDA
-        benchmark.time< Devices::Cuda >( reset, "GPU", spmvCuda );
-     #endif
-        return true;
-    }
+    // reset function
+    auto reset = [&]() {
+       hostVector.setValue( 1.0 );
+       hostVector2.setValue( 0.0 );
+ #ifdef HAVE_CUDA
+       deviceVector.setValue( 1.0 );
+       deviceVector2.setValue( 0.0 );
+ #endif
+    };
+
+    const int elements = hostMatrix.getNumberOfNonzeroMatrixElements();
+
+    const double datasetSize = (double) elements * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
+
+    // compute functions
+    auto spmvHost = [&]() {
+       hostMatrix.vectorProduct( hostVector, hostVector2 );
+    };
+    auto spmvCuda = [&]() {
+       deviceMatrix.vectorProduct( deviceVector, deviceVector2 );
+    };
+
+    benchmark.setOperation( datasetSize );
+    benchmark.time< Devices::Host >( reset, "CPU", spmvHost );
+ #ifdef HAVE_CUDA
+    benchmark.time< Devices::Cuda >( reset, "GPU", spmvCuda );
+ #endif
+    return true;
 }
 
 template< typename Real = double,
@@ -166,9 +136,9 @@ benchmarkSpmvSynthetic( Benchmark & benchmark,
    bool result = true;
    // TODO: benchmark all formats from tnl-benchmark-spmv (different parameters of the base formats)
    result |= benchmarkSpMV< Real, Matrices::CSR >( benchmark, inputFileName );
-//   result |= benchmarkSpMV< Real, Matrices::Ellpack >( benchmark, size, elementsPerRow );
-//   result |= benchmarkSpMV< Real, SlicedEllpack >( benchmark, size, elementsPerRow );
-//   result |= benchmarkSpMV< Real, Matrices::ChunkedEllpack >( benchmark, size, elementsPerRow );
+   result |= benchmarkSpMV< Real, Matrices::Ellpack >( benchmark, inputFileName );
+   result |= benchmarkSpMV< Real, SlicedEllpack >( benchmark, inputFileName );
+//   result |= benchmarkSpMV< Real, Matrices::ChunkedEllpack >( benchmark, inputFileName );
    return result;
 }
 
