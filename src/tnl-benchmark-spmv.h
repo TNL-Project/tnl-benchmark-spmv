@@ -27,16 +27,6 @@ using namespace TNL::Matrices;
 using namespace TNL;
 using namespace TNL::Benchmarks;
 
-//template< typename Matrix >
-//void printMatrixInfo( const String& inputFileName,
-//                      const Matrix& matrix,
-//                      std::ostream& str )
-//{
-//   str << " Rows: " << std::setw( 8 ) << matrix.getRows();
-//   str << " Columns: " << std::setw( 8 ) << matrix.getColumns();
-//   str << " Nonzero Elements: " << std::setw( 10 ) << matrix.getNumberOfNonzeroMatrixElements();
-//}
-
 template< typename Real >
 void
 runSpMVBenchmarks( Benchmark & benchmark,
