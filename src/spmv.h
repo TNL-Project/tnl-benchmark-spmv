@@ -30,7 +30,7 @@ namespace Benchmarks {
 template< typename Real, typename Device, typename Index >
 using SlicedEllpack = Matrices::SlicedEllpack< Real, Device, Index >;
 
-// Get only the name of the format from getType().
+// Get only the name of the format from getType()
 template< typename Matrix >
 std::string getMatrixFormat( const Matrix& matrix )
 {
@@ -70,44 +70,100 @@ benchmarkSpMV( Benchmark & benchmark,
     
     try
       {
+         // Start a buffer to capture the output of MatrixReader
+         std::stringstream buffer;
+         std::streambuf * old = std::cerr.rdbuf(buffer.rdbuf());
+         
          if( ! MatrixReader< HostMatrix >::readMtxFile( inputFileName, hostMatrix ) )
          {
-            std::cerr << "Failed to read the matrix file " << inputFileName << "." << std::endl;
+            // Capture the original output of MatrixReader, so it isn't printed by console.
+            std::string errorMsgBuffer = buffer.str();
+            // Reset the buffer
+            std::cerr.rdbuf( old );
             
+             
             std::string matrixFormat = getMatrixFormat( hostMatrix );
             
-            std::string stringErrorMsg = "Failed to read the matrix file " + 
+            //https://stackoverflow.com/questions/5419356/redirect-stdout-stderr-to-a-string
+            std::stringstream buffer;
+            std::streambuf * old = std::cerr.rdbuf(buffer.rdbuf());
+
+            MatrixReader< HostMatrix >::readMtxFile( inputFileName, hostMatrix );
+
+            errorMsgBuffer = buffer.str();
+            
+            // Reset the buffer
+            std::cerr.rdbuf( old );
+            
+            std::string stringErrorMsg = "Benchmark failed: Unable to read the matrix.\n"
+                                         "matrix format: " + matrixFormat +
+                                         "\nFailed to read the matrix file " + 
                                          ( std::string )inputFileName + ".\n" + 
-                                         "matrix format: " + matrixFormat + 
-                                         "\nBenchmark failed: Unable to read the matrix.";
+                                         errorMsgBuffer;
             
-            char *errorMsg = &stringErrorMsg[0u];
+            //https://stackoverflow.com/questions/1488775/c-remove-new-line-from-multiline-string
+            if ( ! stringErrorMsg.empty() && stringErrorMsg[ stringErrorMsg.length() - 1 ] == '\n' )
+                stringErrorMsg.erase( stringErrorMsg.length() - 1 );
             
-            benchmark.addErrorMessage( errorMsg, 3 );
+            // https://stackoverflow.com/questions/7352099/stdstring-to-char
+            char* errorMsg = &stringErrorMsg[0u];
+            
+            
+            // FIXME: Every other benchmark, the errorMsg doesn't have a "!" as 
+            //        a prefix in the log file. 
+            //        (Try adding more benchmarks in benchmarkSpmvSynthetic(...) 
+            //         and you'll see)
+            benchmark.addErrorMessage( errorMsg, 1 );
+            
+            std::cout << std::endl;
+            
             return false;
          }
+         std::cerr.rdbuf( old );
       }
       catch( std::bad_alloc )
       {
-         std::cerr << "Failed to allocate memory to read the matrix file " << inputFileName << "." << std::endl;
-         
          std::string matrixFormat = getMatrixFormat( hostMatrix );
          
-         std::string stringErrorMsg = "Failed to allocate memory to read the matrix file " +
-                                      ( std::string )inputFileName + ".\n" +
-                                      "matrix format: " + matrixFormat + 
-                                      "\nBenchmark failed: Not enough memory.";
+         //https://stackoverflow.com/questions/5419356/redirect-stdout-stderr-to-a-string
+         std::stringstream buffer;
+         std::streambuf * old = std::cerr.rdbuf(buffer.rdbuf());
+
+         MatrixReader< HostMatrix >::readMtxFile( inputFileName, hostMatrix );
+
+         std::string errorMsgBuffer = buffer.str();
          
+         // Reset the buffer
+         std::cerr.rdbuf( old );
+          
+         std::string stringErrorMsg = "Benchmark failed: Not enough memory.\n"
+                                      "matrix format: " + matrixFormat + 
+                                      "\nFailed to allocate memory to read the matrix file " +
+                                      ( std::string )inputFileName + ".\n" + 
+                                      errorMsgBuffer;
+         
+         //https://stackoverflow.com/questions/1488775/c-remove-new-line-from-multiline-string
+         if ( ! stringErrorMsg.empty() && stringErrorMsg[ stringErrorMsg.length() - 1 ] == '\n' )
+                stringErrorMsg.erase( stringErrorMsg.length() - 1 );
+         
+         // https://stackoverflow.com/questions/7352099/stdstring-to-char
          char *errorMsg = &stringErrorMsg[0u];
          
-         benchmark.addErrorMessage( errorMsg, 3 );
+         // FIXME: Every other benchmark, the errorMsg doesn't have a "!" as 
+         //        a prefix in the log file. 
+         //        (Try adding more benchmarks in benchmarkSpmvSynthetic(...) 
+         //         and you'll see)
+         benchmark.addErrorMessage( errorMsg, 1 );
+         
+         std::cout << std::endl;
+         
          return false;
       }
-    // printMatrixInfo is redundant, because all the information is in the Benchmark's MetadataColumns.
+    // printMatrixInfo is redundant, because all the information is in the Benchmark's MetadataColumns
 //    printMatrixInfo( hostMatrix, std::cout );
 #ifdef HAVE_CUDA
     // FIXME: This doesn't work for ChunkedEllpack, because
-    //        its cross-device assignment is not implemented yet.
+    //        its cross-device assignment is not implemented yet
     deviceMatrix = hostMatrix;
 #endif
 
