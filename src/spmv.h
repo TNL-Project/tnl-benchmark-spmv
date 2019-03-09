@@ -30,23 +30,27 @@ namespace Benchmarks {
 template< typename Real, typename Device, typename Index >
 using SlicedEllpack = Matrices::SlicedEllpack< Real, Device, Index >;
 
+// Get only the name of the format from getType().
 template< typename Matrix >
-void printMatrixInfo( const String& inputFileName,
-                      const Matrix& matrix,
-                      std::ostream& str )
+std::string getMatrixFormat( const Matrix& matrix )
 {
-    // Get only the name of the format from getType().
     std::string mtrxFullType = matrix.getType();
     std::string mtrxType = mtrxFullType.substr(0, mtrxFullType.find("<"));
-    std::string type = mtrxType.substr(mtrxType.find(':') + 2);
+    std::string format = mtrxType.substr(mtrxType.find(':') + 2);
     
-    str << "\n Format: " << type << std::endl;
+    return format;
+}
+
+template< typename Matrix >
+void printMatrixInfo( const Matrix& matrix,
+                      std::ostream& str )
+{    
+    str << "\n Format: " << getMatrixFormat( matrix ) << std::endl;
     str << " Rows: " << matrix.getRows() << std::endl;
     str << " Cols: " << matrix.getColumns() << std::endl;
     str << " Nonzero Elements: " << matrix.getNumberOfNonzeroMatrixElements() << std::endl;
 }
 
-// TODO: rename as benchmark_SpMV_synthetic and move to spmv-synthetic.h
 template< typename Real,
           template< typename, typename, typename > class Matrix,
           template< typename, typename, typename > class Vector = Containers::Vector >
@@ -68,16 +72,39 @@ benchmarkSpMV( Benchmark & benchmark,
       {
          if( ! MatrixReader< HostMatrix >::readMtxFile( inputFileName, hostMatrix ) )
          {
-            std::cerr << "I am not able to read the matrix file " << inputFileName << "." << std::endl;
+            std::cerr << "Failed to read the matrix file " << inputFileName << "." << std::endl;
+            
+            std::string matrixFormat = getMatrixFormat( hostMatrix );
+            
+            std::string stringErrorMsg = "Failed to read the matrix file " + 
+                                         ( std::string )inputFileName + ".\n" + 
+                                         "matrix format: " + matrixFormat + 
+                                         "\nBenchmark failed: Unable to read the matrix.";
+            
+            char *errorMsg = &stringErrorMsg[0u];
+            
+            benchmark.addErrorMessage( errorMsg, 3 );
             return false;
          }
       }
       catch( std::bad_alloc )
       {
-         std::cerr << "Not enough memory to read the matrix." << std::endl;
+         std::cerr << "Failed to allocate memory to read the matrix file " << inputFileName << "." << std::endl;
+         
+         std::string matrixFormat = getMatrixFormat( hostMatrix );
+         
+         std::string stringErrorMsg = "Failed to allocate memory to read the matrix file " +
+                                      ( std::string )inputFileName + ".\n" +
+                                      "matrix format: " + matrixFormat + 
+                                      "\nBenchmark failed: Not enough memory.";
+         
+         char *errorMsg = &stringErrorMsg[0u];
+         
+         benchmark.addErrorMessage( errorMsg, 3 );
          return false;
       }
-    printMatrixInfo( inputFileName, hostMatrix, std::cout );
+    // printMatrixInfo is redundant, because all the information is in the Benchmark's MetadataColumns.
+//    printMatrixInfo( hostMatrix, std::cout );
 #ifdef HAVE_CUDA
     // FIXME: This doesn't work for ChunkedEllpack, because
     //        its cross-device assignment is not implemented yet.
@@ -85,6 +112,8 @@ benchmarkSpMV( Benchmark & benchmark,
 #endif
 
     benchmark.setMetadataColumns( Benchmark::MetadataColumns({
+          { "matrix format", convertToString( getMatrixFormat( hostMatrix ) ) },
+          { "non-zeros", convertToString( hostMatrix.getNumberOfNonzeroMatrixElements() ) },
           { "rows", convertToString( hostMatrix.getRows() ) },
           { "columns", convertToString( hostMatrix.getColumns() ) }
        } ));
@@ -124,6 +153,7 @@ benchmarkSpMV( Benchmark & benchmark,
  #ifdef HAVE_CUDA
     benchmark.time< Devices::Cuda >( reset, "GPU", spmvCuda );
  #endif
+    std::cout << std::endl;
     return true;
 }
 
