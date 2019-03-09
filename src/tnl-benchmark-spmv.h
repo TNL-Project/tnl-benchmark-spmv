@@ -24,6 +24,8 @@
 #include <TNL/Matrices/MatrixReader.h>
 using namespace TNL::Matrices;
 
+#include <ctime> // Used for file naming, so logs don't get overwritten.
+
 using namespace TNL;
 using namespace TNL::Benchmarks;
 
@@ -47,7 +49,19 @@ setupConfig( Config::ConfigDescription & config )
 {
    config.addDelimiter( "Benchmark settings:" );
    config.addRequiredEntry< String >( "input-file", "Input file name." );
-   config.addEntry< String >( "log-file", "Log file name.", "tnl-benchmark-spmv.log");
+   
+   ////////////////
+   //https://stackoverflow.com/questions/16357999/current-date-and-time-as-string
+   time_t rawtime;
+   struct tm * timeinfo;
+   char buffer[80];
+   time (&rawtime);
+   timeinfo = localtime(&rawtime);
+   strftime(buffer,sizeof(buffer),"%d-%m-%Y--%H:%M:%S",timeinfo);
+   std::string str(buffer);
+   ////////////////
+   config.addEntry< String >( "log-file", "Log file name.", "tnl-benchmark-spmv::" + str + ".log");
+   
    config.addEntry< String >( "output-mode", "Mode for opening the log file.", "overwrite" );
    config.addEntryEnum( "append" );
    config.addEntryEnum( "overwrite" );
