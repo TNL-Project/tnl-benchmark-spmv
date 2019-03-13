@@ -85,6 +85,8 @@ benchmarkSpMV( Benchmark & benchmark,
             // Reset the buffer
             std::cerr.rdbuf( old );
             
+            // WHY DID I CAPTURE THE ERROR MESSAGE ONLY TO RUN MatrixReader again? Use the above capture to print into log and console?
+            
              
             std::string matrixFormat = getMatrixFormat( hostMatrix );
             
