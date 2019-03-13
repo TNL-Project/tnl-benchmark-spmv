@@ -34,13 +34,30 @@ namespace Benchmarks {
 template< typename Real, typename Device, typename Index >
 using SlicedEllpack = Matrices::SlicedEllpack< Real, Device, Index >;
 
+std::string getMatrixName( const String& InputFileName )
+{
+    std::string fileName = InputFileName;
+    
+    // Remove directory if present.
+    // Do this before extension removal incase directory has a period character.
+    // https://stackoverflow.com/questions/8520560/get-a-file-name-from-a-path
+    // http://www.cplusplus.com/reference/string/string/find_last_of/
+    const size_t last_slash_idx = fileName.find_last_of("/\\");
+    if (std::string::npos != last_slash_idx)
+    {
+        fileName.erase(0, last_slash_idx + 1);
+    }
+    
+    return fileName;
+}
+
 // Get only the name of the format from getType()
 template< typename Matrix >
 std::string getMatrixFormat( const Matrix& matrix )
 {
     std::string mtrxFullType = matrix.getType();
-    std::string mtrxType = mtrxFullType.substr(0, mtrxFullType.find("<"));
-    std::string format = mtrxType.substr(mtrxType.find(':') + 2);
+    std::string mtrxType = mtrxFullType.substr( 0, mtrxFullType.find( "<" )) ;
+    std::string format = mtrxType.substr( mtrxType.find( ':' ) + 2 );
     
     return format;
 }
@@ -62,6 +79,45 @@ bool
 benchmarkSpMV( Benchmark & benchmark,
                const String & inputFileName )
 {
+    // Setup CSR for cuSPARSE
+    typedef Matrices::CSR< Real, Devices::Host, int > CSR_HostMatrix;
+    typedef Matrices::CSR< Real, Devices::Cuda, int > CSR_DeviceMatrix;
+    
+    CSR_HostMatrix CSRhostMatrix;
+    CSR_DeviceMatrix CSRdeviceMatrix;
+    
+    // Read the matrix for CSR, to setup cuSPARSE
+    try
+      {         
+         if( ! MatrixReader< CSR_HostMatrix >::readMtxFile( inputFileName, CSRhostMatrix ) )
+         {
+            benchmark.addErrorMessage( "Failed to read matrix!", 1 );            
+            return false;
+         }
+      }
+      catch( std::bad_alloc )
+      {
+         benchmark.addErrorMessage( "Failed to allocate memory for matrix!", 1 );
+         return false;
+      }
+    
+    // cuSPARSE handle setup
+    cusparseHandle_t cusparseHandle;
+    cusparseCreate( &cusparseHandle );
+    
+#ifdef HAVE_CUDA
+    // FIXME: This doesn't work for ChunkedEllpack, because
+    //        its cross-device assignment is not implemented yet
+    CSRdeviceMatrix = CSRhostMatrix;
+    
+    // Delete the CSRhostMatrix, so it doesn't take up unnecessary space
+    CSRhostMatrix.reset();
+    
+    TNL::CusparseCSR< Real > cusparseCSR;
+    cusparseCSR.init( CSRdeviceMatrix, &cusparseHandle );
+#endif
+    
+    // Other formats setup
     typedef Matrix< Real, Devices::Host, int > HostMatrix;
     typedef Matrix< Real, Devices::Cuda, int > DeviceMatrix;
     typedef Containers::Vector< Real, Devices::Host, int > HostVector;
@@ -73,100 +129,19 @@ benchmarkSpMV( Benchmark & benchmark,
     CudaVector deviceVector, deviceVector2;
     
     try
-      {
-         // Start a buffer to capture the output of MatrixReader
-         std::stringstream buffer;
-         std::streambuf * old = std::cerr.rdbuf( buffer.rdbuf() );
-         
+      {         
          if( ! MatrixReader< HostMatrix >::readMtxFile( inputFileName, hostMatrix ) )
          {
-            // Capture the original output of MatrixReader, so it isn't printed by console.
-            std::string errorMsgBuffer = buffer.str();
-            // Reset the buffer
-            std::cerr.rdbuf( old );
-            
-            // WHY DID I CAPTURE THE ERROR MESSAGE ONLY TO RUN MatrixReader again? Use the above capture to print into log and console?
-            
-             
-            std::string matrixFormat = getMatrixFormat( hostMatrix );
-            
-            //https://stackoverflow.com/questions/5419356/redirect-stdout-stderr-to-a-string
-            std::stringstream buffer;
-            std::streambuf * old = std::cerr.rdbuf( buffer.rdbuf() );
-
-            MatrixReader< HostMatrix >::readMtxFile( inputFileName, hostMatrix );
-
-            errorMsgBuffer = buffer.str();
-            
-            // Reset the buffer
-            std::cerr.rdbuf( old );
-            
-            std::string stringErrorMsg = "Benchmark failed: Unable to read the matrix.\n"
-                                         "matrix format: " + matrixFormat +
-                                         "\nFailed to read the matrix file " + 
-                                         ( std::string )inputFileName + ".\n" + 
-                                         errorMsgBuffer;
-            
-            //https://stackoverflow.com/questions/1488775/c-remove-new-line-from-multiline-string
-            if ( ! stringErrorMsg.empty() && stringErrorMsg[ stringErrorMsg.length() - 1 ] == '\n' )
-                stringErrorMsg.erase( stringErrorMsg.length() - 1 );
-            
-            // https://stackoverflow.com/questions/7352099/stdstring-to-char
-            char* errorMsg = &stringErrorMsg[ 0u ];
-            
-            
-            // FIXME: Every other benchmark, the errorMsg doesn't have a "!" as 
-            //        a prefix in the log file. 
-            //        (Try adding more benchmarks in benchmarkSpmvSynthetic(...) 
-            //         and you'll see)
-            benchmark.addErrorMessage( errorMsg, 1 );
-            
-            std::cout << std::endl;
-            
+            benchmark.addErrorMessage( "Failed to read matrix!", 1 );            
             return false;
          }
-         std::cerr.rdbuf( old );
       }
       catch( std::bad_alloc )
       {
-         std::string matrixFormat = getMatrixFormat( hostMatrix );
-         
-         //https://stackoverflow.com/questions/5419356/redirect-stdout-stderr-to-a-string
-         std::stringstream buffer;
-         std::streambuf * old = std::cerr.rdbuf(buffer.rdbuf());
-
-         MatrixReader< HostMatrix >::readMtxFile( inputFileName, hostMatrix );
-
-         std::string errorMsgBuffer = buffer.str();
-         
-         // Reset the buffer
-         std::cerr.rdbuf( old );
-          
-         std::string stringErrorMsg = "Benchmark failed: Not enough memory.\n"
-                                      "matrix format: " + matrixFormat + 
-                                      "\nFailed to allocate memory to read the matrix file " +
-                                      ( std::string )inputFileName + ".\n" + 
-                                      errorMsgBuffer;
-         
-         //https://stackoverflow.com/questions/1488775/c-remove-new-line-from-multiline-string
-         if ( ! stringErrorMsg.empty() && stringErrorMsg[ stringErrorMsg.length() - 1 ] == '\n' )
-                stringErrorMsg.erase( stringErrorMsg.length() - 1 );
-         
-         // https://stackoverflow.com/questions/7352099/stdstring-to-char
-         char *errorMsg = &stringErrorMsg[ 0u ];
-         
-         // FIXME: Every other benchmark, the errorMsg doesn't have a "!" as 
-         //        a prefix in the log file. 
-         //        (Try adding more benchmarks in benchmarkSpmvSynthetic(...) 
-         //         and you'll see)
-         benchmark.addErrorMessage( errorMsg, 1 );
-         
-         std::cout << std::endl;
-         
+         benchmark.addErrorMessage( "Failed to allocate memory for matrix!", 1 );
          return false;
       }
-    // printMatrixInfo is redundant, because all the information is in the Benchmark's MetadataColumns
-//    printMatrixInfo( hostMatrix, std::cout );
+    
 #ifdef HAVE_CUDA
     // FIXME: This doesn't work for ChunkedEllpack, because
     //        its cross-device assignment is not implemented yet
@@ -175,6 +150,7 @@ benchmarkSpMV( Benchmark & benchmark,
 
     benchmark.setMetadataColumns( Benchmark::MetadataColumns({
           { "matrix format", convertToString( getMatrixFormat( hostMatrix ) ) },
+          { "matrix name", convertToString( getMatrixName( inputFileName ) ) },
           { "non-zeros", convertToString( hostMatrix.getNumberOfNonzeroMatrixElements() ) },
           { "rows", convertToString( hostMatrix.getRows() ) },
           { "columns", convertToString( hostMatrix.getColumns() ) }
@@ -209,6 +185,9 @@ benchmarkSpMV( Benchmark & benchmark,
     auto spmvCuda = [&]() {
        deviceMatrix.vectorProduct( deviceVector, deviceVector2 );
     };
+    auto spmvCusparse = [&]() {
+        cusparseCSR.vectorProduct( deviceVector, deviceVector2 );
+    };
 
     benchmark.setOperation( datasetSize );
     benchmark.time< Devices::Host >( reset, "CPU", spmvHost );
@@ -217,234 +196,83 @@ benchmarkSpMV( Benchmark & benchmark,
     HostVector resultHostVector2;
     resultHostVector2.setSize( hostVector2.getSize() );
     resultHostVector2.setValue( 0.0 );
+    
     // Copy the values
-    for( int i = 0; i < hostVector2.getSize(); i++ )
-        resultHostVector2.setElement( i, hostVector2.getElement( i ) );
+    resultHostVector2 = hostVector2;
     
  #ifdef HAVE_CUDA
     benchmark.time< Devices::Cuda >( reset, "GPU", spmvCuda );
- #endif
 
     // Setup the device vector to be compared
     HostVector resultDeviceVector2;
-    resultDeviceVector2.setSize( hostVector2.getSize() );
+    resultDeviceVector2.setSize( deviceVector2.getSize() );
     resultDeviceVector2.setValue( 0.0 );
     
-//    resultDeviceVector2 += deviceVector2; // Throws a segfault.
+    resultDeviceVector2 = deviceVector2;
+#endif
     
-    // Copy the values
-    for( int i = 0; i < deviceVector2.getSize(); i++ )
-        resultDeviceVector2.setElement( i, deviceVector2.getElement( i ) );
+    // FIXME: How to include benchmark with different name under the same header as the current format being benchmarked???
+    // FIXME: Does it matter that speedup show difference only between current test and first test?
+    //          Speedup shows difference between CPU and GPU-cuSPARSE, because in Benchmarks.h:
+    //              * If there is no baseTime, the resulting test time is set to baseTime.
+    //              * However, if there is a baseTime (from the CPU compared to GPU test),
+    //                  baseTime isn't changed. If we change it in Benchmarks.h to compare 
+    //                  the speedup from the last test, it will mess up BLAS benchmarks etc.
+    benchmark.setMetadataColumns( Benchmark::MetadataColumns({
+          { "matrix format", convertToString( "CSR-cuSPARSE" ) },
+          { "matrix name", convertToString( getMatrixName( inputFileName ) ) },
+          { "non-zeros", convertToString( hostMatrix.getNumberOfNonzeroMatrixElements() ) },
+          { "rows", convertToString( hostMatrix.getRows() ) },
+          { "columns", convertToString( hostMatrix.getColumns() ) }
+       } ));
     
+#ifdef HAVE_CUDA
+    benchmark.time< Devices::Cuda >( reset, "GPU-Cusparse", spmvCusparse );
+    
+    HostVector resultcuSPARSEDeviceVector2;
+    resultcuSPARSEDeviceVector2.setSize( deviceVector2.getSize() );
+    resultcuSPARSEDeviceVector2.setValue( 0.0 );
+    
+    resultcuSPARSEDeviceVector2 = deviceVector2;
+ #endif
+    
+#ifdef RESULTS
+    // Difference between GPU (curent format) and GPU-cuSPARSE results
+    Real cuSPARSEdifferenceAbsMax = resultDeviceVector2.differenceAbsMax( resultcuSPARSEDeviceVector2 );
+    Real cuSPARSEdifferenceLpNorm = resultDeviceVector2.differenceLpNorm( resultcuSPARSEDeviceVector2, 1 );
+    
+    std::string GPUxGPUcuSPARSE_resultDifferenceAbsMax = "GPUxGPUcuSPARSE differenceAbsMax = " + std::to_string( cuSPARSEdifferenceAbsMax );
+    std::string GPUxGPUcuSPARSE_resultDifferenceLpNorm = "GPUxGPUcuSPARSE differenceLpNorm = " + std::to_string( cuSPARSEdifferenceLpNorm );
+    
+    char *GPUcuSPARSE_absMax = &GPUxGPUcuSPARSE_resultDifferenceAbsMax[ 0u ];
+    char *GPUcuSPARSE_lpNorm = &GPUxGPUcuSPARSE_resultDifferenceLpNorm[ 0u ];
+    
+    
+    // Difference between CPU and GPU results for the current format
     Real differenceAbsMax = resultHostVector2.differenceAbsMax( resultDeviceVector2 );
     Real differenceLpNorm = resultHostVector2.differenceLpNorm( resultDeviceVector2, 1 );
     
-    std::string resultDifferenceAbsMax = "differenceAbsMax = " + std::to_string( differenceAbsMax );
-    std::string resultDifferenceLpNorm = "differenceLpNorm = " + std::to_string( differenceLpNorm );
+    std::string CPUxGPU_resultDifferenceAbsMax = "CPUxGPU differenceAbsMax = " + std::to_string( differenceAbsMax );
+    std::string CPUxGPU_resultDifferenceLpNorm = "CPUxGPU differenceLpNorm = " + std::to_string( differenceLpNorm );
     
-    char *absMax = &resultDifferenceAbsMax[ 0u ];
-    char *lpNorm = &resultDifferenceLpNorm[ 0u ];
+    char *CPUxGPU_absMax = &CPUxGPU_resultDifferenceAbsMax[ 0u ];
+    char *CPUxGPU_lpNorm = &CPUxGPU_resultDifferenceLpNorm[ 0u ];
     
-    // FIXME: THIS ISN'T AN ELEGANT SOLUTION, IT MAKES THE LOG FILE VERY LONG
-//    benchmark.addErrorMessage( absMax, 1 );
-//    benchmark.addErrorMessage( lpNorm, 1 );
+    // Print result differences of CPU and GPU of current format
+    std::cout << CPUxGPU_absMax << std::endl;
+    std::cout << CPUxGPU_lpNorm << std::endl;
     
-    std::cout << std::endl;
-    return true;
-}
-
-// Compares only CSR on GPU and Cusparse on GPU.
-template< typename Real,
-          template< typename, typename, typename > class Vector = Containers::Vector >
-bool
-benchmarkCusparseSpMV( Benchmark & benchmark,
-               const String & inputFileName )
-{    
-    typedef Matrices::CSR< Real, Devices::Host, int > CSR_HostMatrix;
-    typedef Matrices::CSR< Real, Devices::Cuda, int > CSR_DeviceMatrix;
-    typedef Containers::Vector< Real, Devices::Host, int > HostVector;
-    typedef Containers::Vector< Real, Devices::Cuda, int > CudaVector;
-    
-    CSR_HostMatrix CSRhostMatrix;
-    CSR_DeviceMatrix CSRdeviceMatrix;
-    CudaVector deviceVector, deviceVector2;
-    
-    try
-      {
-         // Start a buffer to capture the output of MatrixReader
-         std::stringstream buffer;
-         std::streambuf * old = std::cerr.rdbuf( buffer.rdbuf() );
-         
-         if( ! MatrixReader< CSR_HostMatrix >::readMtxFile( inputFileName, CSRhostMatrix ) )
-         {
-            // Capture the original output of MatrixReader, so it isn't printed by console.
-            std::string errorMsgBuffer = buffer.str();
-            // Reset the buffer
-            std::cerr.rdbuf( old );
-            
-             
-            std::string matrixFormat = getMatrixFormat( CSRhostMatrix );
-            
-            //https://stackoverflow.com/questions/5419356/redirect-stdout-stderr-to-a-string
-            std::stringstream buffer;
-            std::streambuf * old = std::cerr.rdbuf( buffer.rdbuf() );
-
-            MatrixReader< CSR_HostMatrix >::readMtxFile( inputFileName, CSRhostMatrix );
-
-            errorMsgBuffer = buffer.str();
-            
-            // Reset the buffer
-            std::cerr.rdbuf( old );
-            
-            std::string stringErrorMsg = "Benchmark failed: Unable to read the matrix.\n"
-                                         "matrix format: " + matrixFormat +
-                                         "\nFailed to read the matrix file " + 
-                                         ( std::string )inputFileName + ".\n" + 
-                                         errorMsgBuffer;
-            
-            //https://stackoverflow.com/questions/1488775/c-remove-new-line-from-multiline-string
-            if ( ! stringErrorMsg.empty() && stringErrorMsg[ stringErrorMsg.length() - 1 ] == '\n' )
-                stringErrorMsg.erase( stringErrorMsg.length() - 1 );
-            
-            // https://stackoverflow.com/questions/7352099/stdstring-to-char
-            char* errorMsg = &stringErrorMsg[ 0u ];
-            
-            
-            // FIXME: Every other benchmark, the errorMsg doesn't have a "!" as 
-            //        a prefix in the log file. 
-            //        (Try adding more benchmarks in benchmarkSpmvSynthetic(...) 
-            //         and you'll see)
-            benchmark.addErrorMessage( errorMsg, 1 );
-            
-            std::cout << std::endl;
-            
-            return false;
-         }
-         std::cerr.rdbuf( old );
-      }
-      catch( std::bad_alloc )
-      {
-         std::string matrixFormat = getMatrixFormat( CSRhostMatrix );
-         
-         //https://stackoverflow.com/questions/5419356/redirect-stdout-stderr-to-a-string
-         std::stringstream buffer;
-         std::streambuf * old = std::cerr.rdbuf(buffer.rdbuf());
-
-         MatrixReader< CSR_HostMatrix >::readMtxFile( inputFileName, CSRhostMatrix );
-
-         std::string errorMsgBuffer = buffer.str();
-         
-         // Reset the buffer
-         std::cerr.rdbuf( old );
-          
-         std::string stringErrorMsg = "Benchmark failed: Not enough memory.\n"
-                                      "matrix format: " + matrixFormat + 
-                                      "\nFailed to allocate memory to read the matrix file " +
-                                      ( std::string )inputFileName + ".\n" + 
-                                      errorMsgBuffer;
-         
-         //https://stackoverflow.com/questions/1488775/c-remove-new-line-from-multiline-string
-         if ( ! stringErrorMsg.empty() && stringErrorMsg[ stringErrorMsg.length() - 1 ] == '\n' )
-                stringErrorMsg.erase( stringErrorMsg.length() - 1 );
-         
-         // https://stackoverflow.com/questions/7352099/stdstring-to-char
-         char *errorMsg = &stringErrorMsg[ 0u ];
-         
-         // FIXME: Every other benchmark, the errorMsg doesn't have a "!" as 
-         //        a prefix in the log file. 
-         //        (Try adding more benchmarks in benchmarkSpmvSynthetic(...) 
-         //         and you'll see)
-         benchmark.addErrorMessage( errorMsg, 1 );
-         
-         std::cout << std::endl;
-         
-         return false;
-      }
-    
-    benchmark.setMetadataColumns( Benchmark::MetadataColumns({
-          { "matrix format", convertToString( getMatrixFormat( CSRhostMatrix ) ) },
-          { "non-zeros", convertToString( CSRhostMatrix.getNumberOfNonzeroMatrixElements() ) },
-          { "rows", convertToString( CSRhostMatrix.getRows() ) },
-          { "columns", convertToString( CSRhostMatrix.getColumns() ) }
-       } ));
-    
-    cusparseHandle_t cusparseHandle;
-    cusparseCreate( &cusparseHandle );
-    
-#ifdef HAVE_CUDA
-    // FIXME: This doesn't work for ChunkedEllpack, because
-    //        its cross-device assignment is not implemented yet
-    CSRdeviceMatrix = CSRhostMatrix;
-    
-    TNL::CusparseCSR< Real > cusparseCSR;
-    cusparseCSR.init( CSRdeviceMatrix, &cusparseHandle );
-#endif
-
-#ifdef HAVE_CUDA
-    deviceVector.setSize( CSRhostMatrix.getColumns() );
-    deviceVector2.setSize( CSRhostMatrix.getRows() );
-#endif
-
-    // reset function
-    auto reset = [&]() {
- #ifdef HAVE_CUDA
-       deviceVector.setValue( 1.0 );
-       deviceVector2.setValue( 0.0 );
- #endif
-    };
-
-    const int elements = CSRhostMatrix.getNumberOfNonzeroMatrixElements();
-
-    const double datasetSize = (double) elements * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
-
-    // compute functions
-    auto spmvCuda = [&]() {
-       CSRdeviceMatrix.vectorProduct( deviceVector, deviceVector2 );
-    };
-    auto spmvCusparse = [&]() {
-        cusparseCSR.vectorProduct( deviceVector, deviceVector2 );
-    };
-
-    benchmark.setOperation( datasetSize );
-    
- #ifdef HAVE_CUDA
-    benchmark.time< Devices::Cuda >( reset, "GPU", spmvCuda );
-    
-    // Initialize the cuda vector to be compared. (The values in hostVector2 will be reset when spmvCuda starts)
-    HostVector resultCusparseVector2;
-    resultCusparseVector2.setSize( deviceVector2.getSize() );
-    resultCusparseVector2.setValue( 0.0 );
-    // Copy the values
-    for( int i = 0; i < deviceVector2.getSize(); i++ )
-        resultCusparseVector2.setElement( i, deviceVector2.getElement( i ) );
-    
-    benchmark.time< Devices::Cuda >( reset, "GPU-Cusparse", spmvCusparse );
- #endif
-
-    // Setup the device vector to be compared
-    HostVector resultDeviceVector2;
-    resultDeviceVector2.setSize( resultCusparseVector2.getSize() );
-    resultDeviceVector2.setValue( 0.0 );
-    
-    // Copy the values
-    for( int i = 0; i < deviceVector2.getSize(); i++ )
-        resultDeviceVector2.setElement( i, deviceVector2.getElement( i ) );
-    
-    Real differenceAbsMax = resultCusparseVector2.differenceAbsMax( resultDeviceVector2 );
-    Real differenceLpNorm = resultCusparseVector2.differenceLpNorm( resultDeviceVector2, 1 );
-    
-    std::string resultDifferenceAbsMax = "differenceAbsMax = " + std::to_string( differenceAbsMax );
-    std::string resultDifferenceLpNorm = "differenceLpNorm = " + std::to_string( differenceLpNorm );
-    
-    char *absMax = &resultDifferenceAbsMax[ 0u ];
-    char *lpNorm = &resultDifferenceLpNorm[ 0u ];
+    // Print result differences of GPU of current format and GPU with cuSPARSE.
+    std::cout << GPUcuSPARSE_absMax << std::endl;
+    std::cout << GPUcuSPARSE_lpNorm << std::endl;
     
     // FIXME: THIS ISN'T AN ELEGANT SOLUTION, IT MAKES THE LOG FILE VERY LONG
 //    benchmark.addErrorMessage( absMax, 1 );
 //    benchmark.addErrorMessage( lpNorm, 1 );
     
+#endif
+    
     std::cout << std::endl;
-    cusparseDestroy( cusparseHandle );
     return true;
 }
 
@@ -456,11 +284,7 @@ benchmarkSpmvSynthetic( Benchmark & benchmark,
 {
    bool result = true;
    // TODO: benchmark all formats from tnl-benchmark-spmv (different parameters of the base formats)
-   result |= benchmarkSpMV< Real, Matrices::CSR >( benchmark, inputFileName );
-   
-   // This doesn't have a titles (matrix format, rows, cols, etc.) in the output, because the header is the same as before (CSR).
-   result |= benchmarkCusparseSpMV< Real, Matrices::CSR >( benchmark, inputFileName );
-   
+   result |= benchmarkSpMV< Real, Matrices::CSR >( benchmark, inputFileName );   
    result |= benchmarkSpMV< Real, Matrices::Ellpack >( benchmark, inputFileName );
    result |= benchmarkSpMV< Real, SlicedEllpack >( benchmark, inputFileName );
 //   result |= benchmarkSpMV< Real, Matrices::ChunkedEllpack >( benchmark, inputFileName );
