@@ -247,7 +247,7 @@ benchmarkSpMV( Benchmark & benchmark,
     resultcuSPARSEDeviceVector2 = deviceVector2;
  #endif
     
-//#ifdef COMPARE_RESULTS
+#ifdef COMPARE_RESULTS
     // Difference between GPU (curent format) and GPU-cuSPARSE results
     Real cuSparseDifferenceAbsMax = resultDeviceVector2.differenceAbsMax( resultcuSPARSEDeviceVector2 );
     Real cuSparseDifferenceLpNorm = resultDeviceVector2.differenceLpNorm( resultcuSPARSEDeviceVector2, 1 );
@@ -284,7 +284,7 @@ benchmarkSpMV( Benchmark & benchmark,
 //    benchmark.addErrorMessage( CPUxGPU_absMax, 1 );
 //    benchmark.addErrorMessage( CPUxGPU_lpNorm, 1 );
     
-//#endif
+#endif
     
     std::cout << std::endl;
     return true;
