@@ -9,6 +9,8 @@
 /* See Copyright Notice in tnl/Copyright */
 
 // Implemented by: Jakub Klinkovsky
+//      Original implemented by J. Klinkovsky in Benchmarks/BLAS
+//      This is a edited copy of Benchmarks/BLAS/spmv.h by: Lukas Cejka
 
 #pragma once
 
@@ -25,7 +27,6 @@ using namespace TNL::Matrices;
 
 #include <cusparse.h>
 #include "cusparseCSRMatrix.h"
-using namespace TNL;
 
 namespace TNL {
 namespace Benchmarks {
@@ -34,19 +35,17 @@ namespace Benchmarks {
 template< typename Real, typename Device, typename Index >
 using SlicedEllpack = Matrices::SlicedEllpack< Real, Device, Index >;
 
-std::string getMatrixName( const String& InputFileName )
+// Get the name (with extension) of input matrix file
+std::string getMatrixFileName( const String& InputFileName )
 {
     std::string fileName = InputFileName;
-    
     // Remove directory if present.
-    // Do this before extension removal incase directory has a period character.
-    // https://stackoverflow.com/questions/8520560/get-a-file-name-from-a-path
-    // http://www.cplusplus.com/reference/string/string/find_last_of/
-    const size_t last_slash_idx = fileName.find_last_of("/\\");
-    if (std::string::npos != last_slash_idx)
-    {
-        fileName.erase(0, last_slash_idx + 1);
-    }
+    // sources: https://stackoverflow.com/questions/8520560/get-a-file-name-from-a-path
+    //          http://www.cplusplus.com/reference/string/string/find_last_of/
+    
+    const size_t last_slash_idx = fileName.find_last_of( "/\\" );
+    if( std::string::npos != last_slash_idx )
+        fileName.erase( 0, last_slash_idx + 1 );
     
     return fileName;
 }
@@ -56,12 +55,15 @@ template< typename Matrix >
 std::string getMatrixFormat( const Matrix& matrix )
 {
     std::string mtrxFullType = matrix.getType();
-    std::string mtrxType = mtrxFullType.substr( 0, mtrxFullType.find( "<" )) ;
+    std::string mtrxType = mtrxFullType.substr( 0, mtrxFullType.find( "<" ) );
     std::string format = mtrxType.substr( mtrxType.find( ':' ) + 2 );
     
     return format;
 }
 
+// This function is not used currently (as of 17.03.19),
+//  as the log takes care of printing and saving this information into the log file.
+// Print information about the matrix.
 template< typename Matrix >
 void printMatrixInfo( const Matrix& matrix,
                       std::ostream& str )
@@ -79,7 +81,7 @@ bool
 benchmarkSpMV( Benchmark & benchmark,
                const String & inputFileName )
 {
-    // Setup CSR for cuSPARSE
+    // Setup CSR for cuSPARSE. It will compared to the format given as a template parameter to this function
     typedef Matrices::CSR< Real, Devices::Host, int > CSR_HostMatrix;
     typedef Matrices::CSR< Real, Devices::Cuda, int > CSR_DeviceMatrix;
     
@@ -106,18 +108,18 @@ benchmarkSpMV( Benchmark & benchmark,
     cusparseCreate( &cusparseHandle );
     
 #ifdef HAVE_CUDA
-    // FIXME: This doesn't work for ChunkedEllpack, because
-    //        its cross-device assignment is not implemented yet
+    // cuSPARSE (in TNL's CSR) only works for device, copy the matrix from host to device
     CSRdeviceMatrix = CSRhostMatrix;
     
     // Delete the CSRhostMatrix, so it doesn't take up unnecessary space
     CSRhostMatrix.reset();
     
+    // Initialize the cusparseCSR matrix.
     TNL::CusparseCSR< Real > cusparseCSR;
     cusparseCSR.init( CSRdeviceMatrix, &cusparseHandle );
 #endif
     
-    // Other formats setup
+    // Setup the format which is given as a template parameter to this function
     typedef Matrix< Real, Devices::Host, int > HostMatrix;
     typedef Matrix< Real, Devices::Cuda, int > DeviceMatrix;
     typedef Containers::Vector< Real, Devices::Host, int > HostVector;
@@ -128,6 +130,7 @@ benchmarkSpMV( Benchmark & benchmark,
     HostVector hostVector, hostVector2;
     CudaVector deviceVector, deviceVector2;
     
+    // Load the format
     try
       {         
          if( ! MatrixReader< HostMatrix >::readMtxFile( inputFileName, hostMatrix ) )
@@ -148,9 +151,11 @@ benchmarkSpMV( Benchmark & benchmark,
     deviceMatrix = hostMatrix;
 #endif
 
+    // Setup MetaData here (not in tnl-benchmark-spmv.h, as done in Benchmarks/BLAS),
+    //  because we need the matrix loaded first to get the rows and columns
     benchmark.setMetadataColumns( Benchmark::MetadataColumns({
           { "matrix format", convertToString( getMatrixFormat( hostMatrix ) ) },
-          { "matrix name", convertToString( getMatrixName( inputFileName ) ) },
+          { "matrix name", convertToString( getMatrixFileName( inputFileName ) ) },
           { "non-zeros", convertToString( hostMatrix.getNumberOfNonzeroMatrixElements() ) },
           { "rows", convertToString( hostMatrix.getRows() ) },
           { "columns", convertToString( hostMatrix.getColumns() ) }
@@ -192,7 +197,8 @@ benchmarkSpMV( Benchmark & benchmark,
     benchmark.setOperation( datasetSize );
     benchmark.time< Devices::Host >( reset, "CPU", spmvHost );
     
-    // Initialize the host vector to be compared. (The values in hostVector2 will be reset when spmvCuda starts)
+    // Initialize the host vector to be compared.
+    //  (The values in hostVector2 will be reset when spmvCuda starts)
     HostVector resultHostVector2;
     resultHostVector2.setSize( hostVector2.getSize() );
     resultHostVector2.setValue( 0.0 );
@@ -203,13 +209,18 @@ benchmarkSpMV( Benchmark & benchmark,
  #ifdef HAVE_CUDA
     benchmark.time< Devices::Cuda >( reset, "GPU", spmvCuda );
 
-    // Setup the device vector to be compared
+    // Initialize the device vector to be compared.
+    //  (The values in deviceVector2 will be reset when spmvCusparse starts)
     HostVector resultDeviceVector2;
     resultDeviceVector2.setSize( deviceVector2.getSize() );
     resultDeviceVector2.setValue( 0.0 );
     
     resultDeviceVector2 = deviceVector2;
 #endif
+    
+    // Setup cuSPARSE MetaData, since it has the same header as CSR, 
+    //  and therefore will not get its own headers (rows, cols, speedup etc.) in log.
+    //      * Not setting this up causes (among other undiscovered errors) the speedup from CPU to GPU on the input format to be overwritten.
     
     // FIXME: How to include benchmark with different name under the same header as the current format being benchmarked???
     // FIXME: Does it matter that speedup show difference only between current test and first test?
@@ -220,7 +231,7 @@ benchmarkSpMV( Benchmark & benchmark,
     //                  the speedup from the last test, it will mess up BLAS benchmarks etc.
     benchmark.setMetadataColumns( Benchmark::MetadataColumns({
           { "matrix format", convertToString( "CSR-cuSPARSE" ) },
-          { "matrix name", convertToString( getMatrixName( inputFileName ) ) },
+          { "matrix name", convertToString( getMatrixFileName( inputFileName ) ) },
           { "non-zeros", convertToString( hostMatrix.getNumberOfNonzeroMatrixElements() ) },
           { "rows", convertToString( hostMatrix.getRows() ) },
           { "columns", convertToString( hostMatrix.getColumns() ) }
@@ -236,16 +247,16 @@ benchmarkSpMV( Benchmark & benchmark,
     resultcuSPARSEDeviceVector2 = deviceVector2;
  #endif
     
-#ifdef RESULTS
+//#ifdef COMPARE_RESULTS
     // Difference between GPU (curent format) and GPU-cuSPARSE results
-    Real cuSPARSEdifferenceAbsMax = resultDeviceVector2.differenceAbsMax( resultcuSPARSEDeviceVector2 );
-    Real cuSPARSEdifferenceLpNorm = resultDeviceVector2.differenceLpNorm( resultcuSPARSEDeviceVector2, 1 );
+    Real cuSparseDifferenceAbsMax = resultDeviceVector2.differenceAbsMax( resultcuSPARSEDeviceVector2 );
+    Real cuSparseDifferenceLpNorm = resultDeviceVector2.differenceLpNorm( resultcuSPARSEDeviceVector2, 1 );
     
-    std::string GPUxGPUcuSPARSE_resultDifferenceAbsMax = "GPUxGPUcuSPARSE differenceAbsMax = " + std::to_string( cuSPARSEdifferenceAbsMax );
-    std::string GPUxGPUcuSPARSE_resultDifferenceLpNorm = "GPUxGPUcuSPARSE differenceLpNorm = " + std::to_string( cuSPARSEdifferenceLpNorm );
+    std::string GPUxGPUcuSparse_resultDifferenceAbsMax = "GPUxGPUcuSPARSE differenceAbsMax = " + std::to_string( cuSparseDifferenceAbsMax );
+    std::string GPUxGPUcuSparse_resultDifferenceLpNorm = "GPUxGPUcuSPARSE differenceLpNorm = " + std::to_string( cuSparseDifferenceLpNorm );
     
-    char *GPUcuSPARSE_absMax = &GPUxGPUcuSPARSE_resultDifferenceAbsMax[ 0u ];
-    char *GPUcuSPARSE_lpNorm = &GPUxGPUcuSPARSE_resultDifferenceLpNorm[ 0u ];
+    char *GPUcuSparse_absMax = &GPUxGPUcuSparse_resultDifferenceAbsMax[ 0u ];
+    char *GPUcuSparse_lpNorm = &GPUxGPUcuSparse_resultDifferenceLpNorm[ 0u ];
     
     
     // Difference between CPU and GPU results for the current format
@@ -263,14 +274,17 @@ benchmarkSpMV( Benchmark & benchmark,
     std::cout << CPUxGPU_lpNorm << std::endl;
     
     // Print result differences of GPU of current format and GPU with cuSPARSE.
-    std::cout << GPUcuSPARSE_absMax << std::endl;
-    std::cout << GPUcuSPARSE_lpNorm << std::endl;
+    std::cout << GPUcuSparse_absMax << std::endl;
+    std::cout << GPUcuSparse_lpNorm << std::endl;
     
     // FIXME: THIS ISN'T AN ELEGANT SOLUTION, IT MAKES THE LOG FILE VERY LONG
-//    benchmark.addErrorMessage( absMax, 1 );
-//    benchmark.addErrorMessage( lpNorm, 1 );
+//    benchmark.addErrorMessage( GPUcuSparse_absMax, 1 );
+//    benchmark.addErrorMessage( GPUcuSparse_lpNorm, 1 );
     
-#endif
+//    benchmark.addErrorMessage( CPUxGPU_absMax, 1 );
+//    benchmark.addErrorMessage( CPUxGPU_lpNorm, 1 );
+    
+//#endif
     
     std::cout << std::endl;
     return true;
@@ -287,6 +301,8 @@ benchmarkSpmvSynthetic( Benchmark & benchmark,
    result |= benchmarkSpMV< Real, Matrices::CSR >( benchmark, inputFileName );   
    result |= benchmarkSpMV< Real, Matrices::Ellpack >( benchmark, inputFileName );
    result |= benchmarkSpMV< Real, SlicedEllpack >( benchmark, inputFileName );
+   
+   // Chunked Ellpack doesn't have cross-device assignment ('= operator') implemented yet
 //   result |= benchmarkSpMV< Real, Matrices::ChunkedEllpack >( benchmark, inputFileName );
    return result;
 }

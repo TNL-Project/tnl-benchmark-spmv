@@ -41,6 +41,7 @@ runSpMVBenchmarks( Benchmark & benchmark,
     // Sparse matrix-vector multiplication
     benchmark.newBenchmark( String("Sparse matrix-vector multiplication (") + precision + ")",
                             metadata );
+    // Start the actual benchmark in spmv.h
     benchmarkSpmvSynthetic< Real >( benchmark, inputFileName );
 }
 
@@ -51,16 +52,17 @@ setupConfig( Config::ConfigDescription & config )
    config.addRequiredEntry< String >( "input-file", "Input file name." );
    
    ////////////////
-   //https://stackoverflow.com/questions/16357999/current-date-and-time-as-string
+   // Get current date time to have different log files names and avoid overwriting.
+   // source: https://stackoverflow.com/questions/16357999/current-date-and-time-as-string
    time_t rawtime;
    struct tm * timeinfo;
-   char buffer[80];
-   time (&rawtime);
-   timeinfo = localtime(&rawtime);
-   strftime(buffer,sizeof(buffer),"%d-%m-%Y--%H:%M:%S",timeinfo);
-   std::string str(buffer);
+   char buffer[ 80 ];
+   time( &rawtime );
+   timeinfo = localtime( &rawtime );
+   strftime( buffer, sizeof( buffer ), "%d-%m-%Y--%H:%M:%S", timeinfo );
+   std::string curr_date_time( buffer );
    ////////////////
-   config.addEntry< String >( "log-file", "Log file name.", "tnl-benchmark-spmv::" + str + ".log");
+   config.addEntry< String >( "log-file", "Log file name.", "tnl-benchmark-spmv::" + curr_date_time + ".log");
    
    config.addEntry< String >( "output-mode", "Mode for opening the log file.", "overwrite" );
    config.addEntryEnum( "append" );
@@ -114,7 +116,7 @@ main( int argc, char* argv[] )
    Benchmark::MetadataMap metadata = getHardwareMetadata();
    
    
-   // DO: Pass the inputFileName parameter and get rows and cols from it to create the cout GUI.
+   // Initiate setup of benchmarks
    if( precision == "all" || precision == "float" )
       runSpMVBenchmarks< float >( benchmark, metadata, inputFileName );
    if( precision == "all" || precision == "double" )
@@ -125,6 +127,7 @@ main( int argc, char* argv[] )
       return EXIT_FAILURE;
    }
 
+   // Confirm that the benchmark has finished
    std::cout << "\n== BENCHMARK FINISHED ==" << std::endl;
    return EXIT_SUCCESS;
 }
