@@ -238,7 +238,7 @@ benchmarkSpMV( Benchmark & benchmark,
        } ));
     
 #ifdef HAVE_CUDA
-    benchmark.time< Devices::Cuda >( reset, "GPU-Cusparse", spmvCusparse );
+    benchmark.time< Devices::Cuda >( reset, "GPU", spmvCusparse );
     
     HostVector resultcuSPARSEDeviceVector2;
     resultcuSPARSEDeviceVector2.setSize( deviceVector2.getSize() );
