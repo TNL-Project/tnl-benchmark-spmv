@@ -25,7 +25,6 @@
 #include <TNL/Matrices/MatrixReader.h>
 using namespace TNL::Matrices;
 
-#include <cusparse.h>
 #include "cusparseCSRMatrix.h"
 
 namespace TNL {
