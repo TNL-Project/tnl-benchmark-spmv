@@ -33,7 +33,8 @@ template< typename Real >
 void
 runSpMVBenchmarks( Benchmark & benchmark,
                    Benchmark::MetadataMap metadata,
-                   const String & inputFileName )
+                   const String & inputFileName,
+                   bool verboseMR = false )
 {
     const String precision = getType< Real >();
     metadata["precision"] = precision;
@@ -42,7 +43,7 @@ runSpMVBenchmarks( Benchmark & benchmark,
     benchmark.newBenchmark( String("Sparse matrix-vector multiplication (") + precision + ")",
                             metadata );
     // Start the actual benchmark in spmv.h
-    benchmarkSpmvSynthetic< Real >( benchmark, inputFileName );
+    benchmarkSpmvSynthetic< Real >( benchmark, inputFileName, verboseMR );
 }
 
 void
@@ -73,6 +74,7 @@ setupConfig( Config::ConfigDescription & config )
    config.addEntryEnum( "all" );
    config.addEntry< int >( "loops", "Number of iterations for every computation.", 10 );
    config.addEntry< int >( "verbose", "Verbose mode.", 1 );
+   config.addEntry< int >( "verbose-MReader", "Verbose mode for Matrix Reader.", 0 );
 
    config.addDelimiter( "Device settings:" );
    Devices::Host::configSetup( config );
@@ -112,6 +114,7 @@ main( int argc, char* argv[] )
    const String & precision = parameters.getParameter< String >( "precision" );
    const int loops = parameters.getParameter< int >( "loops" );
    const int verbose = parameters.getParameter< int >( "verbose" );
+   const int verboseMR = parameters.getParameter< int >( "verbose-MReader" );
 
    // open log file
    auto mode = std::ios::out;
@@ -128,9 +131,9 @@ main( int argc, char* argv[] )
    
    // Initiate setup of benchmarks
    if( precision == "all" || precision == "float" )
-      runSpMVBenchmarks< float >( benchmark, metadata, inputFileName );
+      runSpMVBenchmarks< float >( benchmark, metadata, inputFileName, verboseMR );
    if( precision == "all" || precision == "double" )
-      runSpMVBenchmarks< double >( benchmark, metadata, inputFileName );
+      runSpMVBenchmarks< double >( benchmark, metadata, inputFileName, verboseMR );
 
    if( ! benchmark.save( logFile ) ) {
       std::cerr << "Failed to write the benchmark results to file '" << parameters.getParameter< String >( "log-file" ) << "'." << std::endl;
