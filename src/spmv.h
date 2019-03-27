@@ -78,7 +78,8 @@ template< typename Real,
           template< typename, typename, typename > class Vector = Containers::Vector >
 bool
 benchmarkSpMV( Benchmark & benchmark,
-               const String & inputFileName )
+               const String & inputFileName,
+               bool verboseMR )
 {
     // Setup CSR for cuSPARSE. It will compared to the format given as a template parameter to this function
     typedef Matrices::CSR< Real, Devices::Host, int > CSR_HostMatrix;
@@ -90,15 +91,21 @@ benchmarkSpMV( Benchmark & benchmark,
     // Read the matrix for CSR, to setup cuSPARSE
     try
       {         
-         if( ! MatrixReader< CSR_HostMatrix >::readMtxFile( inputFileName, CSRhostMatrix ) )
-         {
-            benchmark.addErrorMessage( "Failed to read matrix!", 1 );            
+         if( ! MatrixReader< CSR_HostMatrix >::readMtxFile( inputFileName, CSRhostMatrix, verboseMR ) )
+         { 
+            // FIXME: Adds the message to the log file, HOWEVER, it does so with
+            //  incorrect formatting: The "!" marks are not at the same line 
+            //  as the message and sometimes they're omitted altogether.
+//            benchmark.addErrorMessage( "Failed to read matrix!", 1 );            
             return false;
          }
       }
       catch( std::bad_alloc )
       {
-         benchmark.addErrorMessage( "Failed to allocate memory for matrix!", 1 );
+         // FIXME: Adds the message to the log file, HOWEVER, it does so with
+         //  incorrect formatting: The "!" marks are not at the same line 
+         //  as the message and sometimes they're omitted altogether.
+//         benchmark.addErrorMessage( "Failed to allocate memory for matrix!", 1 );
          return false;
       }
     
@@ -132,15 +139,21 @@ benchmarkSpMV( Benchmark & benchmark,
     // Load the format
     try
       {         
-         if( ! MatrixReader< HostMatrix >::readMtxFile( inputFileName, hostMatrix ) )
+         if( ! MatrixReader< HostMatrix >::readMtxFile( inputFileName, hostMatrix, verboseMR ) )
          {
-            benchmark.addErrorMessage( "Failed to read matrix!", 1 );            
+            // FIXME: Adds the message to the log file, HOWEVER, it does so with
+            //  incorrect formatting: The "!" marks are not at the same line 
+            //  as the message and sometimes they're omitted altogether.
+//            benchmark.addErrorMessage( "Failed to read matrix!", 1 );            
             return false;
          }
       }
       catch( std::bad_alloc )
       {
-         benchmark.addErrorMessage( "Failed to allocate memory for matrix!", 1 );
+         // FIXME: Adds the message to the log file, HOWEVER, it does so with
+         //  incorrect formatting: The "!" marks are not at the same line 
+         //  as the message and sometimes they're omitted altogether.
+//         benchmark.addErrorMessage( "Failed to allocate memory for matrix!", 1 );
          return false;
       }
     
@@ -153,11 +166,11 @@ benchmarkSpMV( Benchmark & benchmark,
     // Setup MetaData here (not in tnl-benchmark-spmv.h, as done in Benchmarks/BLAS),
     //  because we need the matrix loaded first to get the rows and columns
     benchmark.setMetadataColumns( Benchmark::MetadataColumns({
-          { "matrix format", convertToString( getMatrixFormat( hostMatrix ) ) },
           { "matrix name", convertToString( getMatrixFileName( inputFileName ) ) },
           { "non-zeros", convertToString( hostMatrix.getNumberOfNonzeroMatrixElements() ) },
           { "rows", convertToString( hostMatrix.getRows() ) },
-          { "columns", convertToString( hostMatrix.getColumns() ) }
+          { "columns", convertToString( hostMatrix.getColumns() ) },
+          { "matrix format", convertToString( getMatrixFormat( hostMatrix ) ) }
        } ));
 
     hostVector.setSize( hostMatrix.getColumns() );
@@ -229,11 +242,11 @@ benchmarkSpMV( Benchmark & benchmark,
     //                  baseTime isn't changed. If we change it in Benchmarks.h to compare 
     //                  the speedup from the last test, it will mess up BLAS benchmarks etc.
     benchmark.setMetadataColumns( Benchmark::MetadataColumns({
-          { "matrix format", convertToString( "CSR-cuSPARSE" ) },
           { "matrix name", convertToString( getMatrixFileName( inputFileName ) ) },
           { "non-zeros", convertToString( hostMatrix.getNumberOfNonzeroMatrixElements() ) },
           { "rows", convertToString( hostMatrix.getRows() ) },
-          { "columns", convertToString( hostMatrix.getColumns() ) }
+          { "columns", convertToString( hostMatrix.getColumns() ) },
+          { "matrix format", convertToString( "CSR-cuSPARSE" ) }
        } ));
     
 #ifdef HAVE_CUDA
@@ -293,13 +306,14 @@ template< typename Real = double,
           typename Index = int >
 bool
 benchmarkSpmvSynthetic( Benchmark & benchmark,
-                        const String& inputFileName )
+                        const String& inputFileName,
+                        bool verboseMR )
 {
    bool result = true;
    // TODO: benchmark all formats from tnl-benchmark-spmv (different parameters of the base formats)
-   result |= benchmarkSpMV< Real, Matrices::CSR >( benchmark, inputFileName );   
-   result |= benchmarkSpMV< Real, Matrices::Ellpack >( benchmark, inputFileName );
-   result |= benchmarkSpMV< Real, SlicedEllpack >( benchmark, inputFileName );
+   result |= benchmarkSpMV< Real, Matrices::CSR >( benchmark, inputFileName, verboseMR );   
+   result |= benchmarkSpMV< Real, Matrices::Ellpack >( benchmark, inputFileName, verboseMR );
+   result |= benchmarkSpMV< Real, SlicedEllpack >( benchmark, inputFileName, verboseMR );
    
    // Chunked Ellpack doesn't have cross-device assignment ('= operator') implemented yet
 //   result |= benchmarkSpMV< Real, Matrices::ChunkedEllpack >( benchmark, inputFileName );
