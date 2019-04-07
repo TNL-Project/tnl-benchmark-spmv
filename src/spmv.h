@@ -22,6 +22,8 @@
 #include <TNL/Matrices/SlicedEllpack.h>
 #include <TNL/Matrices/ChunkedEllpack.h>
 
+#include <TNL/Matrices/AdEllpack.h>
+
 #include <TNL/Matrices/MatrixReader.h>
 using namespace TNL::Matrices;
 
@@ -218,7 +220,7 @@ benchmarkSpMV( Benchmark & benchmark,
     // Copy the values
     resultHostVector2 = hostVector2;
     
- #ifdef HAVE_CUDA
+#ifdef HAVE_CUDA
     benchmark.time< Devices::Cuda >( reset, "GPU", spmvCuda );
 
     // Initialize the device vector to be compared.
@@ -248,7 +250,7 @@ benchmarkSpMV( Benchmark & benchmark,
           { "columns", convertToString( hostMatrix.getColumns() ) },
           { "matrix format", convertToString( "CSR-cuSPARSE" ) }
        } ));
-    
+   
 #ifdef HAVE_CUDA
     benchmark.time< Devices::Cuda >( reset, "GPU", spmvCusparse );
     
@@ -317,6 +319,9 @@ benchmarkSpmvSynthetic( Benchmark & benchmark,
    
    // Chunked Ellpack doesn't have cross-device assignment ('= operator') implemented yet
 //   result |= benchmarkSpMV< Real, Matrices::ChunkedEllpack >( benchmark, inputFileName );
+   
+   // AdEllpack doesn't have cross-device assignment ('= operator') implemented yet
+//   result |= benchmarkSpMV< Real, Matrices::AdEllpack >( benchmark, inputFileName, verboseMR );
    return result;
 }
 
