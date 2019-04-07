@@ -46,14 +46,9 @@ runSpMVBenchmarks( Benchmark & benchmark,
     benchmarkSpmvSynthetic< Real >( benchmark, inputFileName, verboseMR );
 }
 
-void
-setupConfig( Config::ConfigDescription & config )
+// Get current date time to have different log files names and avoid overwriting.
+std::string getCurrDateTime()
 {
-   config.addDelimiter( "Benchmark settings:" );
-   config.addRequiredEntry< String >( "input-file", "Input file name." );
-   
-   ////////////////
-   // Get current date time to have different log files names and avoid overwriting.
    // source: https://stackoverflow.com/questions/16357999/current-date-and-time-as-string
    time_t rawtime;
    struct tm * timeinfo;
@@ -62,8 +57,17 @@ setupConfig( Config::ConfigDescription & config )
    timeinfo = localtime( &rawtime );
    strftime( buffer, sizeof( buffer ), "%d-%m-%Y--%H:%M:%S", timeinfo );
    std::string curr_date_time( buffer );
-   ////////////////
-   config.addEntry< String >( "log-file", "Log file name.", "tnl-benchmark-spmv::" + curr_date_time + ".log");
+   
+   return curr_date_time;
+}
+
+void
+setupConfig( Config::ConfigDescription & config )
+{
+   config.addDelimiter( "Benchmark settings:" );
+   config.addRequiredEntry< String >( "input-file", "Input file name." );
+   
+   config.addEntry< String >( "log-file", "Log file name.", "tnl-benchmark-spmv::" + getCurrDateTime() + ".log");
    
    config.addEntry< String >( "output-mode", "Mode for opening the log file.", "overwrite" );
    config.addEntryEnum( "append" );
