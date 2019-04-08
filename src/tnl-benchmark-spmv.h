@@ -66,13 +66,11 @@ setupConfig( Config::ConfigDescription & config )
 {
    config.addDelimiter( "Benchmark settings:" );
    config.addRequiredEntry< String >( "input-file", "Input file name." );
-   
    config.addEntry< String >( "log-file", "Log file name.", "tnl-benchmark-spmv::" + getCurrDateTime() + ".log");
-   
    config.addEntry< String >( "output-mode", "Mode for opening the log file.", "overwrite" );
    config.addEntryEnum( "append" );
    config.addEntryEnum( "overwrite" );
-   config.addEntry< String >( "precision", "Precision of the arithmetics.", "all" );
+   config.addEntry< String >( "precision", "Precision of the arithmetics.", "double" );
    config.addEntryEnum( "float" );
    config.addEntryEnum( "double" );
    config.addEntryEnum( "all" );
