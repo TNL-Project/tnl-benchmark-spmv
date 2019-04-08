@@ -261,7 +261,7 @@ benchmarkSpMV( Benchmark & benchmark,
     resultcuSPARSEDeviceVector2 = deviceVector2;
  #endif
     
-#ifdef COMPARE_RESULTS
+//#ifdef COMPARE_RESULTS
     // Difference between GPU (curent format) and GPU-cuSPARSE results
     Real cuSparseDifferenceAbsMax = resultDeviceVector2.differenceAbsMax( resultcuSPARSEDeviceVector2 );
     Real cuSparseDifferenceLpNorm = resultDeviceVector2.differenceLpNorm( resultcuSPARSEDeviceVector2, 1 );
@@ -298,7 +298,7 @@ benchmarkSpMV( Benchmark & benchmark,
 //    benchmark.addErrorMessage( CPUxGPU_absMax, 1 );
 //    benchmark.addErrorMessage( CPUxGPU_lpNorm, 1 );
     
-#endif
+//#endif
     
     std::cout << std::endl;
     return true;
@@ -313,12 +313,12 @@ benchmarkSpmvSynthetic( Benchmark & benchmark,
 {
    bool result = true;
    // TODO: benchmark all formats from tnl-benchmark-spmv (different parameters of the base formats)
-   result |= benchmarkSpMV< Real, Matrices::CSR >( benchmark, inputFileName, verboseMR );   
-   result |= benchmarkSpMV< Real, Matrices::Ellpack >( benchmark, inputFileName, verboseMR );
-   result |= benchmarkSpMV< Real, SlicedEllpack >( benchmark, inputFileName, verboseMR );
+//   result |= benchmarkSpMV< Real, Matrices::CSR >( benchmark, inputFileName, verboseMR );   
+//   result |= benchmarkSpMV< Real, Matrices::Ellpack >( benchmark, inputFileName, verboseMR );
+//   result |= benchmarkSpMV< Real, SlicedEllpack >( benchmark, inputFileName, verboseMR );
    
    // Chunked Ellpack doesn't have cross-device assignment ('= operator') implemented yet
-//   result |= benchmarkSpMV< Real, Matrices::ChunkedEllpack >( benchmark, inputFileName );
+   result |= benchmarkSpMV< Real, Matrices::ChunkedEllpack >( benchmark, inputFileName, verboseMR );
    
    // AdEllpack doesn't have cross-device assignment ('= operator') implemented yet
 //   result |= benchmarkSpMV< Real, Matrices::AdEllpack >( benchmark, inputFileName, verboseMR );
