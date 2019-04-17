@@ -22,10 +22,13 @@
 #include <TNL/Matrices/SlicedEllpack.h>
 #include <TNL/Matrices/ChunkedEllpack.h>
 
+// AdEllpack doesn't have the = operator for cross-device assignment implemented yet.
 #include <TNL/Matrices/AdEllpack.h>
 
 #include <TNL/Matrices/MatrixReader.h>
 using namespace TNL::Matrices;
+
+#include <TNL/Exceptions/HostBadAlloc.h>
 
 #include "cusparseCSRMatrix.h"
 
@@ -160,8 +163,8 @@ benchmarkSpMV( Benchmark & benchmark,
       }
     
 #ifdef HAVE_CUDA
-    // FIXME: This doesn't work for ChunkedEllpack, because
-    //        its cross-device assignment is not implemented yet
+    // FIXME: This doesn't work for Ad/BiEllpack, because
+    //        their cross-device assignment is not implemented yet
     deviceMatrix = hostMatrix;
 #endif
 
@@ -313,11 +316,9 @@ benchmarkSpmvSynthetic( Benchmark & benchmark,
 {
    bool result = true;
    // TODO: benchmark all formats from tnl-benchmark-spmv (different parameters of the base formats)
-//   result |= benchmarkSpMV< Real, Matrices::CSR >( benchmark, inputFileName, verboseMR );   
-//   result |= benchmarkSpMV< Real, Matrices::Ellpack >( benchmark, inputFileName, verboseMR );
-//   result |= benchmarkSpMV< Real, SlicedEllpack >( benchmark, inputFileName, verboseMR );
-   
-   // Chunked Ellpack doesn't have cross-device assignment ('= operator') implemented yet
+   result |= benchmarkSpMV< Real, Matrices::CSR >( benchmark, inputFileName, verboseMR );   
+   result |= benchmarkSpMV< Real, Matrices::Ellpack >( benchmark, inputFileName, verboseMR );
+   result |= benchmarkSpMV< Real, SlicedEllpack >( benchmark, inputFileName, verboseMR );
    result |= benchmarkSpMV< Real, Matrices::ChunkedEllpack >( benchmark, inputFileName, verboseMR );
    
    // AdEllpack doesn't have cross-device assignment ('= operator') implemented yet
