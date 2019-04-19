@@ -316,7 +316,7 @@ bool setupBenchmark( const Config::ParameterContainer& parameters )
             return false;
          }
       }
-      catch( std::bad_alloc )
+      catch( const std::bad_alloc& )
       {
          std::cerr << "Not enough memory to read the matrix." << std::endl;
          logFile << std::endl;
