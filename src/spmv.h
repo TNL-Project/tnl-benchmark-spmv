@@ -101,17 +101,22 @@ benchmarkSpMV( Benchmark & benchmark,
             // FIXME: Adds the message to the log file, HOWEVER, it does so with
             //  incorrect formatting: The "!" marks are not at the same line 
             //  as the message and sometimes they're omitted altogether.
-//            benchmark.addErrorMessage( "Failed to read matrix!", 1 );            
-            return false;
+//            benchmark.addErrorMessage( "Failed to read matrix!", 1 ); 
+             
+             // CORRECT? MatrixReader can fail for other reasons than Host Allocation issues, is this throw ok?
+             throw Exceptions::HostBadAlloc();
+             return false;
          }
       }
-      catch( std::bad_alloc )
+      // HOW? How does this work if the "if" statement above fails.
+      catch( Exceptions::HostBadAlloc e )
       {
          // FIXME: Adds the message to the log file, HOWEVER, it does so with
          //  incorrect formatting: The "!" marks are not at the same line 
          //  as the message and sometimes they're omitted altogether.
 //         benchmark.addErrorMessage( "Failed to allocate memory for matrix!", 1 );
-         return false;
+          e.what();
+          return false;
       }
     
     // cuSPARSE handle setup
@@ -149,17 +154,22 @@ benchmarkSpMV( Benchmark & benchmark,
             // FIXME: Adds the message to the log file, HOWEVER, it does so with
             //  incorrect formatting: The "!" marks are not at the same line 
             //  as the message and sometimes they're omitted altogether.
-//            benchmark.addErrorMessage( "Failed to read matrix!", 1 );            
-            return false;
+//            benchmark.addErrorMessage( "Failed to read matrix!", 1 );
+             
+             // CORRECT? MatrixReader can fail for other reasons than Host Allocation issues, is this throw ok?
+             throw Exceptions::HostBadAlloc();
+             return false;
          }
       }
-      catch( std::bad_alloc )
+      // HOW? How does this work if the "if" statement above fails.
+      catch( Exceptions::HostBadAlloc e )
       {
          // FIXME: Adds the message to the log file, HOWEVER, it does so with
          //  incorrect formatting: The "!" marks are not at the same line 
          //  as the message and sometimes they're omitted altogether.
 //         benchmark.addErrorMessage( "Failed to allocate memory for matrix!", 1 );
-         return false;
+          e.what();
+          return false;
       }
     
 #ifdef HAVE_CUDA
