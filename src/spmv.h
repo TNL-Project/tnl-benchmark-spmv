@@ -93,7 +93,7 @@ benchmarkSpMV( Benchmark & benchmark,
     CSR_HostMatrix CSRhostMatrix;
     CSR_DeviceMatrix CSRdeviceMatrix;
     
-    std::cout << "Reading CSR to set up cuSPARSE..." << std::endl;
+//    std::cout << "Reading CSR to set up cuSPARSE..." << std::endl;
     
     // Read the matrix for CSR, to set up cuSPARSE
     try
@@ -148,7 +148,7 @@ benchmarkSpMV( Benchmark & benchmark,
     HostVector hostVector, hostVector2;
     CudaVector deviceVector, deviceVector2;
     
-    std::cout << "\nReading " << getMatrixFormat( hostMatrix ) << " format..." << std::endl;
+//    std::cout << "\nReading " << getMatrixFormat( hostMatrix ) << " format..." << std::endl;
     
     // Load the format
     try
@@ -176,7 +176,7 @@ benchmarkSpMV( Benchmark & benchmark,
           return false;
       }
     
-    std::cout << "Before cross-device assignment" << std::endl;
+//    std::cout << "Before cross-device assignment" << std::endl;
     
 #ifdef HAVE_CUDA
     // FIXME: This doesn't work for Ad/BiEllpack, because
@@ -186,7 +186,7 @@ benchmarkSpMV( Benchmark & benchmark,
     deviceMatrix = hostMatrix;
 #endif
     // sls.mtx: This doesn't even get printed
-    std::cout << "After cross-device assignment" << std::endl;
+//    std::cout << "After cross-device assignment" << std::endl;
 
     // Setup MetaData here (not in tnl-benchmark-spmv.h, as done in Benchmarks/BLAS),
     //  because we need the matrix loaded first to get the rows and columns
