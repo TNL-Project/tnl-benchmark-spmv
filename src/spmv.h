@@ -93,7 +93,9 @@ benchmarkSpMV( Benchmark & benchmark,
     CSR_HostMatrix CSRhostMatrix;
     CSR_DeviceMatrix CSRdeviceMatrix;
     
-    // Read the matrix for CSR, to setup cuSPARSE
+    std::cout << "Reading CSR to set up cuSPARSE..." << std::endl;
+    
+    // Read the matrix for CSR, to set up cuSPARSE
     try
       {         
          if( ! MatrixReader< CSR_HostMatrix >::readMtxFile( inputFileName, CSRhostMatrix, verboseMR ) )
@@ -146,6 +148,8 @@ benchmarkSpMV( Benchmark & benchmark,
     HostVector hostVector, hostVector2;
     CudaVector deviceVector, deviceVector2;
     
+    std::cout << "\nReading " << getMatrixFormat( hostMatrix ) << " format..." << std::endl;
+    
     // Load the format
     try
       {         
@@ -172,11 +176,17 @@ benchmarkSpMV( Benchmark & benchmark,
           return false;
       }
     
+    std::cout << "Before cross-device assignment" << std::endl;
+    
 #ifdef HAVE_CUDA
     // FIXME: This doesn't work for Ad/BiEllpack, because
     //        their cross-device assignment is not implemented yet
+    
+    // THIS LINE is causing the problem with "sls.mtx".
     deviceMatrix = hostMatrix;
 #endif
+    // sls.mtx: This doesn't even get printed
+    std::cout << "After cross-device assignment" << std::endl;
 
     // Setup MetaData here (not in tnl-benchmark-spmv.h, as done in Benchmarks/BLAS),
     //  because we need the matrix loaded first to get the rows and columns
@@ -326,10 +336,10 @@ benchmarkSpmvSynthetic( Benchmark & benchmark,
 {
    bool result = true;
    // TODO: benchmark all formats from tnl-benchmark-spmv (different parameters of the base formats)
-   result |= benchmarkSpMV< Real, Matrices::CSR >( benchmark, inputFileName, verboseMR );   
+//   result |= benchmarkSpMV< Real, Matrices::CSR >( benchmark, inputFileName, verboseMR );   
    result |= benchmarkSpMV< Real, Matrices::Ellpack >( benchmark, inputFileName, verboseMR );
-   result |= benchmarkSpMV< Real, SlicedEllpack >( benchmark, inputFileName, verboseMR );
-   result |= benchmarkSpMV< Real, Matrices::ChunkedEllpack >( benchmark, inputFileName, verboseMR );
+//   result |= benchmarkSpMV< Real, SlicedEllpack >( benchmark, inputFileName, verboseMR );
+//   result |= benchmarkSpMV< Real, Matrices::ChunkedEllpack >( benchmark, inputFileName, verboseMR );
    
    // AdEllpack doesn't have cross-device assignment ('= operator') implemented yet
 //   result |= benchmarkSpMV< Real, Matrices::AdEllpack >( benchmark, inputFileName, verboseMR );
