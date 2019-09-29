@@ -1,16 +1,16 @@
 /***************************************************************************
                           spmv.h  -  description
                              -------------------
-    begin                : Dec 30, 2015
+    begin                : Dec 30, 2018
     copyright            : (C) 2015 by Tomas Oberhuber et al.
     email                : tomas.oberhuber@fjfi.cvut.cz
  ***************************************************************************/
 
 /* See Copyright Notice in tnl/Copyright */
 
-// Implemented by: Jakub Klinkovsky
+// Implemented by: Lukas Cejka
 //      Original implemented by J. Klinkovsky in Benchmarks/BLAS
-//      This is a edited copy of Benchmarks/BLAS/spmv.h by: Lukas Cejka
+//      This is an edited copy of Benchmarks/BLAS/spmv.h by: Lukas Cejka
 
 #pragma once
 
@@ -21,8 +21,6 @@
 #include <TNL/Matrices/Ellpack.h>
 #include <TNL/Matrices/SlicedEllpack.h>
 #include <TNL/Matrices/ChunkedEllpack.h>
-
-// AdEllpack doesn't have the = operator for cross-device assignment implemented yet.
 #include <TNL/Matrices/AdEllpack.h>
 
 #include <TNL/Matrices/MatrixReader.h>
@@ -43,9 +41,6 @@ using SlicedEllpack = Matrices::SlicedEllpack< Real, Device, Index >;
 std::string getMatrixFileName( const String& InputFileName )
 {
     std::string fileName = InputFileName;
-    // Remove directory if present.
-    // sources: https://stackoverflow.com/questions/8520560/get-a-file-name-from-a-path
-    //          http://www.cplusplus.com/reference/string/string/find_last_of/
     
     const size_t last_slash_idx = fileName.find_last_of( "/\\" );
     if( std::string::npos != last_slash_idx )
@@ -93,30 +88,17 @@ benchmarkSpMV( Benchmark & benchmark,
     CSR_HostMatrix CSRhostMatrix;
     CSR_DeviceMatrix CSRdeviceMatrix;
     
-//    std::cout << "Reading CSR to set up cuSPARSE..." << std::endl;
-    
     // Read the matrix for CSR, to set up cuSPARSE
     try
       {         
          if( ! MatrixReader< CSR_HostMatrix >::readMtxFile( inputFileName, CSRhostMatrix, verboseMR ) )
          { 
-            // FIXME: Adds the message to the log file, HOWEVER, it does so with
-            //  incorrect formatting: The "!" marks are not at the same line 
-            //  as the message and sometimes they're omitted altogether.
-//            benchmark.addErrorMessage( "Failed to read matrix!", 1 ); 
-             
-             // CORRECT? MatrixReader can fail for other reasons than Host Allocation issues, is this throw ok?
              throw Exceptions::HostBadAlloc();
              return false;
          }
       }
-      // HOW? How does this work if the "if" statement above fails.
       catch( Exceptions::HostBadAlloc e )
       {
-         // FIXME: Adds the message to the log file, HOWEVER, it does so with
-         //  incorrect formatting: The "!" marks are not at the same line 
-         //  as the message and sometimes they're omitted altogether.
-//         benchmark.addErrorMessage( "Failed to allocate memory for matrix!", 1 );
           e.what();
           return false;
       }
@@ -148,45 +130,26 @@ benchmarkSpMV( Benchmark & benchmark,
     HostVector hostVector, hostVector2;
     CudaVector deviceVector, deviceVector2;
     
-//    std::cout << "\nReading " << getMatrixFormat( hostMatrix ) << " format..." << std::endl;
-    
     // Load the format
     try
       {         
          if( ! MatrixReader< HostMatrix >::readMtxFile( inputFileName, hostMatrix, verboseMR ) )
          {
-            // FIXME: Adds the message to the log file, HOWEVER, it does so with
-            //  incorrect formatting: The "!" marks are not at the same line 
-            //  as the message and sometimes they're omitted altogether.
-//            benchmark.addErrorMessage( "Failed to read matrix!", 1 );
-             
-             // CORRECT? MatrixReader can fail for other reasons than Host Allocation issues, is this throw ok?
              throw Exceptions::HostBadAlloc();
              return false;
          }
       }
-      // HOW? How does this work if the "if" statement above fails.
       catch( Exceptions::HostBadAlloc e )
       {
-         // FIXME: Adds the message to the log file, HOWEVER, it does so with
-         //  incorrect formatting: The "!" marks are not at the same line 
-         //  as the message and sometimes they're omitted altogether.
-//         benchmark.addErrorMessage( "Failed to allocate memory for matrix!", 1 );
           e.what();
           return false;
       }
     
-//    std::cout << "Before cross-device assignment" << std::endl;
-    
 #ifdef HAVE_CUDA
     // FIXME: This doesn't work for Ad/BiEllpack, because
     //        their cross-device assignment is not implemented yet
-    
-    // THIS LINE is causing the problem with "sls.mtx".
     deviceMatrix = hostMatrix;
 #endif
-    // sls.mtx: This doesn't even get printed
-//    std::cout << "After cross-device assignment" << std::endl;
 
     // Setup MetaData here (not in tnl-benchmark-spmv.h, as done in Benchmarks/BLAS),
     //  because we need the matrix loaded first to get the rows and columns
@@ -314,7 +277,7 @@ benchmarkSpMV( Benchmark & benchmark,
     std::cout << GPUcuSparse_absMax << std::endl;
     std::cout << GPUcuSparse_lpNorm << std::endl;
     
-    // FIXME: THIS ISN'T AN ELEGANT SOLUTION, IT MAKES THE LOG FILE VERY LONG
+    // FIXME: This isn't an elegant solution, it makes the log file very long.
 //    benchmark.addErrorMessage( GPUcuSparse_absMax, 1 );
 //    benchmark.addErrorMessage( GPUcuSparse_lpNorm, 1 );
     

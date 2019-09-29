@@ -8,7 +8,9 @@
 
 /* See Copyright Notice in tnl/Copyright */
 
-// Implemented by: Jakub Klinkovsky
+// Implemented by: Lukas Cejka
+//      Original implemented by J. Klinkovsky in Benchmarks/BLAS
+//      This is an edited copy of Benchmarks/BLAS/spmv.h by: Lukas Cejka
 
 #pragma once
 
@@ -49,7 +51,6 @@ runSpMVBenchmarks( Benchmark & benchmark,
 // Get current date time to have different log files names and avoid overwriting.
 std::string getCurrDateTime()
 {
-   // source: https://stackoverflow.com/questions/16357999/current-date-and-time-as-string
    time_t rawtime;
    struct tm * timeinfo;
    char buffer[ 80 ];
