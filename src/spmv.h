@@ -22,6 +22,7 @@
 #include <TNL/Matrices/SlicedEllpack.h>
 #include <TNL/Matrices/ChunkedEllpack.h>
 #include <TNL/Matrices/AdEllpack.h>
+#include <TNL/Matrices/BiEllpack.h>
 
 #include <TNL/Matrices/MatrixReader.h>
 using namespace TNL::Matrices;
@@ -145,6 +146,12 @@ benchmarkSpMV( Benchmark & benchmark,
           return false;
       }
     
+    hostMatrix.print( std::cout );
+    std::cout << "\n\n\n\n===============VALUES:\n\n" << std::endl;
+    
+    hostMatrix.printValues();
+    
+#ifdef COMMENT
 #ifdef HAVE_CUDA
     // FIXME: This doesn't work for Ad/BiEllpack, because
     //        their cross-device assignment is not implemented yet
@@ -286,6 +293,7 @@ benchmarkSpMV( Benchmark & benchmark,
     
 //#endif
     
+#endif
     std::cout << std::endl;
     return true;
 }
@@ -300,12 +308,13 @@ benchmarkSpmvSynthetic( Benchmark & benchmark,
    bool result = true;
    // TODO: benchmark all formats from tnl-benchmark-spmv (different parameters of the base formats)
 //   result |= benchmarkSpMV< Real, Matrices::CSR >( benchmark, inputFileName, verboseMR );   
-   result |= benchmarkSpMV< Real, Matrices::Ellpack >( benchmark, inputFileName, verboseMR );
+//   result |= benchmarkSpMV< Real, Matrices::Ellpack >( benchmark, inputFileName, verboseMR );
 //   result |= benchmarkSpMV< Real, SlicedEllpack >( benchmark, inputFileName, verboseMR );
 //   result |= benchmarkSpMV< Real, Matrices::ChunkedEllpack >( benchmark, inputFileName, verboseMR );
    
-   // AdEllpack doesn't have cross-device assignment ('= operator') implemented yet
+   // AdEllpack/BiEllpack doesn't have cross-device assignment ('= operator') implemented yet
 //   result |= benchmarkSpMV< Real, Matrices::AdEllpack >( benchmark, inputFileName, verboseMR );
+   result |= benchmarkSpMV< Real, Matrices::BiEllpack >( benchmark, inputFileName, verboseMR );
    return result;
 }
 
