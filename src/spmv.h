@@ -59,8 +59,6 @@ std::string getMatrixFormat( const Matrix& matrix )
     return format;
 }
 
-// This function is not used currently (as of 17.03.19),
-//  as the log takes care of printing and saving this information into the log file.
 // Print information about the matrix.
 template< typename Matrix >
 void printMatrixInfo( const Matrix& matrix,
@@ -218,14 +216,6 @@ benchmarkSpMV( Benchmark & benchmark,
     // Setup cuSPARSE MetaData, since it has the same header as CSR, 
     //  and therefore will not get its own headers (rows, cols, speedup etc.) in log.
     //      * Not setting this up causes (among other undiscovered errors) the speedup from CPU to GPU on the input format to be overwritten.
-    
-    // FIXME: How to include benchmark with different name under the same header as the current format being benchmarked???
-    // FIXME: Does it matter that speedup show difference only between current test and first test?
-    //          Speedup shows difference between CPU and GPU-cuSPARSE, because in Benchmarks.h:
-    //              * If there is no baseTime, the resulting test time is set to baseTime.
-    //              * However, if there is a baseTime (from the CPU compared to GPU test),
-    //                  baseTime isn't changed. If we change it in Benchmarks.h to compare 
-    //                  the speedup from the last test, it will mess up BLAS benchmarks etc.
     benchmark.setMetadataColumns( Benchmark::MetadataColumns({
           { "matrix name", convertToString( getMatrixFileName( inputFileName ) ) },
           { "non-zeros", convertToString( hostMatrix.getNumberOfNonzeroMatrixElements() ) },
@@ -244,7 +234,6 @@ benchmarkSpMV( Benchmark & benchmark,
     resultcuSPARSEDeviceVector2 = deviceVector2;
  #endif
     
-//#ifdef COMPARE_RESULTS
     // Difference between GPU (curent format) and GPU-cuSPARSE results
     Real cuSparseDifferenceAbsMax = resultDeviceVector2.differenceAbsMax( resultcuSPARSEDeviceVector2 );
     Real cuSparseDifferenceLpNorm = resultDeviceVector2.differenceLpNorm( resultcuSPARSEDeviceVector2, 1 );
@@ -274,15 +263,6 @@ benchmarkSpMV( Benchmark & benchmark,
     std::cout << GPUcuSparse_absMax << std::endl;
     std::cout << GPUcuSparse_lpNorm << std::endl;
     
-    // FIXME: This isn't an elegant solution, it makes the log file very long.
-//    benchmark.addErrorMessage( GPUcuSparse_absMax, 1 );
-//    benchmark.addErrorMessage( GPUcuSparse_lpNorm, 1 );
-    
-//    benchmark.addErrorMessage( CPUxGPU_absMax, 1 );
-//    benchmark.addErrorMessage( CPUxGPU_lpNorm, 1 );
-    
-//#endif
-    
     std::cout << std::endl;
     return true;
 }
@@ -295,15 +275,14 @@ benchmarkSpmvSynthetic( Benchmark & benchmark,
                         bool verboseMR )
 {
    bool result = true;
-   // TODO: benchmark all formats from tnl-benchmark-spmv (different parameters of the base formats)
-//   result |= benchmarkSpMV< Real, Matrices::CSR >( benchmark, inputFileName, verboseMR );   
-//   result |= benchmarkSpMV< Real, Matrices::Ellpack >( benchmark, inputFileName, verboseMR );
-//   result |= benchmarkSpMV< Real, SlicedEllpack >( benchmark, inputFileName, verboseMR );
-//   result |= benchmarkSpMV< Real, Matrices::ChunkedEllpack >( benchmark, inputFileName, verboseMR );
+   result |= benchmarkSpMV< Real, Matrices::CSR >( benchmark, inputFileName, verboseMR );   
+   result |= benchmarkSpMV< Real, Matrices::Ellpack >( benchmark, inputFileName, verboseMR );
+   result |= benchmarkSpMV< Real, SlicedEllpack >( benchmark, inputFileName, verboseMR );
+   result |= benchmarkSpMV< Real, Matrices::ChunkedEllpack >( benchmark, inputFileName, verboseMR );
    
-   // AdEllpack/BiEllpack doesn't have cross-device assignment ('= operator') implemented yet
-   result |= benchmarkSpMV< Real, Matrices::AdEllpack >( benchmark, inputFileName, verboseMR );
-//   result |= benchmarkSpMV< Real, Matrices::BiEllpack >( benchmark, inputFileName, verboseMR );
+   // AdEllpack is broken
+//   result |= benchmarkSpMV< Real, Matrices::AdEllpack >( benchmark, inputFileName, verboseMR );
+   result |= benchmarkSpMV< Real, Matrices::BiEllpack >( benchmark, inputFileName, verboseMR );
    return result;
 }
 
