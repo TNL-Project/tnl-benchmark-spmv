@@ -74,8 +74,8 @@ template< typename Real,
           template< typename, typename, typename > class Matrix,
           template< typename, typename, typename > class Vector = Containers::Vector >
 bool
-benchmarkSpMV( Benchmark & benchmark,
-               const String & inputFileName,
+benchmarkSpMV( Benchmark& benchmark,
+               const String& inputFileName,
                bool verboseMR )
 {
     // Setup CSR for cuSPARSE. It will compared to the format given as a template parameter to this function
@@ -100,11 +100,11 @@ benchmarkSpMV( Benchmark & benchmark,
           return false;
       }
     
+#ifdef HAVE_CUDA
     // cuSPARSE handle setup
     cusparseHandle_t cusparseHandle;
     cusparseCreate( &cusparseHandle );
     
-#ifdef HAVE_CUDA
     // cuSPARSE (in TNL's CSR) only works for device, copy the matrix from host to device
     CSRdeviceMatrix = CSRhostMatrix;
     
@@ -185,9 +185,11 @@ benchmarkSpMV( Benchmark & benchmark,
     auto spmvCuda = [&]() {
        deviceMatrix.vectorProduct( deviceVector, deviceVector2 );
     };
+#ifdef HAVE_CUDA
     auto spmvCusparse = [&]() {
         cusparseCSR.vectorProduct( deviceVector, deviceVector2 );
     };
+#endif
 
     benchmark.setOperation( datasetSize );
     benchmark.time< Devices::Host >( reset, "CPU", spmvHost );
@@ -201,18 +203,6 @@ benchmarkSpMV( Benchmark & benchmark,
     // Copy the values
     resultHostVector2 = hostVector2;
     
-#ifdef HAVE_CUDA
-    benchmark.time< Devices::Cuda >( reset, "GPU", spmvCuda );
-
-    // Initialize the device vector to be compared.
-    //  (The values in deviceVector2 will be reset when spmvCusparse starts)
-    HostVector resultDeviceVector2;
-    resultDeviceVector2.setSize( deviceVector2.getSize() );
-    resultDeviceVector2.setValue( 0.0 );
-    
-    resultDeviceVector2 = deviceVector2;
-#endif
-    
     // Setup cuSPARSE MetaData, since it has the same header as CSR, 
     //  and therefore will not get its own headers (rows, cols, speedup etc.) in log.
     //      * Not setting this up causes (among other undiscovered errors) the speedup from CPU to GPU on the input format to be overwritten.
@@ -223,8 +213,18 @@ benchmarkSpMV( Benchmark & benchmark,
           { "columns", convertToString( hostMatrix.getColumns() ) },
           { "matrix format", convertToString( "CSR-cuSPARSE" ) }
        } ));
-   
+    
 #ifdef HAVE_CUDA
+    benchmark.time< Devices::Cuda >( reset, "GPU", spmvCuda );
+
+    // Initialize the device vector to be compared.
+    //  (The values in deviceVector2 will be reset when spmvCusparse starts)
+    HostVector resultDeviceVector2;
+    resultDeviceVector2.setSize( deviceVector2.getSize() );
+    resultDeviceVector2.setValue( 0.0 );
+    
+    resultDeviceVector2 = deviceVector2;
+    
     benchmark.time< Devices::Cuda >( reset, "GPU", spmvCusparse );
     
     HostVector resultcuSPARSEDeviceVector2;
@@ -232,7 +232,6 @@ benchmarkSpMV( Benchmark & benchmark,
     resultcuSPARSEDeviceVector2.setValue( 0.0 );
     
     resultcuSPARSEDeviceVector2 = deviceVector2;
- #endif
     
     // Difference between GPU (curent format) and GPU-cuSPARSE results
     Real cuSparseDifferenceAbsMax = resultDeviceVector2.differenceAbsMax( resultcuSPARSEDeviceVector2 );
@@ -243,6 +242,7 @@ benchmarkSpMV( Benchmark & benchmark,
     
     char *GPUcuSparse_absMax = &GPUxGPUcuSparse_resultDifferenceAbsMax[ 0u ];
     char *GPUcuSparse_lpNorm = &GPUxGPUcuSparse_resultDifferenceLpNorm[ 0u ];
+ #endif
     
     
     // Difference between CPU and GPU results for the current format
@@ -270,14 +270,14 @@ benchmarkSpMV( Benchmark & benchmark,
 template< typename Real = double,
           typename Index = int >
 bool
-benchmarkSpmvSynthetic( Benchmark & benchmark,
+benchmarkSpmvSynthetic( Benchmark& benchmark,
                         const String& inputFileName,
                         bool verboseMR )
 {
    bool result = true;
    result |= benchmarkSpMV< Real, Matrices::CSR >( benchmark, inputFileName, verboseMR );   
    result |= benchmarkSpMV< Real, Matrices::Ellpack >( benchmark, inputFileName, verboseMR );
-   result |= benchmarkSpMV< Real, SlicedEllpack >( benchmark, inputFileName, verboseMR );
+   result |= benchmarkSpMV< Real, Matrices::SlicedEllpack >( benchmark, inputFileName, verboseMR );
    result |= benchmarkSpMV< Real, Matrices::ChunkedEllpack >( benchmark, inputFileName, verboseMR );
    
    // AdEllpack is broken
