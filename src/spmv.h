@@ -32,9 +32,9 @@ using namespace TNL::Matrices;
 namespace TNL {
 namespace Benchmarks {
 
-// silly alias to match the number of template parameters with other formats
+// Alias to match the number of template parameters with other formats
 template< typename Real, typename Device, typename Index >
-using SlicedEllpack = Matrices::SlicedEllpack< Real, Device, Index >;
+using SlicedEllpackAlias = Matrices::SlicedEllpack< Real, Device, Index >;
 
 // Get the name (with extension) of input matrix file
 std::string getMatrixFileName( const String& InputFileName )
@@ -52,7 +52,7 @@ std::string getMatrixFileName( const String& InputFileName )
 template< typename Matrix >
 std::string getMatrixFormat( const Matrix& matrix )
 {
-    std::string mtrxFullType = matrix.getType();
+    std::string mtrxFullType = getType( matrix );
     std::string mtrxType = mtrxFullType.substr( 0, mtrxFullType.find( "<" ) );
     std::string format = mtrxType.substr( mtrxType.find( ':' ) + 2 );
     
@@ -72,7 +72,7 @@ void printMatrixInfo( const Matrix& matrix,
 
 template< typename Real,
           template< typename, typename, typename > class Matrix,
-          template< typename, typename, typename > class Vector = Containers::Vector >
+          template< typename, typename, typename, typename > class Vector = Containers::Vector >
 bool
 benchmarkSpMV( Benchmark& benchmark,
                const String& inputFileName,
@@ -142,9 +142,6 @@ benchmarkSpMV( Benchmark& benchmark,
           return false;
       }
     
-#ifdef HAVE_CUDA
-    deviceMatrix = hostMatrix;
-#endif
 
     // Setup MetaData here (not in tnl-benchmark-spmv.h, as done in Benchmarks/BLAS),
     //  because we need the matrix loaded first to get the rows and columns
@@ -160,6 +157,7 @@ benchmarkSpMV( Benchmark& benchmark,
     hostVector2.setSize( hostMatrix.getRows() );
 
 #ifdef HAVE_CUDA
+    deviceMatrix = hostMatrix;
     deviceVector.setSize( hostMatrix.getColumns() );
     deviceVector2.setSize( hostMatrix.getRows() );
 #endif
@@ -242,7 +240,6 @@ benchmarkSpMV( Benchmark& benchmark,
     
     char *GPUcuSparse_absMax = &GPUxGPUcuSparse_resultDifferenceAbsMax[ 0u ];
     char *GPUcuSparse_lpNorm = &GPUxGPUcuSparse_resultDifferenceLpNorm[ 0u ];
- #endif
     
     
     // Difference between CPU and GPU results for the current format
@@ -262,6 +259,7 @@ benchmarkSpMV( Benchmark& benchmark,
     // Print result differences of GPU of current format and GPU with cuSPARSE.
     std::cout << GPUcuSparse_absMax << std::endl;
     std::cout << GPUcuSparse_lpNorm << std::endl;
+ #endif
     
     std::cout << std::endl;
     return true;
@@ -277,7 +275,7 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
    bool result = true;
    result |= benchmarkSpMV< Real, Matrices::CSR >( benchmark, inputFileName, verboseMR );   
    result |= benchmarkSpMV< Real, Matrices::Ellpack >( benchmark, inputFileName, verboseMR );
-   result |= benchmarkSpMV< Real, Matrices::SlicedEllpack >( benchmark, inputFileName, verboseMR );
+   result |= benchmarkSpMV< Real, SlicedEllpackAlias >( benchmark, inputFileName, verboseMR );
    result |= benchmarkSpMV< Real, Matrices::ChunkedEllpack >( benchmark, inputFileName, verboseMR );
    
    // AdEllpack is broken
