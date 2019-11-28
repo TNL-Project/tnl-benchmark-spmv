@@ -232,8 +232,10 @@ benchmarkSpMV( Benchmark& benchmark,
     resultcuSPARSEDeviceVector2 = deviceVector2;
     
     // Difference between GPU (curent format) and GPU-cuSPARSE results
-    Real cuSparseDifferenceAbsMax = resultDeviceVector2.differenceAbsMax( resultcuSPARSEDeviceVector2 );
-    Real cuSparseDifferenceLpNorm = resultDeviceVector2.differenceLpNorm( resultcuSPARSEDeviceVector2, 1 );
+    //Real cuSparseDifferenceAbsMax = resultDeviceVector2.differenceAbsMax( resultcuSPARSEDeviceVector2 );
+    Real cuSparseDifferenceAbsMax = max( abs( resultDeviceVector2 - resultcuSPARSEDeviceVector2 ) );
+    //Real cuSparseDifferenceLpNorm = resultDeviceVector2.differenceLpNorm( resultcuSPARSEDeviceVector2, 1 );
+    Real cuSparseDifferenceLpNorm = lpNorm( resultDeviceVector2 - resultcuSPARSEDeviceVector2, 1 );
     
     std::string GPUxGPUcuSparse_resultDifferenceAbsMax = "GPUxGPUcuSPARSE differenceAbsMax = " + std::to_string( cuSparseDifferenceAbsMax );
     std::string GPUxGPUcuSparse_resultDifferenceLpNorm = "GPUxGPUcuSPARSE differenceLpNorm = " + std::to_string( cuSparseDifferenceLpNorm );
@@ -243,8 +245,10 @@ benchmarkSpMV( Benchmark& benchmark,
     
     
     // Difference between CPU and GPU results for the current format
-    Real differenceAbsMax = resultHostVector2.differenceAbsMax( resultDeviceVector2 );
-    Real differenceLpNorm = resultHostVector2.differenceLpNorm( resultDeviceVector2, 1 );
+    //Real differenceAbsMax = resultHostVector2.differenceAbsMax( resultDeviceVector2 );
+    Real differenceAbsMax = max( abs( resultHostVector2 - resultDeviceVector2 ) );
+    //Real differenceLpNorm = resultHostVector2.differenceLpNorm( resultDeviceVector2, 1 );
+    Real differenceLpNorm = lpNorm( resultHostVector2 - resultDeviceVector2, 1 );
     
     std::string CPUxGPU_resultDifferenceAbsMax = "CPUxGPU differenceAbsMax = " + std::to_string( differenceAbsMax );
     std::string CPUxGPU_resultDifferenceLpNorm = "CPUxGPU differenceLpNorm = " + std::to_string( differenceLpNorm );
