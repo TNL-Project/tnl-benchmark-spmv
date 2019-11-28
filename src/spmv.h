@@ -180,10 +180,11 @@ benchmarkSpMV( Benchmark& benchmark,
     auto spmvHost = [&]() {
        hostMatrix.vectorProduct( hostVector, hostVector2 );
     };
+#ifdef HAVE_CUDA
     auto spmvCuda = [&]() {
        deviceMatrix.vectorProduct( deviceVector, deviceVector2 );
     };
-#ifdef HAVE_CUDA
+
     auto spmvCusparse = [&]() {
         cusparseCSR.vectorProduct( deviceVector, deviceVector2 );
     };
