@@ -156,4 +156,3 @@ class CusparseCSR< float > : public CusparseCSRBase< float >
 };
 
 } // namespace TNL
-
