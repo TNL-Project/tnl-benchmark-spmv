@@ -202,17 +202,6 @@ benchmarkSpMV( Benchmark& benchmark,
     // Copy the values
     resultHostVector2 = hostVector2;
 
-    // Setup cuSPARSE MetaData, since it has the same header as CSR,
-    //  and therefore will not get its own headers (rows, cols, speedup etc.) in log.
-    //      * Not setting this up causes (among other undiscovered errors) the speedup from CPU to GPU on the input format to be overwritten.
-    benchmark.setMetadataColumns( Benchmark::MetadataColumns({
-          { "matrix name", convertToString( getMatrixFileName( inputFileName ) ) },
-          { "non-zeros", convertToString( hostMatrix.getNumberOfNonzeroMatrixElements() ) },
-          { "rows", convertToString( hostMatrix.getRows() ) },
-          { "columns", convertToString( hostMatrix.getColumns() ) },
-          { "matrix format", convertToString( "CSR-cuSPARSE" ) }
-       } ));
-
 #ifdef HAVE_CUDA
     benchmark.time< Devices::Cuda >( reset, "GPU", spmvCuda );
 
@@ -223,6 +212,17 @@ benchmarkSpMV( Benchmark& benchmark,
     resultDeviceVector2.setValue( 0.0 );
 
     resultDeviceVector2 = deviceVector2;
+    
+    // Setup cuSPARSE MetaData, since it has the same header as CSR,
+    //  and therefore will not get its own headers (rows, cols, speedup etc.) in log.
+    //      * Not setting this up causes (among other undiscovered errors) the speedup from CPU to GPU on the input format to be overwritten.
+    benchmark.setMetadataColumns( Benchmark::MetadataColumns({
+          { "matrix name", convertToString( getMatrixFileName( inputFileName ) ) },
+          { "non-zeros", convertToString( hostMatrix.getNumberOfNonzeroMatrixElements() ) },
+          { "rows", convertToString( hostMatrix.getRows() ) },
+          { "columns", convertToString( hostMatrix.getColumns() ) },
+          { "matrix format", convertToString( "CSR-cuSPARSE" ) }
+       } ));
 
     benchmark.time< Devices::Cuda >( reset, "GPU", spmvCusparse );
 
