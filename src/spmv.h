@@ -25,6 +25,11 @@
 #include <TNL/Matrices/BiEllpack.h>
 
 #include <TNL/Matrices/MatrixReader.h>
+
+#include <TNL/Matrices/SparseMatrix.h>
+#include <TNL/Containers/Segments/CSR.h>
+#include <TNL/Containers/Segments/Ellpack.h>
+#include <TNL/Containers/Segments/SlicedEllpack.h>
 using namespace TNL::Matrices;
 
 #include "cusparseCSRMatrix.h"
@@ -35,6 +40,22 @@ namespace Benchmarks {
 // Alias to match the number of template parameters with other formats
 template< typename Real, typename Device, typename Index >
 using SlicedEllpackAlias = Matrices::SlicedEllpack< Real, Device, Index >;
+
+// Segments based sparse matrix aliases
+template< typename Real, typename Device, typename Index >
+using SparseMatrix_CSR = Matrices::SparseMatrix< Real, Containers::Segments::CSR, Device, Index >;
+
+template< typename Device, typename Index >
+using EllpackSegments = Containers::Segments::Ellpack< Device, Index >;
+
+template< typename Real, typename Device, typename Index >
+using SparseMatrix_Ellpack = Matrices::SparseMatrix< Real, EllpackSegments, Device, Index >;
+
+template< typename Device, typename Index >
+using SlicedEllpackSegments = Containers::Segments::SlicedEllpack< Device, Index >;
+
+template< typename Real, typename Device, typename Index >
+using SparseMatrix_SlicedEllpack = Matrices::SparseMatrix< Real, SlicedEllpackSegments, Device, Index >;
 
 // Get the name (with extension) of input matrix file
 std::string getMatrixFileName( const String& InputFileName )
@@ -85,7 +106,7 @@ void printMatrixInfo( const Matrix& matrix,
 template< typename Real,
           template< typename, typename, typename > class Matrix,
           template< typename, typename, typename, typename > class Vector = Containers::Vector >
-bool
+void
 benchmarkSpMV( Benchmark& benchmark,
                const String& inputFileName,
                bool verboseMR )
@@ -98,19 +119,10 @@ benchmarkSpMV( Benchmark& benchmark,
     CSR_DeviceMatrix CSRdeviceMatrix;
 
     // Read the matrix for CSR, to set up cuSPARSE
-    try
-      {
-         if( ! MatrixReader< CSR_HostMatrix >::readMtxFile( inputFileName, CSRhostMatrix, verboseMR ) )
-         {
-             throw std::bad_alloc();
-             return false;
-         }
-      }
-      catch( std::bad_alloc& e )
-      {
-          e.what();
-          return false;
-      }
+    if( ! MatrixReader< CSR_HostMatrix >::readMtxFile( inputFileName, CSRhostMatrix, verboseMR ) )
+    {
+        throw std::bad_alloc();
+    }
 
 #ifdef HAVE_CUDA
     // cuSPARSE handle setup
@@ -140,19 +152,10 @@ benchmarkSpMV( Benchmark& benchmark,
     CudaVector deviceVector, deviceVector2;
 
     // Load the format
-    try
-      {
-         if( ! MatrixReader< HostMatrix >::readMtxFile( inputFileName, hostMatrix, verboseMR ) )
-         {
-             throw std::bad_alloc();
-             return false;
-         }
-      }
-      catch( std::bad_alloc& e )
-      {
-          e.what();
-          return false;
-      }
+    if( ! MatrixReader< HostMatrix >::readMtxFile( inputFileName, hostMatrix, verboseMR ) )
+    {
+      throw std::bad_alloc();
+    }
 
 
     // Setup MetaData here (not in tnl-benchmark-spmv.h, as done in Benchmarks/BLAS),
@@ -244,7 +247,7 @@ benchmarkSpMV( Benchmark& benchmark,
 
     resultcuSPARSEDeviceVector2 = deviceVector2;
 
-    // Difference between GPU (curent format) and GPU-cuSPARSE results
+    // Difference between GPU (current format) and GPU-cuSPARSE results
     //Real cuSparseDifferenceAbsMax = resultDeviceVector2.differenceAbsMax( resultcuSPARSEDeviceVector2 );
     Real cuSparseDifferenceAbsMax = max( abs( resultDeviceVector2 - resultcuSPARSEDeviceVector2 ) );
     //Real cuSparseDifferenceLpNorm = resultDeviceVector2.differenceLpNorm( resultcuSPARSEDeviceVector2, 1 );
@@ -279,26 +282,33 @@ benchmarkSpMV( Benchmark& benchmark,
  #endif
 
     std::cout << std::endl;
-    return true;
 }
 
 template< typename Real = double,
           typename Index = int >
-bool
+void
 benchmarkSpmvSynthetic( Benchmark& benchmark,
                         const String& inputFileName,
                         bool verboseMR )
 {
-   bool result = true;
-   result |= benchmarkSpMV< Real, Matrices::CSR >( benchmark, inputFileName, verboseMR );
-   result |= benchmarkSpMV< Real, Matrices::Ellpack >( benchmark, inputFileName, verboseMR );
-   result |= benchmarkSpMV< Real, SlicedEllpackAlias >( benchmark, inputFileName, verboseMR );
-   result |= benchmarkSpMV< Real, Matrices::ChunkedEllpack >( benchmark, inputFileName, verboseMR );
+   benchmarkSpMV< Real, Matrices::CSR >( benchmark, inputFileName, verboseMR );
+   benchmarkSpMV< Real, Matrices::Ellpack >( benchmark, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SlicedEllpackAlias >( benchmark, inputFileName, verboseMR );
+   benchmarkSpMV< Real, Matrices::ChunkedEllpack >( benchmark, inputFileName, verboseMR );
+
+   ////
+   // Segments based sparse matrices
+   std::cerr << "*********************************" << std::endl;
+   benchmarkSpMV< Real, SparseMatrix_CSR >( benchmark, inputFileName, verboseMR );
+   std::cerr << "*********************************" << std::endl;
+   benchmarkSpMV< Real, SparseMatrix_Ellpack >( benchmark, inputFileName, verboseMR );
+   std::cerr << "*********************************" << std::endl;
+   benchmarkSpMV< Real, SparseMatrix_SlicedEllpack >( benchmark, inputFileName, verboseMR );
+   std::cerr << "*********************************" << std::endl;
 
    // AdEllpack is broken
-//   result |= benchmarkSpMV< Real, Matrices::AdEllpack >( benchmark, inputFileName, verboseMR );
-   result |= benchmarkSpMV< Real, Matrices::BiEllpack >( benchmark, inputFileName, verboseMR );
-   return result;
+   // benchmarkSpMV< Real, Matrices::AdEllpack >( benchmark, inputFileName, verboseMR );
+   benchmarkSpMV< Real, Matrices::BiEllpack >( benchmark, inputFileName, verboseMR );
 }
 
 } // namespace Benchmarks
