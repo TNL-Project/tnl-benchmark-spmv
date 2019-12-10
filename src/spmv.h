@@ -119,10 +119,7 @@ benchmarkSpMV( Benchmark& benchmark,
     CSR_DeviceMatrix CSRdeviceMatrix;
 
     // Read the matrix for CSR, to set up cuSPARSE
-    if( ! MatrixReader< CSR_HostMatrix >::readMtxFile( inputFileName, CSRhostMatrix, verboseMR ) )
-    {
-        throw std::bad_alloc();
-    }
+    MatrixReader< CSR_HostMatrix >::readMtxFile( inputFileName, CSRhostMatrix, verboseMR );
 
 #ifdef HAVE_CUDA
     // cuSPARSE handle setup
@@ -152,10 +149,7 @@ benchmarkSpMV( Benchmark& benchmark,
     CudaVector deviceVector, deviceVector2;
 
     // Load the format
-    if( ! MatrixReader< HostMatrix >::readMtxFile( inputFileName, hostMatrix, verboseMR ) )
-    {
-      throw std::bad_alloc();
-    }
+    MatrixReader< HostMatrix >::readMtxFile( inputFileName, hostMatrix, verboseMR );
 
 
     // Setup MetaData here (not in tnl-benchmark-spmv.h, as done in Benchmarks/BLAS),
