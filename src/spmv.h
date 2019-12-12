@@ -45,14 +45,14 @@ using SlicedEllpackAlias = Matrices::SlicedEllpack< Real, Device, Index >;
 template< typename Real, typename Device, typename Index >
 using SparseMatrix_CSR = Matrices::SparseMatrix< Real, Containers::Segments::CSR, Device, Index >;
 
-template< typename Device, typename Index >
-using EllpackSegments = Containers::Segments::Ellpack< Device, Index >;
+template< typename Device, typename Index, typename IndexAllocator >
+using EllpackSegments = Containers::Segments::Ellpack< Device, Index, IndexAllocator >;
 
 template< typename Real, typename Device, typename Index >
 using SparseMatrix_Ellpack = Matrices::SparseMatrix< Real, EllpackSegments, Device, Index >;
 
-template< typename Device, typename Index >
-using SlicedEllpackSegments = Containers::Segments::SlicedEllpack< Device, Index >;
+template< typename Device, typename Index, typename IndexAllocator >
+using SlicedEllpackSegments = Containers::Segments::SlicedEllpack< Device, Index, IndexAllocator >;
 
 template< typename Real, typename Device, typename Index >
 using SparseMatrix_SlicedEllpack = Matrices::SparseMatrix< Real, SlicedEllpackSegments, Device, Index >;
