@@ -159,7 +159,7 @@ benchmarkSpMV( Benchmark& benchmark,
           { "non-zeros", convertToString( hostMatrix.getNumberOfNonzeroMatrixElements() ) },
           { "rows", convertToString( hostMatrix.getRows() ) },
           { "columns", convertToString( hostMatrix.getColumns() ) },
-          { "matrix format", convertToString( getMatrixFormat( hostMatrix ) ) }
+          { "matrix format", convertToString( getType( hostMatrix ) ) }
        } ));
 
     hostVector.setSize( hostMatrix.getColumns() );
@@ -287,22 +287,18 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
 {
    benchmarkSpMV< Real, Matrices::CSR >( benchmark, inputFileName, verboseMR );
    benchmarkSpMV< Real, Matrices::Ellpack >( benchmark, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SlicedEllpackAlias >( benchmark, inputFileName, verboseMR );
-   benchmarkSpMV< Real, Matrices::ChunkedEllpack >( benchmark, inputFileName, verboseMR );
+   //benchmarkSpMV< Real, SlicedEllpackAlias >( benchmark, inputFileName, verboseMR );
+   //benchmarkSpMV< Real, Matrices::ChunkedEllpack >( benchmark, inputFileName, verboseMR );
 
    ////
    // Segments based sparse matrices
-   std::cerr << "*********************************" << std::endl;
    benchmarkSpMV< Real, SparseMatrix_CSR >( benchmark, inputFileName, verboseMR );
-   std::cerr << "*********************************" << std::endl;
    benchmarkSpMV< Real, SparseMatrix_Ellpack >( benchmark, inputFileName, verboseMR );
-   std::cerr << "*********************************" << std::endl;
-   benchmarkSpMV< Real, SparseMatrix_SlicedEllpack >( benchmark, inputFileName, verboseMR );
-   std::cerr << "*********************************" << std::endl;
+   //benchmarkSpMV< Real, SparseMatrix_SlicedEllpack >( benchmark, inputFileName, verboseMR );
 
    // AdEllpack is broken
    // benchmarkSpMV< Real, Matrices::AdEllpack >( benchmark, inputFileName, verboseMR );
-   benchmarkSpMV< Real, Matrices::BiEllpack >( benchmark, inputFileName, verboseMR );
+   //benchmarkSpMV< Real, Matrices::BiEllpack >( benchmark, inputFileName, verboseMR );
 }
 
 } // namespace Benchmarks
