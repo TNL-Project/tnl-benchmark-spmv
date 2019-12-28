@@ -27,6 +27,7 @@
 #include <TNL/Matrices/MatrixReader.h>
 
 #include <TNL/Matrices/SparseMatrix.h>
+#include <TNL/Matrices/MatrixType.h>
 #include <TNL/Containers/Segments/CSR.h>
 #include <TNL/Containers/Segments/Ellpack.h>
 #include <TNL/Containers/Segments/SlicedEllpack.h>
@@ -43,19 +44,19 @@ using SlicedEllpackAlias = Matrices::SlicedEllpack< Real, Device, Index >;
 
 // Segments based sparse matrix aliases
 template< typename Real, typename Device, typename Index >
-using SparseMatrix_CSR = Matrices::SparseMatrix< Real, Containers::Segments::CSR, Device, Index >;
+using SparseMatrix_CSR = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, Containers::Segments::CSR >;
 
 template< typename Device, typename Index, typename IndexAllocator >
 using EllpackSegments = Containers::Segments::Ellpack< Device, Index, IndexAllocator >;
 
 template< typename Real, typename Device, typename Index >
-using SparseMatrix_Ellpack = Matrices::SparseMatrix< Real, EllpackSegments, Device, Index >;
+using SparseMatrix_Ellpack = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, EllpackSegments >;
 
 template< typename Device, typename Index, typename IndexAllocator >
 using SlicedEllpackSegments = Containers::Segments::SlicedEllpack< Device, Index, IndexAllocator >;
 
 template< typename Real, typename Device, typename Index >
-using SparseMatrix_SlicedEllpack = Matrices::SparseMatrix< Real, SlicedEllpackSegments, Device, Index >;
+using SparseMatrix_SlicedEllpack = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, SlicedEllpackSegments >;
 
 // Get the name (with extension) of input matrix file
 std::string getMatrixFileName( const String& InputFileName )
