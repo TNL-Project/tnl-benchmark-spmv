@@ -287,15 +287,20 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
                         bool verboseMR )
 {
    benchmarkSpMV< Real, Matrices::CSR >( benchmark, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrix_CSR >( benchmark, inputFileName, verboseMR );
+   
    benchmarkSpMV< Real, Matrices::Ellpack >( benchmark, inputFileName, verboseMR );
-   //benchmarkSpMV< Real, SlicedEllpackAlias >( benchmark, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrix_Ellpack >( benchmark, inputFileName, verboseMR );
+   
+   benchmarkSpMV< Real, SlicedEllpackAlias >( benchmark, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrix_SlicedEllpack >( benchmark, inputFileName, verboseMR );
    //benchmarkSpMV< Real, Matrices::ChunkedEllpack >( benchmark, inputFileName, verboseMR );
 
    ////
    // Segments based sparse matrices
-   benchmarkSpMV< Real, SparseMatrix_CSR >( benchmark, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SparseMatrix_Ellpack >( benchmark, inputFileName, verboseMR );
-   //benchmarkSpMV< Real, SparseMatrix_SlicedEllpack >( benchmark, inputFileName, verboseMR );
+   
+   
+   //
 
    // AdEllpack is broken
    // benchmarkSpMV< Real, Matrices::AdEllpack >( benchmark, inputFileName, verboseMR );
