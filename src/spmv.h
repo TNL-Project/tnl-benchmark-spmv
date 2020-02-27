@@ -25,6 +25,7 @@
 #include <TNL/Matrices/Legacy/BiEllpack.h>
 
 #include <TNL/Matrices/MatrixReader.h>
+#include <TNL/Matrices/MatrixInfo.h>
 
 #include <TNL/Matrices/SparseMatrix.h>
 #include <TNL/Matrices/MatrixType.h>
@@ -160,7 +161,7 @@ benchmarkSpMV( Benchmark& benchmark,
           { "non-zeros", convertToString( hostMatrix.getNumberOfNonzeroMatrixElements() ) },
           { "rows", convertToString( hostMatrix.getRows() ) },
           { "columns", convertToString( hostMatrix.getColumns() ) },
-          { "matrix format", convertToString( getType( hostMatrix ) ) }
+          { "matrix format", MatrixInfo< HostMatrix >::getFormat() } //convertToString( getType( hostMatrix ) ) }
        } ));
 
     hostVector.setSize( hostMatrix.getColumns() );
@@ -294,7 +295,8 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
    
    benchmarkSpMV< Real, SlicedEllpackAlias >( benchmark, inputFileName, verboseMR );
    benchmarkSpMV< Real, SparseMatrix_SlicedEllpack >( benchmark, inputFileName, verboseMR );
-   //benchmarkSpMV< Real, Matrices::ChunkedEllpack >( benchmark, inputFileName, verboseMR );
+   benchmarkSpMV< Real, Matrices::ChunkedEllpack >( benchmark, inputFileName, verboseMR );
+   benchmarkSpMV< Real, Matrices::BiEllpack >( benchmark, inputFileName, verboseMR );
 
    ////
    // Segments based sparse matrices
