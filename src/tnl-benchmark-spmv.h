@@ -16,8 +16,7 @@
 
 #include <TNL/Devices/Host.h>
 #include <TNL/Devices/Cuda.h>
-#include <TNL/Config/ConfigDescription.h>
-#include <TNL/Config/ParameterContainer.h>
+#include <TNL/Config/parseCommandLine.h>
 
 #include <Benchmarks/BLAS/array-operations.h>
 #include <Benchmarks/BLAS/vector-operations.h>
@@ -102,10 +101,8 @@ main( int argc, char* argv[] )
    //              terminate called after throwing an instance of 'int'
    //      [1]    17156 abort (core dumped)  ~/tnl-dev/Debug/bin/./tnl-benchmark-spmv-dbg --help
 
-   if( ! parseCommandLine( argc, argv, conf_desc, parameters ) ) {
-      conf_desc.printUsage( argv[ 0 ] );
+   if( ! parseCommandLine( argc, argv, conf_desc, parameters ) )
       return EXIT_FAILURE;
-   }
 
    if( ! Devices::Host::setup( parameters ) ||
        ! Devices::Cuda::setup( parameters ) )
