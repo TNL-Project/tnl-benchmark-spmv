@@ -22,7 +22,7 @@ class CusparseCSRBase
    public:
       typedef Real RealType;
       typedef Devices::Cuda DeviceType;
-      typedef Matrices::CSR< RealType, Devices::Cuda, int > MatrixType;
+      typedef Matrices::Legacy::CSR< RealType, Devices::Cuda, int > MatrixType;
 
       CusparseCSRBase()
       : matrix( 0 )

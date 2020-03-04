@@ -41,7 +41,7 @@ namespace Benchmarks {
 
 // Alias to match the number of template parameters with other formats
 template< typename Real, typename Device, typename Index >
-using SlicedEllpackAlias = Matrices::SlicedEllpack< Real, Device, Index >;
+using SlicedEllpackAlias = Matrices::Legacy::SlicedEllpack< Real, Device, Index >;
 
 // Segments based sparse matrix aliases
 template< typename Real, typename Device, typename Index >
@@ -114,8 +114,8 @@ benchmarkSpMV( Benchmark& benchmark,
                bool verboseMR )
 {
     // Setup CSR for cuSPARSE. It will compared to the format given as a template parameter to this function
-    typedef Matrices::CSR< Real, Devices::Host, int > CSR_HostMatrix;
-    typedef Matrices::CSR< Real, Devices::Cuda, int > CSR_DeviceMatrix;
+    typedef Matrices::Legacy::CSR< Real, Devices::Host, int > CSR_HostMatrix;
+    typedef Matrices::Legacy::CSR< Real, Devices::Cuda, int > CSR_DeviceMatrix;
 
     CSR_HostMatrix CSRhostMatrix;
     CSR_DeviceMatrix CSRdeviceMatrix;
@@ -287,16 +287,16 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
                         const String& inputFileName,
                         bool verboseMR )
 {
-   benchmarkSpMV< Real, Matrices::CSR >( benchmark, inputFileName, verboseMR );
+   benchmarkSpMV< Real, Matrices::Legacy::CSR >( benchmark, inputFileName, verboseMR );
    benchmarkSpMV< Real, SparseMatrix_CSR >( benchmark, inputFileName, verboseMR );
    
-   benchmarkSpMV< Real, Matrices::Ellpack >( benchmark, inputFileName, verboseMR );
+   benchmarkSpMV< Real, Matrices::Legacy::Ellpack >( benchmark, inputFileName, verboseMR );
    benchmarkSpMV< Real, SparseMatrix_Ellpack >( benchmark, inputFileName, verboseMR );
    
    benchmarkSpMV< Real, SlicedEllpackAlias >( benchmark, inputFileName, verboseMR );
    benchmarkSpMV< Real, SparseMatrix_SlicedEllpack >( benchmark, inputFileName, verboseMR );
-   benchmarkSpMV< Real, Matrices::ChunkedEllpack >( benchmark, inputFileName, verboseMR );
-   benchmarkSpMV< Real, Matrices::BiEllpack >( benchmark, inputFileName, verboseMR );
+   benchmarkSpMV< Real, Matrices::Legacy::ChunkedEllpack >( benchmark, inputFileName, verboseMR );
+   benchmarkSpMV< Real, Matrices::Legacy::BiEllpack >( benchmark, inputFileName, verboseMR );
 
    ////
    // Segments based sparse matrices
