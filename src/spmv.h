@@ -111,35 +111,10 @@ template< typename Real,
           template< typename, typename, typename, typename > class Vector = Containers::Vector >
 void
 benchmarkSpMV( Benchmark& benchmark,
+               const TNL::CusparseCSR< Real >& cusparseCSR,
                const String& inputFileName,
                bool verboseMR )
 {
-   // Setup CSR for cuSPARSE. It will compared to the format given as a template parameter to this function
-   using CSR_HostMatrix = Matrices::Legacy::CSR< Real, Devices::Host, int >;
-   using CSR_DeviceMatrix = Matrices::Legacy::CSR< Real, Devices::Cuda, int >;
-
-   CSR_HostMatrix CSRhostMatrix;
-   CSR_DeviceMatrix CSRdeviceMatrix;
-
-   // Read the matrix for CSR, to set up cuSPARSE
-   MatrixReader< CSR_HostMatrix >::readMtxFile( inputFileName, CSRhostMatrix, verboseMR );
-
-#ifdef HAVE_CUDA
-   // cuSPARSE handle setup
-   cusparseHandle_t cusparseHandle;
-   cusparseCreate( &cusparseHandle );
-
-   // cuSPARSE (in TNL's CSR) only works for device, copy the matrix from host to device
-   CSRdeviceMatrix = CSRhostMatrix;
-
-   // Delete the CSRhostMatrix, so it doesn't take up unnecessary space
-   CSRhostMatrix.reset();
-
-   // Initialize the cusparseCSR matrix.
-   TNL::CusparseCSR< Real > cusparseCSR;
-   cusparseCSR.init( CSRdeviceMatrix, &cusparseHandle );
-#endif
-
    // Setup the format which is given as a template parameter to this function
    typedef Matrix< Real, Devices::Host, int > HostMatrix;
    typedef Matrix< Real, Devices::Cuda, int > DeviceMatrix;
@@ -257,23 +232,40 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
                         const String& inputFileName,
                         bool verboseMR )
 {
-   benchmarkSpMV< Real, Matrices::Legacy::CSR >( benchmark, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SparseMatrix_CSR >( benchmark, inputFileName, verboseMR );
-   
-   benchmarkSpMV< Real, Matrices::Legacy::Ellpack >( benchmark, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SparseMatrix_Ellpack >( benchmark, inputFileName, verboseMR );
-   
-   benchmarkSpMV< Real, SlicedEllpackAlias >( benchmark, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SparseMatrix_SlicedEllpack >( benchmark, inputFileName, verboseMR );
-   benchmarkSpMV< Real, Matrices::Legacy::ChunkedEllpack >( benchmark, inputFileName, verboseMR );
-   benchmarkSpMV< Real, Matrices::Legacy::BiEllpack >( benchmark, inputFileName, verboseMR );
+   // Setup CSR for cuSPARSE. It will compared to the format given as a template parameter to this function
+   using CSR_HostMatrix = Matrices::Legacy::CSR< Real, Devices::Host, int >;
+   using CSR_DeviceMatrix = Matrices::Legacy::CSR< Real, Devices::Cuda, int >;
 
-   ////
-   // Segments based sparse matrices
-   
-   
-   //
+   CSR_HostMatrix CSRhostMatrix;
+   CSR_DeviceMatrix CSRdeviceMatrix;
 
+   // Read the matrix for CSR, to set up cuSPARSE
+   MatrixReader< CSR_HostMatrix >::readMtxFile( inputFileName, CSRhostMatrix, verboseMR );
+
+#ifdef HAVE_CUDA
+   // cuSPARSE handle setup
+   cusparseHandle_t cusparseHandle;
+   cusparseCreate( &cusparseHandle );
+
+   // cuSPARSE (in TNL's CSR) only works for device, copy the matrix from host to device
+   CSRdeviceMatrix = CSRhostMatrix;
+
+   // Delete the CSRhostMatrix, so it doesn't take up unnecessary space
+   CSRhostMatrix.reset();
+
+   // Initialize the cusparseCSR matrix.
+   TNL::CusparseCSR< Real > cusparseCSR;
+   cusparseCSR.init( CSRdeviceMatrix, &cusparseHandle );
+#endif
+
+   benchmarkSpMV< Real, Matrices::Legacy::CSR            >( benchmark, cusparseCSR, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrix_CSR                 >( benchmark, cusparseCSR, inputFileName, verboseMR );
+   benchmarkSpMV< Real, Matrices::Legacy::Ellpack        >( benchmark, cusparseCSR, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrix_Ellpack             >( benchmark, cusparseCSR, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SlicedEllpackAlias               >( benchmark, cusparseCSR, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrix_SlicedEllpack       >( benchmark, cusparseCSR, inputFileName, verboseMR );
+   benchmarkSpMV< Real, Matrices::Legacy::ChunkedEllpack >( benchmark, cusparseCSR, inputFileName, verboseMR );
+   benchmarkSpMV< Real, Matrices::Legacy::BiEllpack      >( benchmark, cusparseCSR, inputFileName, verboseMR );
    // AdEllpack is broken
    // benchmarkSpMV< Real, Matrices::AdEllpack >( benchmark, inputFileName, verboseMR );
    //benchmarkSpMV< Real, Matrices::BiEllpack >( benchmark, inputFileName, verboseMR );
