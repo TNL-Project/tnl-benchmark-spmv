@@ -214,7 +214,7 @@ benchmarkSpMV( Benchmark& benchmark,
          { "non-zeros", convertToString( hostMatrix.getNumberOfNonzeroMatrixElements() ) },
          { "rows", convertToString( hostMatrix.getRows() ) },
          { "columns", convertToString( hostMatrix.getColumns() ) },
-         { "matrix format", convertToString( "CSR-cuSPARSE-" + getFormatShort( hostMatrix ) ) }
+         { "matrix format", convertToString( "CSR-cuSPARSE" ) }
       } ));
 
    SpmvBenchmarkResult< Real, int > benchmarkResult( deviceVector2, hostVector2, cusparseVector );
@@ -242,6 +242,7 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
    // Read the matrix for CSR, to set up cuSPARSE
    MatrixReader< CSR_HostMatrix >::readMtxFile( inputFileName, CSRhostMatrix, verboseMR );
 
+   TNL::CusparseCSR< Real > cusparseCSR;
 #ifdef HAVE_CUDA
    // cuSPARSE handle setup
    cusparseHandle_t cusparseHandle;
@@ -254,7 +255,6 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
    CSRhostMatrix.reset();
 
    // Initialize the cusparseCSR matrix.
-   TNL::CusparseCSR< Real > cusparseCSR;
    cusparseCSR.init( CSRdeviceMatrix, &cusparseHandle );
 #endif
 
