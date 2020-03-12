@@ -40,15 +40,13 @@ struct SpmvBenchmarkResult
       cusparseCopy = cusparseResult;
       a = cudaCopy - hostResult;
       b = cudaCopy - cusparseCopy;
-      return RowElements( { 
-         convertToString( time ),
-         convertToString( stddev ),
-         convertToString( stddev/time ),
-         speedup != 0 ? convertToString( speedup ) : "N/A",
-         convertToString( max( abs( a ) ) ),
-         convertToString( lpNorm( a, 2.0 ) ),
-         convertToString( max( abs( b ) ) ),
-         convertToString( lpNorm( b, 2.0 ) ) } );
+      RowElements elements;
+      elements << time << stddev << stddev/time;
+      if( speedup != 0.0 )
+         elements << speedup;
+      else elements << "N/A";
+      elements << max( abs( a ) ) << lpNorm( a, 2.0 ) << max( abs( b ) ) << lpNorm( b, 2.0 );
+      return elements;
    }
 
    HostVector &hostResult;
