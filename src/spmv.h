@@ -111,117 +111,66 @@ template< typename Real,
           template< typename, typename, typename, typename > class Vector = Containers::Vector >
 void
 benchmarkSpMV( Benchmark& benchmark,
-               const TNL::CusparseCSR< Real >& cusparseCSR,
+               const TNL::Containers::Vector< Real, Devices::Host, int >& csrResultVector,
                const String& inputFileName,
                bool verboseMR )
 {
-   // Setup the format which is given as a template parameter to this function
-   typedef Matrix< Real, Devices::Host, int > HostMatrix;
-   typedef Matrix< Real, Devices::Cuda, int > DeviceMatrix;
-   typedef Containers::Vector< Real, Devices::Host, int > HostVector;
-   typedef Containers::Vector< Real, Devices::Cuda, int > CudaVector;
+   using HostMatrix = Matrix< Real, Devices::Host, int >;
+   using CudaMatrix = Matrix< Real, Devices::Cuda, int >;
+   using HostVector = Containers::Vector< Real, Devices::Host, int >;
+   using CudaVector = Containers::Vector< Real, Devices::Cuda, int >;
 
    HostMatrix hostMatrix;
-   DeviceMatrix deviceMatrix;
-   HostVector hostVector, hostVector2;
-   CudaVector deviceVector, deviceVector2, cusparseVector;
+   CudaMatrix cudaMatrix;
 
-   // Load the format
    MatrixReader< HostMatrix >::readMtxFile( inputFileName, hostMatrix, verboseMR );
 
-
-   // Setup MetaData here (not in tnl-benchmark-spmv.h, as done in Benchmarks/BLAS),
-   //  because we need the matrix loaded first to get the rows and columns
    benchmark.setMetadataColumns( Benchmark::MetadataColumns({
          { "matrix name", convertToString( getMatrixFileName( inputFileName ) ) },
          { "non-zeros", convertToString( hostMatrix.getNumberOfNonzeroMatrixElements() ) },
          { "rows", convertToString( hostMatrix.getRows() ) },
          { "columns", convertToString( hostMatrix.getColumns() ) },
-         { "matrix format", MatrixInfo< HostMatrix >::getFormat() } //convertToString( getType( hostMatrix ) ) }
+         { "matrix format", MatrixInfo< HostMatrix >::getFormat() }
       } ));
-
-   hostVector.setSize( hostMatrix.getColumns() );
-   hostVector2.setSize( hostMatrix.getRows() );
-
-#ifdef HAVE_CUDA
-   deviceMatrix = hostMatrix;
-   deviceVector.setSize( hostMatrix.getColumns() );
-   deviceVector2.setSize( hostMatrix.getRows() );
-   cusparseVector.setSize( hostMatrix.getRows() );
-#endif
-
-   // reset function
-   auto resetHostVectors = [&]() {
-      hostVector = 1.0;
-      hostVector2 = 0.0;
-   };
-#ifdef HAVE_CUDA
-   auto resetCudaVectors = [&]() {
-      deviceVector = 1.0;
-      deviceVector2 = 0.0;
-   };
-   auto resetCusparseVectors = [&]() {
-      deviceVector = 1.0;
-      cusparseVector == 0.0;
-   };
- #endif
-
    const int elements = hostMatrix.getNumberOfNonzeroMatrixElements();
    const double datasetSize = (double) elements * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
-
-    // compute functions
-   auto spmvHost = [&]() {
-      hostMatrix.vectorProduct( hostVector, hostVector2 );
-   };
-#ifdef HAVE_CUDA
-   auto spmvCuda = [&]() {
-      deviceMatrix.vectorProduct( deviceVector, deviceVector2 );
-   };
-
-   auto spmvCusparse = [&]() {
-       cusparseCSR.vectorProduct( deviceVector, cusparseVector );
-   };
-#endif
-
    benchmark.setOperation( datasetSize );
-   benchmark.time< Devices::Host >( resetHostVectors, "CPU", spmvHost );
 
-   // Initialize the host vector to be compared.
-   //  (The values in hostVector2 will be reset when spmvCuda starts)
-   HostVector resultHostVector2;
-   resultHostVector2.setSize( hostVector2.getSize() );
-   resultHostVector2.setValue( 0.0 );
+   /***
+    * Benchmark SpMV on host
+    */
+   HostVector hostInVector( hostMatrix.getColumns() ), hostOutVector( hostMatrix.getRows() );
 
-   // Copy the values
-   resultHostVector2 = hostVector2;
+   auto resetHostVectors = [&]() {
+      hostInVector = 1.0;
+      hostOutVector = 0.0;
+   };
 
+   auto spmvHost = [&]() {
+      hostMatrix.vectorProduct( hostInVector, hostOutVector );
+
+   };
+   SpmvBenchmarkResult< Real, Devices::Host, int > hostBenchmarkResults( csrResultVector, hostOutVector );
+   benchmark.time< Devices::Host >( resetHostVectors, "CPU", spmvHost, hostBenchmarkResults );
+
+   /***
+    * Benchmark SpMV on CUDA
+    */
 #ifdef HAVE_CUDA
-   benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvCuda );
+   cudaMatrix = hostMatrix;
+   CudaVector cudaInVector( hostMatrix.getColumns() ), cudaOutVector( hostMatrix.getRows() );
 
-   // Initialize the device vector to be compared.
-   //  (The values in deviceVector2 will be reset when spmvCusparse starts)
-   HostVector resultDeviceVector2;
-   resultDeviceVector2.setSize( deviceVector2.getSize() );
-   resultDeviceVector2.setValue( 0.0 );
+   auto resetCudaVectors = [&]() {
+      cudaInVector = 1.0;
+      cudaOutVector = 0.0;
+   };
 
-   resultDeviceVector2 = deviceVector2;
-   
-   // Setup cuSPARSE MetaData, since it has the same header as CSR,
-   //  and therefore will not get its own headers (rows, cols, speedup etc.) in log.
-   //      * Not setting this up causes (among other undiscovered errors) the speedup from CPU to GPU on the input format to be overwritten.
-   benchmark.setMetadataColumns( Benchmark::MetadataColumns({
-         { "matrix name", convertToString( getMatrixFileName( inputFileName ) ) },
-         { "non-zeros", convertToString( hostMatrix.getNumberOfNonzeroMatrixElements() ) },
-         { "rows", convertToString( hostMatrix.getRows() ) },
-         { "columns", convertToString( hostMatrix.getColumns() ) },
-         { "matrix format", convertToString( "CSR-cuSPARSE" ) }
-      } ));
-
-   SpmvBenchmarkResult< Real, int > benchmarkResult( deviceVector2, hostVector2, cusparseVector );
-   benchmark.time< Devices::Cuda >( resetCusparseVectors, "GPU", spmvCusparse, benchmarkResult );
-
+   auto spmvCuda = [&]() {
+      cudaMatrix.vectorProduct( cudaInVector, cudaOutVector );
+   };
+   SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( csrResultVector, cudaOutVector );
+   benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvCuda, cudaBenchmarkResults );
  #endif
-
     std::cout << std::endl;
 }
 
@@ -232,43 +181,94 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
                         const String& inputFileName,
                         bool verboseMR )
 {
-   // Setup CSR for cuSPARSE. It will compared to the format given as a template parameter to this function
-   using CSR_HostMatrix = Matrices::Legacy::CSR< Real, Devices::Host, int >;
-   using CSR_DeviceMatrix = Matrices::Legacy::CSR< Real, Devices::Cuda, int >;
+   using CSRHostMatrix = Matrices::Legacy::CSR< Real, Devices::Host, int >;
+   using CSRCudaMatrix = Matrices::Legacy::CSR< Real, Devices::Cuda, int >;
+   using HostVector = Containers::Vector< Real, Devices::Host, int >;
+   using CudaVector = Containers::Vector< Real, Devices::Cuda, int >;
 
-   CSR_HostMatrix CSRhostMatrix;
-   CSR_DeviceMatrix CSRdeviceMatrix;
+   CSRHostMatrix csrHostMatrix;
+   CSRCudaMatrix csrCudaMatrix;
 
-   // Read the matrix for CSR, to set up cuSPARSE
-   MatrixReader< CSR_HostMatrix >::readMtxFile( inputFileName, CSRhostMatrix, verboseMR );
+   ////
+   // Set-up benchmark datasize
+   //
+   MatrixReader< CSRHostMatrix >::readMtxFile( inputFileName, csrHostMatrix, verboseMR );
+   const int elements = csrHostMatrix.getNumberOfNonzeroMatrixElements();
+   const double datasetSize = (double) elements * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
+   benchmark.setOperation( datasetSize );
 
-   TNL::CusparseCSR< Real > cusparseCSR;
+   ////
+   // Perform benchmark on host with CSR as a reference CPU format
+   //
+   benchmark.setMetadataColumns( Benchmark::MetadataColumns({
+         { "matrix name", convertToString( getMatrixFileName( inputFileName ) ) },
+         { "non-zeros", convertToString( csrHostMatrix.getNumberOfNonzeroMatrixElements() ) },
+         { "rows", convertToString( csrHostMatrix.getRows() ) },
+         { "columns", convertToString( csrHostMatrix.getColumns() ) },
+         { "matrix format", String( "CSR" ) }
+      } ));
+
+   HostVector hostInVector( csrHostMatrix.getRows() ), hostOutVector( csrHostMatrix.getRows() );
+
+   auto resetHostVectors = [&]() {
+      hostInVector = 1.0;
+      hostOutVector == 0.0;
+   };
+
+   auto spmvCSRHost = [&]() {
+       csrHostMatrix.vectorProduct( hostInVector, hostOutVector );
+   };
+
+   benchmark.time< Devices::Cuda >( resetHostVectors, "CPU", spmvCSRHost );
+
+   ////
+   // Perform benchmark on CUDA device with cuSparse as a reference GPU format
+   //
 #ifdef HAVE_CUDA
-   // cuSPARSE handle setup
+   benchmark.setMetadataColumns( Benchmark::MetadataColumns({
+         { "matrix name", convertToString( getMatrixFileName( inputFileName ) ) },
+         { "non-zeros", convertToString( csrHostMatrix.getNumberOfNonzeroMatrixElements() ) },
+         { "rows", convertToString( csrHostMatrix.getRows() ) },
+         { "columns", convertToString( csrHostMatrix.getColumns() ) },
+         { "matrix format", String( "cuSparse" ) }
+      } ));
+
    cusparseHandle_t cusparseHandle;
    cusparseCreate( &cusparseHandle );
 
-   // cuSPARSE (in TNL's CSR) only works for device, copy the matrix from host to device
-   CSRdeviceMatrix = CSRhostMatrix;
+   csrCudaMatrix = csrHostMatrix;
 
    // Delete the CSRhostMatrix, so it doesn't take up unnecessary space
-   CSRhostMatrix.reset();
+   csrHostMatrix.reset();
 
-   // Initialize the cusparseCSR matrix.
-   cusparseCSR.init( CSRdeviceMatrix, &cusparseHandle );
+   TNL::CusparseCSR< Real > cusparseMatrix;
+   cusparseMatrix.init( csrCudaMatrix, &cusparseHandle );
+
+   CudaVector cusparseInVector( csrCudaMatrix.getColumns() ), cusparseOutVector( csrCudaMatrix.getRows() );
+
+   auto resetCusparseVectors = [&]() {
+      cusparseInVector = 1.0;
+      cusparseOutVector == 0.0;
+   };
+
+   auto spmvCusparse = [&]() {
+       cusparseMatrix.vectorProduct( cusparseInVector, cusparseOutVector );
+   };
+
+   benchmark.time< Devices::Cuda >( resetCusparseVectors, "GPU", spmvCusparse );
 #endif
 
-   benchmarkSpMV< Real, Matrices::Legacy::CSR            >( benchmark, cusparseCSR, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SparseMatrix_CSR                 >( benchmark, cusparseCSR, inputFileName, verboseMR );
-   benchmarkSpMV< Real, Matrices::Legacy::Ellpack        >( benchmark, cusparseCSR, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SparseMatrix_Ellpack             >( benchmark, cusparseCSR, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SlicedEllpackAlias               >( benchmark, cusparseCSR, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SparseMatrix_SlicedEllpack       >( benchmark, cusparseCSR, inputFileName, verboseMR );
-   benchmarkSpMV< Real, Matrices::Legacy::ChunkedEllpack >( benchmark, cusparseCSR, inputFileName, verboseMR );
-   benchmarkSpMV< Real, Matrices::Legacy::BiEllpack      >( benchmark, cusparseCSR, inputFileName, verboseMR );
-   // AdEllpack is broken
-   // benchmarkSpMV< Real, Matrices::AdEllpack >( benchmark, inputFileName, verboseMR );
-   //benchmarkSpMV< Real, Matrices::BiEllpack >( benchmark, inputFileName, verboseMR );
+   benchmarkSpMV< Real, Matrices::Legacy::CSR            >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrix_CSR                 >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, Matrices::Legacy::Ellpack        >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrix_Ellpack             >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SlicedEllpackAlias               >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrix_SlicedEllpack       >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, Matrices::Legacy::ChunkedEllpack >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, Matrices::Legacy::BiEllpack      >( benchmark, hostOutVector, inputFileName, verboseMR );
+   /* AdEllpack is broken
+   benchmarkSpMV< Real, Matrices::AdEllpack              >( benchmark, hostOutVector, inputFileName, verboseMR );
+    */
 }
 
 } // namespace Benchmarks
