@@ -20,7 +20,7 @@
 
 #include <Benchmarks/BLAS/array-operations.h>
 #include <Benchmarks/BLAS/vector-operations.h>
-#include "spmv.h"
+#include "spmv-legacy.h"
 
 #include <TNL/Matrices/MatrixReader.h>
 using namespace TNL::Matrices;
@@ -37,14 +37,14 @@ runSpMVBenchmarks( Benchmark & benchmark,
                    const String & inputFileName,
                    bool verboseMR = false )
 {
-    const String precision = getType< Real >();
-    metadata["precision"] = precision;
+   const String precision = getType< Real >();
+   metadata["precision"] = precision;
 
-    // Sparse matrix-vector multiplication
-    benchmark.newBenchmark( String("Sparse matrix-vector multiplication (") + precision + ")",
-                            metadata );
-    // Start the actual benchmark in spmv.h
-    benchmarkSpmvSynthetic< Real >( benchmark, inputFileName, verboseMR );
+   // Sparse matrix-vector multiplication
+   benchmark.newBenchmark( String("Sparse matrix-vector multiplication (") + precision + ")",
+                           metadata );
+   // Start the actual benchmark in spmv.h
+   SpMVLegacy::benchmarkSpmvSynthetic< Real >( benchmark, inputFileName, verboseMR );
 }
 
 // Get current date time to have different log files names and avoid overwriting.

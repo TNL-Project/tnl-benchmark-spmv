@@ -38,7 +38,8 @@ using namespace TNL::Matrices;
 #include "cusparseCSRMatrix.h"
 
 namespace TNL {
-namespace Benchmarks {
+   namespace Benchmarks {
+      namespace SpMVLegacy {
 
 // Alias to match the number of template parameters with other formats
 template< typename Real, typename Device, typename Index >
@@ -271,5 +272,6 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
     */
 }
 
+} // namespace SpMVLegacy
 } // namespace Benchmarks
 } // namespace TNL
