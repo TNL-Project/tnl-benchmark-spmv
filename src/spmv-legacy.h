@@ -127,7 +127,7 @@ benchmarkSpMV( Benchmark& benchmark,
    MatrixReader< HostMatrix >::readMtxFile( inputFileName, hostMatrix, verboseMR );
 
    benchmark.setMetadataColumns( Benchmark::MetadataColumns({
-         { "matrix name", convertToString( getMatrixFileName( inputFileName ) ) },
+         { "matrix name", convertToString( inputFileName ) },
          { "non-zeros", convertToString( hostMatrix.getNumberOfNonzeroMatrixElements() ) },
          { "rows", convertToString( hostMatrix.getRows() ) },
          { "columns", convertToString( hostMatrix.getColumns() ) },
