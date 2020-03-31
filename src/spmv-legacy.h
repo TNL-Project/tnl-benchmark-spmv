@@ -61,6 +61,22 @@ using SlicedEllpackSegments = Containers::Segments::SlicedEllpack< Device, Index
 template< typename Real, typename Device, typename Index >
 using SparseMatrix_SlicedEllpack = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, SlicedEllpackSegments >;
 
+// Legacy formats
+template< typename Real, typename Device, typename Index >
+using SparseMatrixLegacy_CSR_Scalar = Matrices::Legacy::CSR< Real, Device, Index, Matrices::Legacy::CSRScalar >;
+
+template< typename Real, typename Device, typename Index >
+using SparseMatrixLegacy_CSR_Vector = Matrices::Legacy::CSR< Real, Device, Index, Matrices::Legacy::CSRVector >;
+
+template< typename Real, typename Device, typename Index >
+using SparseMatrixLegacy_CSR_Light = Matrices::Legacy::CSR< Real, Device, Index, Matrices::Legacy::CSRLight >;
+
+template< typename Real, typename Device, typename Index >
+using SparseMatrixLegacy_CSR_Adaptive = Matrices::Legacy::CSR< Real, Device, Index, Matrices::Legacy::CSRAdaptive >;
+
+template< typename Real, typename Device, typename Index >
+using SparseMatrixLegacy_CSR_Stream = Matrices::Legacy::CSR< Real, Device, Index, Matrices::Legacy::CSRStream >;
+
 // Get the name (with extension) of input matrix file
 std::string getMatrixFileName( const String& InputFileName )
 {
@@ -259,7 +275,11 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
    benchmark.time< Devices::Cuda >( resetCusparseVectors, "GPU", spmvCusparse );
 #endif
 
-   benchmarkSpMV< Real, Matrices::Legacy::CSR            >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Scalar    >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Vector    >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Light     >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Adaptive  >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Stream    >( benchmark, hostOutVector, inputFileName, verboseMR );
    benchmarkSpMV< Real, SparseMatrix_CSR                 >( benchmark, hostOutVector, inputFileName, verboseMR );
    benchmarkSpMV< Real, Matrices::Legacy::Ellpack        >( benchmark, hostOutVector, inputFileName, verboseMR );
    benchmarkSpMV< Real, SparseMatrix_Ellpack             >( benchmark, hostOutVector, inputFileName, verboseMR );
