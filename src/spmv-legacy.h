@@ -218,7 +218,7 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
    // Perform benchmark on host with CSR as a reference CPU format
    //
    benchmark.setMetadataColumns( Benchmark::MetadataColumns({
-         { "matrix name", convertToString( getMatrixFileName( inputFileName ) ) },
+         { "matrix name", convertToString( inputFileName ) },
          { "non-zeros", convertToString( csrHostMatrix.getNumberOfNonzeroMatrixElements() ) },
          { "rows", convertToString( csrHostMatrix.getRows() ) },
          { "columns", convertToString( csrHostMatrix.getColumns() ) },
@@ -243,7 +243,7 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
    //
 #ifdef HAVE_CUDA
    benchmark.setMetadataColumns( Benchmark::MetadataColumns({
-         { "matrix name", convertToString( getMatrixFileName( inputFileName ) ) },
+         { "matrix name", convertToString( inputFileName ) },
          { "non-zeros", convertToString( csrHostMatrix.getNumberOfNonzeroMatrixElements() ) },
          { "rows", convertToString( csrHostMatrix.getRows() ) },
          { "columns", convertToString( csrHostMatrix.getColumns() ) },
