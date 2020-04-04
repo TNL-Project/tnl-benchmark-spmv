@@ -276,10 +276,10 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
 #endif
 
    benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Scalar    >( benchmark, hostOutVector, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Vector    >( benchmark, hostOutVector, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Light     >( benchmark, hostOutVector, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Adaptive  >( benchmark, hostOutVector, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Stream    >( benchmark, hostOutVector, inputFileName, verboseMR );
+   //benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Vector    >( benchmark, hostOutVector, inputFileName, verboseMR );
+   //benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Light     >( benchmark, hostOutVector, inputFileName, verboseMR );
+   //benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Adaptive  >( benchmark, hostOutVector, inputFileName, verboseMR );
+   //benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Stream    >( benchmark, hostOutVector, inputFileName, verboseMR );
    benchmarkSpMV< Real, SparseMatrix_CSR                 >( benchmark, hostOutVector, inputFileName, verboseMR );
    benchmarkSpMV< Real, Matrices::Legacy::Ellpack        >( benchmark, hostOutVector, inputFileName, verboseMR );
    benchmarkSpMV< Real, SparseMatrix_Ellpack             >( benchmark, hostOutVector, inputFileName, verboseMR );
