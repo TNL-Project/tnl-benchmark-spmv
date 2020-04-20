@@ -34,6 +34,7 @@
 #include <TNL/Containers/Segments/Ellpack.h>
 #include <TNL/Containers/Segments/SlicedEllpack.h>
 #include <TNL/Containers/Segments/ChunkedEllpack.h>
+#include <TNL/Containers/Segments/BiEllpack.h>
 using namespace TNL::Matrices;
 
 #include "cusparseCSRMatrix.h"
@@ -67,6 +68,12 @@ using ChunkedEllpackSegments = Containers::Segments::ChunkedEllpack< Device, Ind
 
 template< typename Real, typename Device, typename Index >
 using SparseMatrix_ChunkedEllpack = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, ChunkedEllpackSegments >;
+
+template< typename Device, typename Index, typename IndexAllocator >
+using BiEllpackSegments = Containers::Segments::BiEllpack< Device, Index, IndexAllocator >;
+
+template< typename Real, typename Device, typename Index >
+using SparseMatrix_BiEllpack = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, BiEllpackSegments >;
 
 // Legacy formats
 template< typename Real, typename Device, typename Index >
@@ -295,6 +302,7 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
    benchmarkSpMV< Real, Matrices::Legacy::ChunkedEllpack >( benchmark, hostOutVector, inputFileName, verboseMR );
    benchmarkSpMV< Real, SparseMatrix_ChunkedEllpack      >( benchmark, hostOutVector, inputFileName, verboseMR );
    benchmarkSpMV< Real, Matrices::Legacy::BiEllpack      >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrix_BiEllpack           >( benchmark, hostOutVector, inputFileName, verboseMR );
    /* AdEllpack is broken
    benchmarkSpMV< Real, Matrices::AdEllpack              >( benchmark, hostOutVector, inputFileName, verboseMR );
     */
