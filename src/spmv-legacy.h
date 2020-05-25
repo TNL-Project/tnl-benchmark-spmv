@@ -158,12 +158,12 @@ benchmarkSpMV( Benchmark& benchmark,
 
    benchmark.setMetadataColumns( Benchmark::MetadataColumns({
          { "matrix name", convertToString( inputFileName ) },
-         { "non-zeros", convertToString( hostMatrix.getNumberOfNonzeroMatrixElements() ) },
+         { "non-zeros", convertToString( hostMatrix.getNonzeroElementsCount() ) },
          { "rows", convertToString( hostMatrix.getRows() ) },
          { "columns", convertToString( hostMatrix.getColumns() ) },
          { "matrix format", MatrixInfo< HostMatrix >::getFormat() }
       } ));
-   const int elements = hostMatrix.getNumberOfNonzeroMatrixElements();
+   const int elements = hostMatrix.getNonzeroElementsCount();
    const double datasetSize = (double) elements * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
    benchmark.setOperation( datasetSize );
 
