@@ -243,7 +243,7 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
 
    auto resetHostVectors = [&]() {
       hostInVector = 1.0;
-      hostOutVector == 0.0;
+      hostOutVector = 0.0;
    };
 
    auto spmvCSRHost = [&]() {
@@ -279,7 +279,7 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
 
    auto resetCusparseVectors = [&]() {
       cusparseInVector = 1.0;
-      cusparseOutVector == 0.0;
+      cusparseOutVector = 0.0;
    };
 
    auto spmvCusparse = [&]() {
