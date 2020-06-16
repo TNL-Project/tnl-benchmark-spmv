@@ -30,11 +30,11 @@
 
 #include <TNL/Matrices/SparseMatrix.h>
 #include <TNL/Matrices/MatrixType.h>
-#include <TNL/Containers/Segments/CSR.h>
-#include <TNL/Containers/Segments/Ellpack.h>
-#include <TNL/Containers/Segments/SlicedEllpack.h>
-#include <TNL/Containers/Segments/ChunkedEllpack.h>
-#include <TNL/Containers/Segments/BiEllpack.h>
+#include <TNL/Algorithms/Segments/CSR.h>
+#include <TNL/Algorithms/Segments/Ellpack.h>
+#include <TNL/Algorithms/Segments/SlicedEllpack.h>
+#include <TNL/Algorithms/Segments/ChunkedEllpack.h>
+#include <TNL/Algorithms/Segments/BiEllpack.h>
 using namespace TNL::Matrices;
 
 #include "cusparseCSRMatrix.h"
@@ -49,28 +49,28 @@ using SlicedEllpackAlias = Matrices::Legacy::SlicedEllpack< Real, Device, Index 
 
 // Segments based sparse matrix aliases
 template< typename Real, typename Device, typename Index >
-using SparseMatrix_CSR = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, Containers::Segments::CSR >;
+using SparseMatrix_CSR = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, Algorithms::Segments::CSR >;
 
 template< typename Device, typename Index, typename IndexAllocator >
-using EllpackSegments = Containers::Segments::Ellpack< Device, Index, IndexAllocator >;
+using EllpackSegments = Algorithms::Segments::Ellpack< Device, Index, IndexAllocator >;
 
 template< typename Real, typename Device, typename Index >
 using SparseMatrix_Ellpack = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, EllpackSegments >;
 
 template< typename Device, typename Index, typename IndexAllocator >
-using SlicedEllpackSegments = Containers::Segments::SlicedEllpack< Device, Index, IndexAllocator >;
+using SlicedEllpackSegments = Algorithms::Segments::SlicedEllpack< Device, Index, IndexAllocator >;
 
 template< typename Real, typename Device, typename Index >
 using SparseMatrix_SlicedEllpack = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, SlicedEllpackSegments >;
 
 template< typename Device, typename Index, typename IndexAllocator >
-using ChunkedEllpackSegments = Containers::Segments::ChunkedEllpack< Device, Index, IndexAllocator >;
+using ChunkedEllpackSegments = Algorithms::Segments::ChunkedEllpack< Device, Index, IndexAllocator >;
 
 template< typename Real, typename Device, typename Index >
 using SparseMatrix_ChunkedEllpack = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, ChunkedEllpackSegments >;
 
 template< typename Device, typename Index, typename IndexAllocator >
-using BiEllpackSegments = Containers::Segments::BiEllpack< Device, Index, IndexAllocator >;
+using BiEllpackSegments = Algorithms::Segments::BiEllpack< Device, Index, IndexAllocator >;
 
 template< typename Real, typename Device, typename Index >
 using SparseMatrix_BiEllpack = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, BiEllpackSegments >;
