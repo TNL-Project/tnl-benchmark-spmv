@@ -27,12 +27,14 @@ struct SpmvBenchmarkResult
    using HostVector = Containers::Vector< Real, Devices::Host, Index >;
    using BenchmarkVector = Containers::Vector< Real, Device, Index >;
 
-   SpmvBenchmarkResult( const HostVector& csrResult, const BenchmarkVector& benchmarkResult )
-   : csrResult( csrResult ), benchmarkResult( benchmarkResult ){};
+   SpmvBenchmarkResult( const HostVector& csrResult,
+                        const BenchmarkVector& benchmarkResult,
+                        const IndexType nonzeros )
+   : csrResult( csrResult ), benchmarkResult( benchmarkResult ), nonzeros( nonzeros ){};
 
    virtual HeaderElements getTableHeader() const override
    {
-      return HeaderElements( {"time", "stddev", "stddev/time", "bandwidth", "speedup", "CSR Diff.Max", "CSR Diff.L2"} );
+      return HeaderElements( {"non-zeros", "time", "stddev", "stddev/time", "bandwidth", "speedup", "CSR Diff.Max", "CSR Diff.L2"} );
    }
 
    virtual RowElements getRowElements() const override
@@ -41,7 +43,7 @@ struct SpmvBenchmarkResult
       benchmarkResultCopy = benchmarkResult;
       auto diff = csrResult - benchmarkResultCopy;
       RowElements elements;
-      elements << time << stddev << stddev/time << bandwidth;
+      elements << nonzeros << time << stddev << stddev/time << bandwidth;
       if( speedup != 0.0 )
          elements << speedup;
       else elements << "N/A";
@@ -51,6 +53,7 @@ struct SpmvBenchmarkResult
 
    const HostVector& csrResult;
    const BenchmarkVector& benchmarkResult;
+   const IndexType nonzeros;
 };
    
 } //namespace Benchmarks
