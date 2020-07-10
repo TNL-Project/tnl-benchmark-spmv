@@ -86,6 +86,21 @@ template< typename Real, typename Device, typename Index >
 using SparseMatrixLegacy_CSR_Light = Matrices::Legacy::CSR< Real, Device, Index, Matrices::Legacy::CSRLight >;
 
 template< typename Real, typename Device, typename Index >
+using SparseMatrixLegacy_CSR_Light2 = Matrices::Legacy::CSR< Real, Device, Index, Matrices::Legacy::CSRLight2 >;
+
+template< typename Real, typename Device, typename Index >
+using SparseMatrixLegacy_CSR_Light3 = Matrices::Legacy::CSR< Real, Device, Index, Matrices::Legacy::CSRLight3 >;
+
+template< typename Real, typename Device, typename Index >
+using SparseMatrixLegacy_CSR_Light4 = Matrices::Legacy::CSR< Real, Device, Index, Matrices::Legacy::CSRLight4 >;
+
+template< typename Real, typename Device, typename Index >
+using SparseMatrixLegacy_CSR_Light5 = Matrices::Legacy::CSR< Real, Device, Index, Matrices::Legacy::CSRLight5 >;
+
+template< typename Real, typename Device, typename Index >
+using SparseMatrixLegacy_CSR_Light6 = Matrices::Legacy::CSR< Real, Device, Index, Matrices::Legacy::CSRLight6 >;
+
+template< typename Real, typename Device, typename Index >
 using SparseMatrixLegacy_CSR_Adaptive = Matrices::Legacy::CSR< Real, Device, Index, Matrices::Legacy::CSRAdaptive >;
 
 template< typename Real, typename Device, typename Index >
@@ -297,6 +312,11 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
    benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Scalar    >( benchmark, hostOutVector, inputFileName, verboseMR );
    benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Vector    >( benchmark, hostOutVector, inputFileName, verboseMR );
    benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Light     >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Light2     >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Light3     >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Light4     >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Light5     >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Light6     >( benchmark, hostOutVector, inputFileName, verboseMR );
    benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Adaptive  >( benchmark, hostOutVector, inputFileName, verboseMR );
    benchmarkSpMV< Real, SparseMatrixLegacy_CSR_MultiVector>( benchmark, hostOutVector, inputFileName, verboseMR );
    benchmarkSpMV< Real, SparseMatrixLegacy_CSR_LightWithoutAtomic>( benchmark, hostOutVector, inputFileName, verboseMR );
