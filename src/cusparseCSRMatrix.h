@@ -62,6 +62,9 @@ class CusparseCSRBase
       {
          TNL_ASSERT_TRUE( matrix, "matrix was not initialized" );
 #ifdef HAVE_CUDA
+#if CUDART_VERSION >= 11000
+         throw std::runtime_error("cusparseDcsrmv was removed in CUDA 11.");
+#else
          cusparseDcsrmv( *( this->cusparseHandle ),
                          CUSPARSE_OPERATION_NON_TRANSPOSE,
                          this->matrix->getRows(),
@@ -75,6 +78,7 @@ class CusparseCSRBase
                          inVector.getData(),
                          1.0,
                          outVector.getData() );
+#endif
 #endif
       }
 
@@ -104,8 +108,11 @@ class CusparseCSR< double > : public CusparseCSRBase< double >
                           OutVector& outVector ) const
       {
          TNL_ASSERT_TRUE( matrix, "matrix was not initialized" );
-#ifdef HAVE_CUDA  
-	 double d = 1.0;       
+#ifdef HAVE_CUDA
+#if CUDART_VERSION >= 11000
+         throw std::runtime_error("cusparseDcsrmv was removed in CUDA 11.");
+#else
+	 double d = 1.0;
          double* alpha = &d;
          cusparseDcsrmv( *( this->cusparseHandle ),
                          CUSPARSE_OPERATION_NON_TRANSPOSE,
@@ -120,7 +127,8 @@ class CusparseCSR< double > : public CusparseCSRBase< double >
                          inVector.getData(),
                          alpha,
                          outVector.getData() );
-#endif         
+#endif
+#endif
       }
 };
 
@@ -135,8 +143,11 @@ class CusparseCSR< float > : public CusparseCSRBase< float >
                           OutVector& outVector ) const
       {
          TNL_ASSERT_TRUE( matrix, "matrix was not initialized" );
-#ifdef HAVE_CUDA         
-         float d = 1.0;       
+#ifdef HAVE_CUDA
+#if CUDART_VERSION >= 11000
+         throw std::runtime_error("cusparseScsrmv was removed in CUDA 11.");
+#else
+         float d = 1.0;
          float* alpha = &d;
          cusparseScsrmv( *( this->cusparseHandle ),
                          CUSPARSE_OPERATION_NON_TRANSPOSE,
@@ -151,7 +162,8 @@ class CusparseCSR< float > : public CusparseCSRBase< float >
                          inVector.getData(),
                          alpha,
                          outVector.getData() );
-#endif         
+#endif
+#endif
       }
 };
 
