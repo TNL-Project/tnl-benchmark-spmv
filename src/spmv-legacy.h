@@ -19,11 +19,11 @@
 
 #include <TNL/Pointers/DevicePointer.h>
 #include <TNL/Matrices/Legacy/CSR.h>
-#include <TNL/Matrices/Legacy/Ellpack.h>
-#include <TNL/Matrices/Legacy/SlicedEllpack.h>
-#include <TNL/Matrices/Legacy/ChunkedEllpack.h>
+#include <Benchmarks/SpMV/ReferenceFormats/Legacy/Ellpack.h>
+#include <Benchmarks/SpMV/ReferenceFormats/Legacy/SlicedEllpack.h>
+#include <Benchmarks/SpMV/ReferenceFormats/Legacy/ChunkedEllpack.h>
 #include <TNL/Matrices/Legacy/AdEllpack.h>
-#include <TNL/Matrices/Legacy/BiEllpack.h>
+#include <Benchmarks/SpMV/ReferenceFormats/Legacy/BiEllpack.h>
 
 #include <TNL/Matrices/MatrixReader.h>
 #include <TNL/Matrices/MatrixInfo.h>
@@ -37,7 +37,7 @@
 #include <TNL/Algorithms/Segments/BiEllpack.h>
 using namespace TNL::Matrices;
 
-#include "cusparseCSRMatrix.h"
+#include <Benchmarks/SpMV/ReferenceFormats/cusparseCSRMatrix.h>
 
 namespace TNL {
    namespace Benchmarks {
