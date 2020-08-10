@@ -1,6 +1,6 @@
 if( BUILD_CUDA )
     CUDA_ADD_EXECUTABLE( tnl-benchmark-spmv tnl-benchmark-spmv.cu )
-    TARGET_LINK_LIBRARIES( tnl-benchmark-spmv ${CUDA_cusparse_LIBRARY} )
+    TARGET_LINK_LIBRARIES( tnl-benchmark-spmv ${CUDA_cusparse_LIBRARY} ${CUDA_cudadevrt_LIBRARY} )
 else()
     ADD_EXECUTABLE( tnl-benchmark-spmv tnl-benchmark-spmv.cpp )
 endif()

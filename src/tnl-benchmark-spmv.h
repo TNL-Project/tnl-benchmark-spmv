@@ -25,6 +25,7 @@
 #include <TNL/Matrices/MatrixReader.h>
 using namespace TNL::Matrices;
 
+#include <exception>
 #include <ctime> // Used for file naming, so logs don't get overwritten.
 
 using namespace TNL;
@@ -44,7 +45,12 @@ runSpMVBenchmarks( Benchmark & benchmark,
    benchmark.newBenchmark( String("Sparse matrix-vector multiplication (") + precision + ")",
                            metadata );
    // Start the actual benchmark in spmv.h
-   SpMVLegacy::benchmarkSpmvSynthetic< Real >( benchmark, inputFileName, verboseMR );
+   try {
+      SpMVLegacy::benchmarkSpmvSynthetic< Real >( benchmark, inputFileName, verboseMR );
+   }
+   catch( const std::exception& ex ) {
+      std::cerr << ex.what() << std::endl;
+   }
 }
 
 // Get current date time to have different log files names and avoid overwriting.
