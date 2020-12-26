@@ -94,6 +94,14 @@ void Ellpack< Real, Device, Index >::setCompressedRowLengths( ConstCompressedRow
 template< typename Real,
           typename Device,
           typename Index >
+void Ellpack< Real, Device, Index >::setRowCapacities( ConstCompressedRowLengthsVectorView rowLengths )
+{
+   setCompressedRowLengths( rowLengths );
+}
+
+template< typename Real,
+          typename Device,
+          typename Index >
 void Ellpack< Real, Device, Index >::getCompressedRowLengths( CompressedRowLengthsVectorView rowLengths ) const
 {
    TNL_ASSERT_EQ( rowLengths.getSize(), this->getRows(), "invalid size of the rowLengths vector" );

@@ -105,6 +105,16 @@ setCompressedRowLengths( ConstCompressedRowLengthsVectorView constRowLengths )
 }
 
 template< typename Real,
+	  typename Device,
+	  typename Index >
+void
+BiEllpack< Real, Device, Index >::
+setRowCapacities( ConstCompressedRowLengthsVectorView constRowLengths )
+{
+   setCompressedRowLengths( constRowLengths );
+}
+
+template< typename Real,
           typename Device,
           typename Index >
 void BiEllpack< Real, Device, Index >::getCompressedRowLengths( CompressedRowLengthsVectorView rowLengths ) const
