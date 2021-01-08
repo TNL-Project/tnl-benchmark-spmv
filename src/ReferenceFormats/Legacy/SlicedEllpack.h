@@ -91,6 +91,8 @@ public:
 
    void setCompressedRowLengths( ConstCompressedRowLengthsVectorView rowLengths );
 
+   void setRowCapacities( ConstCompressedRowLengthsVectorView rowLengths );
+
    void getCompressedRowLengths( CompressedRowLengthsVectorView rowLengths ) const;
 
    IndexType getRowLength( const IndexType row ) const;

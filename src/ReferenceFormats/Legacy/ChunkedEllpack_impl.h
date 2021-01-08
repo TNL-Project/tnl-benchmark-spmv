@@ -248,6 +248,14 @@ void ChunkedEllpack< Real, Device, Index >::setCompressedRowLengths( ConstCompre
 template< typename Real,
           typename Device,
           typename Index >
+void ChunkedEllpack< Real, Device, Index >::setRowCapacities( ConstCompressedRowLengthsVectorView rowLengths )
+{
+   setCompressedRowLengths( rowLengths );
+}
+
+template< typename Real,
+          typename Device,
+          typename Index >
 Index ChunkedEllpack< Real, Device, Index >::getRowLength( const IndexType row ) const
 {
    const IndexType& sliceIndex = rowToSliceMapping.getElement( row );
