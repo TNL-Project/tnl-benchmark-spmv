@@ -49,7 +49,7 @@ using SlicedEllpackAlias = Matrices::Legacy::SlicedEllpack< Real, Device, Index 
 
 // Segments based sparse matrix aliases
 template< typename Real, typename Device, typename Index >
-using SparseMatrix_CSR = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, Algorithms::Segments::CSR >;
+using SparseMatrix_CSR = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, Algorithms::Segments::CSRDefault >;
 
 template< typename Device, typename Index, typename IndexAllocator >
 using EllpackSegments = Algorithms::Segments::Ellpack< Device, Index, IndexAllocator >;
