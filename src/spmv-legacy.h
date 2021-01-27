@@ -49,7 +49,16 @@ using SlicedEllpackAlias = Matrices::Legacy::SlicedEllpack< Real, Device, Index 
 
 // Segments based sparse matrix aliases
 template< typename Real, typename Device, typename Index >
-using SparseMatrix_CSR = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, Algorithms::Segments::CSR >;
+using SparseMatrix_CSR_Scalar = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, Algorithms::Segments::CSRScalar >;
+
+template< typename Real, typename Device, typename Index >
+using SparseMatrix_CSR_Vector = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, Algorithms::Segments::CSRVector >;
+
+template< typename Real, typename Device, typename Index >
+using SparseMatrix_CSR_Hybrid = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, Algorithms::Segments::CSRHybrid >;
+
+template< typename Real, typename Device, typename Index >
+using SparseMatrix_CSR_Adaptive = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, Algorithms::Segments::CSRAdaptive >;
 
 template< typename Device, typename Index, typename IndexAllocator >
 using EllpackSegments = Algorithms::Segments::Ellpack< Device, Index, IndexAllocator >;
@@ -309,26 +318,29 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
    benchmark.time< Devices::Cuda >( resetCusparseVectors, "GPU", spmvCusparse, cusparseBenchmarkResults );
 #endif
 
-   benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Scalar    >( benchmark, hostOutVector, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Vector    >( benchmark, hostOutVector, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Light     >( benchmark, hostOutVector, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Light2     >( benchmark, hostOutVector, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Light3     >( benchmark, hostOutVector, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Light4     >( benchmark, hostOutVector, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Light5     >( benchmark, hostOutVector, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Light6     >( benchmark, hostOutVector, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Adaptive  >( benchmark, hostOutVector, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SparseMatrixLegacy_CSR_MultiVector>( benchmark, hostOutVector, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SparseMatrixLegacy_CSR_LightWithoutAtomic>( benchmark, hostOutVector, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SparseMatrix_CSR                 >( benchmark, hostOutVector, inputFileName, verboseMR );
-   benchmarkSpMV< Real, Matrices::Legacy::Ellpack        >( benchmark, hostOutVector, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SparseMatrix_Ellpack             >( benchmark, hostOutVector, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SlicedEllpackAlias               >( benchmark, hostOutVector, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SparseMatrix_SlicedEllpack       >( benchmark, hostOutVector, inputFileName, verboseMR );
-   benchmarkSpMV< Real, Matrices::Legacy::ChunkedEllpack >( benchmark, hostOutVector, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SparseMatrix_ChunkedEllpack      >( benchmark, hostOutVector, inputFileName, verboseMR );
-   benchmarkSpMV< Real, Matrices::Legacy::BiEllpack      >( benchmark, hostOutVector, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SparseMatrix_BiEllpack           >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Scalar             >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Vector             >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Light              >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Light2             >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Light3             >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Light4             >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Light5             >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Light6             >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Adaptive           >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrixLegacy_CSR_MultiVector        >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrixLegacy_CSR_LightWithoutAtomic >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrix_CSR_Scalar                   >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrix_CSR_Vector                   >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrix_CSR_Hybrid                   >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrix_CSR_Adaptive                 >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, Matrices::Legacy::Ellpack                 >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrix_Ellpack                      >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SlicedEllpackAlias                        >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrix_SlicedEllpack                >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, Matrices::Legacy::ChunkedEllpack          >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrix_ChunkedEllpack               >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, Matrices::Legacy::BiEllpack               >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, SparseMatrix_BiEllpack                    >( benchmark, hostOutVector, inputFileName, verboseMR );
    /* AdEllpack is broken
    benchmarkSpMV< Real, Matrices::AdEllpack              >( benchmark, hostOutVector, inputFileName, verboseMR );
     */
