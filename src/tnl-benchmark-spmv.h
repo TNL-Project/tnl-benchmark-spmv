@@ -63,7 +63,6 @@ std::string getCurrDateTime()
    timeinfo = localtime( &rawtime );
    strftime( buffer, sizeof( buffer ), "%d-%m-%Y--%H:%M:%S", timeinfo );
    std::string curr_date_time( buffer );
-   
    return curr_date_time;
 }
 
@@ -133,8 +132,7 @@ main( int argc, char* argv[] )
 
    // prepare global metadata
    Benchmark::MetadataMap metadata = getHardwareMetadata();
-   
-   
+
    // Initiate setup of benchmarks
    if( precision == "all" || precision == "float" )
       runSpMVBenchmarks< float >( benchmark, metadata, inputFileName, verboseMR );
