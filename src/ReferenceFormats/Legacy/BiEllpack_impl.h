@@ -74,9 +74,9 @@ template< typename Real,
 	  typename Index >
 void
 BiEllpack< Real, Device, Index >::
-setCompressedRowLengths( ConstCompressedRowLengthsVectorView constRowLengths )
+setCompressedRowLengths( ConstRowsCapacitiesTypeView constRowLengths )
 {
-    CompressedRowLengthsVector rowLengths;
+    RowsCapacitiesType rowLengths;
     rowLengths.reset();
     rowLengths.setLike( constRowLengths );
 
@@ -109,7 +109,7 @@ template< typename Real,
 	  typename Index >
 void
 BiEllpack< Real, Device, Index >::
-setRowCapacities( ConstCompressedRowLengthsVectorView constRowLengths )
+setRowCapacities( ConstRowsCapacitiesTypeView constRowLengths )
 {
    setCompressedRowLengths( constRowLengths );
 }
@@ -117,7 +117,7 @@ setRowCapacities( ConstCompressedRowLengthsVectorView constRowLengths )
 template< typename Real,
           typename Device,
           typename Index >
-void BiEllpack< Real, Device, Index >::getCompressedRowLengths( CompressedRowLengthsVectorView rowLengths ) const
+void BiEllpack< Real, Device, Index >::getCompressedRowLengths( RowsCapacitiesTypeView rowLengths ) const
 {
    TNL_ASSERT_EQ( rowLengths.getSize(), this->getRows(), "invalid size of the rowLengths vector" );
    for( IndexType row = 0; row < this->getRows(); row++ )
@@ -254,7 +254,7 @@ bool BiEllpack< Real, Device, Index >::operator != ( const BiEllpack< Real2, Dev
 template< typename Real,
 		  typename Device,
 		  typename Index >
-void BiEllpack< Real, Device, Index >::getRowLengths( CompressedRowLengthsVector& rowLengths) const
+void BiEllpack< Real, Device, Index >::getRowLengths( RowsCapacitiesType& rowLengths) const
 {
     // WHAT IS THIS??!
     // It's called getRowLengths, but takes an argument that it fill up with this matrix's row lengths???
@@ -918,7 +918,7 @@ public:
 	template< typename Real,
 			  typename Index >
 	static void verifyRowLengths( const BiEllpack< Real, Device, Index >& matrix,
-                                      const typename BiEllpack< Real, Device, Index >::CompressedRowLengthsVector& rowLengths )
+                                      const typename BiEllpack< Real, Device, Index >::RowsCapacitiesType& rowLengths )
 	{
 		bool ok = true;
 		for( Index row = 0; row < matrix.getRows(); row++ )
@@ -955,7 +955,7 @@ public:
 	template< typename Real,
 			  typename Index >
 	static void verifyRowPerm( const BiEllpack< Real, Device, Index >& matrix,
-                                   const typename BiEllpack< Real, Device, Index >::CompressedRowLengthsVector& rowLengths )
+                                   const typename BiEllpack< Real, Device, Index >::RowsCapacitiesType& rowLengths )
 	{
 		bool ok = true;
 		Index numberOfStrips = matrix.virtualRows / matrix.warpSize;
@@ -1011,7 +1011,7 @@ public:
 	template< typename Real,
 			  typename Index >
 	static void computeColumnSizes( BiEllpack< Real, Device, Index >& matrix,
-			 	 	const typename BiEllpack< Real, Device, Index >::CompressedRowLengthsVector& rowLengths )
+			 	 	const typename BiEllpack< Real, Device, Index >::RowsCapacitiesType& rowLengths )
 	{
 		Index numberOfStrips = matrix.virtualRows / matrix.warpSize;
 		for( Index strip = 0; strip < numberOfStrips; strip++ )
@@ -1056,7 +1056,7 @@ public:
 	template< typename Real,
 			  typename Index >
 	static void performRowBubbleSort( BiEllpack< Real, Device, Index >& matrix,
-					  const typename BiEllpack< Real, Device, Index >::CompressedRowLengthsVector& rowLengths
+					  const typename BiEllpack< Real, Device, Index >::RowsCapacitiesType& rowLengths
 					/*Containers::Vector< Index, Device, Index >& tempRowLengths*/ )
 	{
 		Index strips = matrix.virtualRows / matrix.warpSize;
@@ -1194,7 +1194,7 @@ template< typename Real,
           typename Device,
           typename Index >
 __cuda_callable__
-void BiEllpack< Real, Device, Index >::performRowBubbleSortCudaKernel( const typename BiEllpack< Real, Device, Index >::CompressedRowLengthsVector& rowLengths,
+void BiEllpack< Real, Device, Index >::performRowBubbleSortCudaKernel( const typename BiEllpack< Real, Device, Index >::RowsCapacitiesType& rowLengths,
 										  const IndexType strip )
 {
     IndexType begin = strip * this->warpSize;
@@ -1250,7 +1250,7 @@ template< typename Real,
           typename Device,
           typename Index >
 __cuda_callable__
-void BiEllpack< Real, Device, Index >::computeColumnSizesCudaKernel( const typename BiEllpack< Real, Device, Index >::CompressedRowLengthsVector& rowLengths,
+void BiEllpack< Real, Device, Index >::computeColumnSizesCudaKernel( const typename BiEllpack< Real, Device, Index >::RowsCapacitiesType& rowLengths,
 										const IndexType numberOfStrips,
 										const IndexType strip )
 {
@@ -1298,7 +1298,7 @@ template< typename Real,
           typename Index >
 __global__
 void performRowBubbleSortCuda( BiEllpack< Real, Devices::Cuda, Index >* matrix,
-                               const typename BiEllpack< Real, Devices::Cuda, Index >::CompressedRowLengthsVector* rowLengths,
+                               const typename BiEllpack< Real, Devices::Cuda, Index >::RowsCapacitiesType* rowLengths,
                                int gridIdx )
 {
 	const Index stripIdx = gridIdx * Cuda::getMaxGridSize() * blockDim.x + blockIdx.x * blockDim.x + threadIdx.x;
@@ -1311,7 +1311,7 @@ template< typename Real,
           typename Index >
 __global__
 void computeColumnSizesCuda( BiEllpack< Real, Devices::Cuda, Index >* matrix,
-                             const typename BiEllpack< Real, Devices::Cuda, Index >::CompressedRowLengthsVector* rowLengths,
+                             const typename BiEllpack< Real, Devices::Cuda, Index >::RowsCapacitiesType* rowLengths,
                              const Index numberOfStrips,
                              int gridIdx )
 {
@@ -1330,7 +1330,7 @@ public:
 	template< typename Real,
 		  typename Index >
 	static void verifyRowLengths( const BiEllpack< Real, Device, Index >& matrix,
-                                      const typename BiEllpack< Real, Device, Index >::CompressedRowLengthsVector& rowLengths )
+                                      const typename BiEllpack< Real, Device, Index >::RowsCapacitiesType& rowLengths )
 	{
 		bool ok = true;
 		for( Index row = 0; row < matrix.getRows(); row++ )
@@ -1368,7 +1368,7 @@ public:
 	template< typename Real,
 			  typename Index >
 	static void verifyRowPerm( const BiEllpack< Real, Device, Index >& matrix,
-                                   const typename BiEllpack< Real, Device, Index >::CompressedRowLengthsVector& rowLengths )
+                                   const typename BiEllpack< Real, Device, Index >::RowsCapacitiesType& rowLengths )
 	{
 		bool ok = true;
 		Index numberOfStrips = matrix.virtualRows / matrix.warpSize;
@@ -1413,14 +1413,14 @@ public:
 	template< typename Real,
 			  typename Index >
 	static void performRowBubbleSort( BiEllpack< Real, Device, Index >& matrix,
-                                          const typename BiEllpack< Real, Device, Index >::CompressedRowLengthsVector& rowLengths )
+                                          const typename BiEllpack< Real, Device, Index >::RowsCapacitiesType& rowLengths )
 	{
 #ifdef HAVE_CUDA
 		Index numberOfStrips = matrix.virtualRows / matrix.warpSize;
 		typedef BiEllpack< Real, Devices::Cuda, Index > Matrix;
-		typedef typename Matrix::CompressedRowLengthsVector CompressedRowLengthsVector;
+		typedef typename Matrix::RowsCapacitiesType RowsCapacitiesType;
 		Matrix* kernel_this = Cuda::passToDevice( matrix );
-		CompressedRowLengthsVector* kernel_rowLengths = Cuda::passToDevice( rowLengths );
+		RowsCapacitiesType* kernel_rowLengths = Cuda::passToDevice( rowLengths );
 		dim3 cudaBlockSize( 256 ), cudaGridSize( Cuda::getMaxGridSize() );
 		const Index cudaBlocks = roundUpDivision( numberOfStrips, cudaBlockSize.x );
 		const Index cudaGrids = roundUpDivision( cudaBlocks, Cuda::getMaxGridSize() );
@@ -1443,14 +1443,14 @@ public:
 	template< typename Real,
 			  typename Index >
 	static void computeColumnSizes( BiEllpack< Real, Device, Index >& matrix,
-			 	 	const typename BiEllpack< Real, Device, Index >::CompressedRowLengthsVector& rowLengths )
+			 	 	const typename BiEllpack< Real, Device, Index >::RowsCapacitiesType& rowLengths )
 	{
 #ifdef HAVE_CUDA
 		const Index numberOfStrips = matrix.virtualRows / matrix.warpSize;
 		typedef BiEllpack< Real, Devices::Cuda, Index > Matrix;
-		typedef typename Matrix::CompressedRowLengthsVector CompressedRowLengthsVector;
+		typedef typename Matrix::RowsCapacitiesType RowsCapacitiesType;
 		Matrix* kernel_this = Cuda::passToDevice( matrix );
-		CompressedRowLengthsVector* kernel_rowLengths = Cuda::passToDevice( rowLengths );
+		RowsCapacitiesType* kernel_rowLengths = Cuda::passToDevice( rowLengths );
 		dim3 cudaBlockSize( 256 ), cudaGridSize( Cuda::getMaxGridSize() );
 		const Index cudaBlocks = roundUpDivision( numberOfStrips, cudaBlockSize.x );
 		const Index cudaGrids = roundUpDivision( cudaBlocks, Cuda::getMaxGridSize() );

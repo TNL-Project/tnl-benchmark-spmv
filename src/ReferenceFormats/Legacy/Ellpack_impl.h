@@ -80,7 +80,7 @@ void Ellpack< Real, Device, Index >::setDimensions( const IndexType rows,
 template< typename Real,
           typename Device,
           typename Index >
-void Ellpack< Real, Device, Index >::setCompressedRowLengths( ConstCompressedRowLengthsVectorView rowLengths )
+void Ellpack< Real, Device, Index >::setCompressedRowLengths( ConstRowsCapacitiesTypeView rowLengths )
 {
    TNL_ASSERT_GT( this->getRows(), 0, "cannot set row lengths of an empty matrix" );
    TNL_ASSERT_GT( this->getColumns(), 0, "cannot set row lengths of an empty matrix" );
@@ -94,7 +94,7 @@ void Ellpack< Real, Device, Index >::setCompressedRowLengths( ConstCompressedRow
 template< typename Real,
           typename Device,
           typename Index >
-void Ellpack< Real, Device, Index >::setRowCapacities( ConstCompressedRowLengthsVectorView rowLengths )
+void Ellpack< Real, Device, Index >::setRowCapacities( ConstRowsCapacitiesTypeView rowLengths )
 {
    setCompressedRowLengths( rowLengths );
 }
@@ -102,7 +102,7 @@ void Ellpack< Real, Device, Index >::setRowCapacities( ConstCompressedRowLengths
 template< typename Real,
           typename Device,
           typename Index >
-void Ellpack< Real, Device, Index >::getCompressedRowLengths( CompressedRowLengthsVectorView rowLengths ) const
+void Ellpack< Real, Device, Index >::getCompressedRowLengths( RowsCapacitiesTypeView rowLengths ) const
 {
    TNL_ASSERT_EQ( rowLengths.getSize(), this->getRows(), "invalid size of the rowLengths vector" );
    for( IndexType row = 0; row < this->getRows(); row++ )
