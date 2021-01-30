@@ -18,11 +18,11 @@
 #include "SpmvBenchmarkResult.h"
 
 #include <TNL/Pointers/DevicePointer.h>
-#include <TNL/Matrices/Legacy/CSR.h>
+#include <Benchmarks/SpMV/ReferenceFormats/Legacy/CSR.h>
 #include <Benchmarks/SpMV/ReferenceFormats/Legacy/Ellpack.h>
 #include <Benchmarks/SpMV/ReferenceFormats/Legacy/SlicedEllpack.h>
 #include <Benchmarks/SpMV/ReferenceFormats/Legacy/ChunkedEllpack.h>
-#include <TNL/Matrices/Legacy/AdEllpack.h>
+#include <Benchmarks/SpMV/ReferenceFormats/Legacy/AdEllpack.h>
 #include <Benchmarks/SpMV/ReferenceFormats/Legacy/BiEllpack.h>
 
 #include <TNL/Matrices/MatrixReader.h>
@@ -45,7 +45,7 @@ namespace TNL {
 
 // Alias to match the number of template parameters with other formats
 template< typename Real, typename Device, typename Index >
-using SlicedEllpackAlias = Matrices::Legacy::SlicedEllpack< Real, Device, Index >;
+using SlicedEllpackAlias = Benchmarks::SpMV::ReferenceFormats::Legacy::SlicedEllpack< Real, Device, Index >;
 
 // Segments based sparse matrix aliases
 template< typename Real, typename Device, typename Index >
@@ -86,37 +86,37 @@ using SparseMatrix_BiEllpack = Matrices::SparseMatrix< Real, Device, Index, Matr
 
 // Legacy formats
 template< typename Real, typename Device, typename Index >
-using SparseMatrixLegacy_CSR_Scalar = Matrices::Legacy::CSR< Real, Device, Index, Matrices::Legacy::CSRScalar >;
+using SparseMatrixLegacy_CSR_Scalar = Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRScalar >;
 
 template< typename Real, typename Device, typename Index >
-using SparseMatrixLegacy_CSR_Vector = Matrices::Legacy::CSR< Real, Device, Index, Matrices::Legacy::CSRVector >;
+using SparseMatrixLegacy_CSR_Vector = Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRVector >;
 
 template< typename Real, typename Device, typename Index >
-using SparseMatrixLegacy_CSR_Light = Matrices::Legacy::CSR< Real, Device, Index, Matrices::Legacy::CSRLight >;
+using SparseMatrixLegacy_CSR_Light = Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRLight >;
 
 template< typename Real, typename Device, typename Index >
-using SparseMatrixLegacy_CSR_Light2 = Matrices::Legacy::CSR< Real, Device, Index, Matrices::Legacy::CSRLight2 >;
+using SparseMatrixLegacy_CSR_Light2 = Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRLight2 >;
 
 template< typename Real, typename Device, typename Index >
-using SparseMatrixLegacy_CSR_Light3 = Matrices::Legacy::CSR< Real, Device, Index, Matrices::Legacy::CSRLight3 >;
+using SparseMatrixLegacy_CSR_Light3 = Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRLight3 >;
 
 template< typename Real, typename Device, typename Index >
-using SparseMatrixLegacy_CSR_Light4 = Matrices::Legacy::CSR< Real, Device, Index, Matrices::Legacy::CSRLight4 >;
+using SparseMatrixLegacy_CSR_Light4 = Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRLight4 >;
 
 template< typename Real, typename Device, typename Index >
-using SparseMatrixLegacy_CSR_Light5 = Matrices::Legacy::CSR< Real, Device, Index, Matrices::Legacy::CSRLight5 >;
+using SparseMatrixLegacy_CSR_Light5 = Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRLight5 >;
 
 template< typename Real, typename Device, typename Index >
-using SparseMatrixLegacy_CSR_Light6 = Matrices::Legacy::CSR< Real, Device, Index, Matrices::Legacy::CSRLight6 >;
+using SparseMatrixLegacy_CSR_Light6 = Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRLight6 >;
 
 template< typename Real, typename Device, typename Index >
-using SparseMatrixLegacy_CSR_Adaptive = Matrices::Legacy::CSR< Real, Device, Index, Matrices::Legacy::CSRAdaptive >;
+using SparseMatrixLegacy_CSR_Adaptive = Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRAdaptive >;
 
 template< typename Real, typename Device, typename Index >
-using SparseMatrixLegacy_CSR_MultiVector = Matrices::Legacy::CSR< Real, Device, Index, Matrices::Legacy::CSRMultiVector >;
+using SparseMatrixLegacy_CSR_MultiVector = Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRMultiVector >;
 
 template< typename Real, typename Device, typename Index >
-using SparseMatrixLegacy_CSR_LightWithoutAtomic = Matrices::Legacy::CSR< Real, Device, Index, Matrices::Legacy::CSRLightWithoutAtomic >;
+using SparseMatrixLegacy_CSR_LightWithoutAtomic = Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRLightWithoutAtomic >;
 
 // Get the name (with extension) of input matrix file
 std::string getMatrixFileName( const String& InputFileName )
@@ -239,8 +239,8 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
                         const String& inputFileName,
                         bool verboseMR )
 {
-   using CSRHostMatrix = Matrices::Legacy::CSR< Real, Devices::Host, int >;
-   using CSRCudaMatrix = Matrices::Legacy::CSR< Real, Devices::Cuda, int >;
+   using CSRHostMatrix = Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Devices::Host, int >;
+   using CSRCudaMatrix = Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Devices::Cuda, int >;
    using HostVector = Containers::Vector< Real, Devices::Host, int >;
    using CudaVector = Containers::Vector< Real, Devices::Cuda, int >;
 
@@ -318,6 +318,7 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
    benchmark.time< Devices::Cuda >( resetCusparseVectors, "GPU", spmvCusparse, cusparseBenchmarkResults );
 #endif
 
+   using namespace Benchmarks::SpMV::ReferenceFormats;
    benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Scalar             >( benchmark, hostOutVector, inputFileName, verboseMR );
    benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Vector             >( benchmark, hostOutVector, inputFileName, verboseMR );
    benchmarkSpMV< Real, SparseMatrixLegacy_CSR_Light              >( benchmark, hostOutVector, inputFileName, verboseMR );
@@ -333,13 +334,13 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
    benchmarkSpMV< Real, SparseMatrix_CSR_Vector                   >( benchmark, hostOutVector, inputFileName, verboseMR );
    benchmarkSpMV< Real, SparseMatrix_CSR_Hybrid                   >( benchmark, hostOutVector, inputFileName, verboseMR );
    benchmarkSpMV< Real, SparseMatrix_CSR_Adaptive                 >( benchmark, hostOutVector, inputFileName, verboseMR );
-   benchmarkSpMV< Real, Matrices::Legacy::Ellpack                 >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, Legacy::Ellpack                           >( benchmark, hostOutVector, inputFileName, verboseMR );
    benchmarkSpMV< Real, SparseMatrix_Ellpack                      >( benchmark, hostOutVector, inputFileName, verboseMR );
    benchmarkSpMV< Real, SlicedEllpackAlias                        >( benchmark, hostOutVector, inputFileName, verboseMR );
    benchmarkSpMV< Real, SparseMatrix_SlicedEllpack                >( benchmark, hostOutVector, inputFileName, verboseMR );
-   benchmarkSpMV< Real, Matrices::Legacy::ChunkedEllpack          >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, Legacy::ChunkedEllpack                    >( benchmark, hostOutVector, inputFileName, verboseMR );
    benchmarkSpMV< Real, SparseMatrix_ChunkedEllpack               >( benchmark, hostOutVector, inputFileName, verboseMR );
-   benchmarkSpMV< Real, Matrices::Legacy::BiEllpack               >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, Legacy::BiEllpack                         >( benchmark, hostOutVector, inputFileName, verboseMR );
    benchmarkSpMV< Real, SparseMatrix_BiEllpack                    >( benchmark, hostOutVector, inputFileName, verboseMR );
    /* AdEllpack is broken
    benchmarkSpMV< Real, Matrices::AdEllpack              >( benchmark, hostOutVector, inputFileName, verboseMR );

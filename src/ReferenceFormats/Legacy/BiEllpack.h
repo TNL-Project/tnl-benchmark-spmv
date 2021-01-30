@@ -22,8 +22,10 @@
 #include <TNL/Containers/Vector.h>
 
 namespace TNL {
-   namespace Matrices {
-      namespace Legacy {
+    namespace Benchmarks {
+        namespace SpMV {
+            namespace ReferenceFormats {
+      			namespace Legacy {
 
 
 template< typename Device >
@@ -219,8 +221,10 @@ private:
 	Containers::Vector< Index, Device, Index > groupPointers;
 
 };
-      } //namespace Legacy
-   } //namespace Matrices
+      			} //namespace Legacy
+            } //namespace ReferenceFormats
+        } //namespace SpMV
+    } //namespace Benchmarks
 } // namespace TNL
 
 #include <Benchmarks/SpMV/ReferenceFormats/Legacy/BiEllpack_impl.h>
