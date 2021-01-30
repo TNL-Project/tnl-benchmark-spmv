@@ -50,6 +50,8 @@ public:
              typename _Index = Index >
    using Self = Multidiagonal< _Real, _Device, _Index >;
 
+   static constexpr bool isSymmetric() { return false; };
+
    Multidiagonal();
 
    static String getSerializationType();

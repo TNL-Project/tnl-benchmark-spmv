@@ -104,8 +104,8 @@ public:
    using Self = CSR< _Real, _Device, _Index >;
 
    constexpr CSRKernel getSpMVKernelType() { return KernelType; };
-   //enum SPMVCudaKernel { scalar, vector, hybrid };
 
+   static constexpr bool isSymmetric() { return false; };
 
    Containers::Vector< Block<Index>, Device, Index > blocks;
 
