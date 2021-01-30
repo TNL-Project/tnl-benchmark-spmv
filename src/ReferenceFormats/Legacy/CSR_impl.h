@@ -112,7 +112,7 @@ void CSR< Real, Device, Index, KernelType >::setCompressedRowLengths( ConstRowsC
    this->columnIndexes.setSize( this->rowPointers.getElement( this->rows ) );
    this->columnIndexes.setValue( this->columns );
 
-   if (KernelType == CSRAdaptive && this->blocks.empty())
+   if( KernelType == CSRAdaptive )
       this->setBlocks();
 }
 
@@ -171,17 +171,22 @@ void CSR< Real, Device, Index, KernelType >::setBlocks()
    std::vector<Block<Index>> inBlock;
    inBlock.reserve(rows); // reserve space to avoid reallocation
 
-   while (nextStart != rows - 1) {
+   while (nextStart != rows - 1)
+   {
       Type type;
       nextStart = findLimit<Real, Index, Device, KernelType>(
          start, *this, rows, type, sum
       );
-      if (type == Type::LONG) {
+      if (type == Type::LONG)
+      {
          Index parts = roundUpDivision(sum, this->SHARED_PER_WARP);
-         for (Index index = 0; index < parts; ++index) {
+         for (Index index = 0; index < parts; ++index)
+         {
             inBlock.emplace_back(start, Type::LONG, index);
          }
-      } else {
+      }
+      else
+      {
          inBlock.emplace_back(start, type,
             nextStart,
             this->rowPointers.getElement(nextStart),
@@ -194,9 +199,10 @@ void CSR< Real, Device, Index, KernelType >::setBlocks()
    inBlock.emplace_back(nextStart);
 
    /* Copy values */
-   this->blocks.setSize(inBlock.size());
+   this->blocks = inBlock;
+   /*this->blocks.setSize(inBlock.size());
    for (size_t i = 0; i < inBlock.size(); ++i)
-      this->blocks.setElement(i, inBlock[i]);
+      this->blocks.setElement(i, inBlock[i]);*/
 }
 
 template< typename Real,
@@ -693,7 +699,8 @@ CSR< Real, Device, Index, KernelType >::operator=( const CSR< Real2, Device2, In
    this->values = matrix.values;
    this->columnIndexes = matrix.columnIndexes;
    this->rowPointers = matrix.rowPointers;
-   this->blocks = matrix.blocks;
+   if( KernelType == CSRAdaptive )
+      this->setBlocks();
    return *this;
 }
 
@@ -881,7 +888,9 @@ void SpMVCSRAdaptive( const Real *inVector,
       maxID = rowPointers[block.index[0]/* minRow */ + 1];
       if (to > maxID) to = maxID;
       for (i = minID + offset + laneID; i < to; i += warpSize)
+      {
          result += values[i] * inVector[columnIndexes[i]];
+      }
 
       /* Parallel reduction */
       result += __shfl_down_sync(0xFFFFFFFF, result, 16);
