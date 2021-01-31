@@ -250,7 +250,7 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
    ////
    // Set-up benchmark datasize
    //
-   MatrixReader< CSRHostMatrix >::readMtxFile( inputFileName, csrHostMatrix, verboseMR );
+   MatrixReader< CSRHostMatrix >::readMtx( inputFileName, csrHostMatrix, verboseMR );
    const int elements = csrHostMatrix.getNumberOfNonzeroMatrixElements();
    const double datasetSize = (double) elements * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
    benchmark.setOperation( datasetSize );
