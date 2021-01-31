@@ -24,8 +24,8 @@
 #include <Benchmarks/SpMV/ReferenceFormats/Legacy/ChunkedEllpack.h>
 #include <Benchmarks/SpMV/ReferenceFormats/Legacy/AdEllpack.h>
 #include <Benchmarks/SpMV/ReferenceFormats/Legacy/BiEllpack.h>
+#include <Benchmarks/SpMV/ReferenceFormats/Legacy/LegacyMatrixReader.h>
 
-#include <TNL/Matrices/MatrixReader.h>
 #include <TNL/Matrices/MatrixInfo.h>
 
 #include <TNL/Matrices/SparseMatrix.h>
@@ -181,7 +181,7 @@ benchmarkSpMV( Benchmark& benchmark,
    HostMatrix hostMatrix;
    CudaMatrix cudaMatrix;
 
-   MatrixReader< HostMatrix >::readMtxFile( inputFileName, hostMatrix, verboseMR );
+   SpMV::ReferenceFormats::Legacy::LegacyMatrixReader< HostMatrix >::readMtxFile( inputFileName, hostMatrix, verboseMR );
 
    benchmark.setMetadataColumns( Benchmark::MetadataColumns({
          { "matrix name", convertToString( inputFileName ) },
