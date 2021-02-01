@@ -173,8 +173,8 @@ benchmarkSpMVLegacy( Benchmark& benchmark,
                      const String& inputFileName,
                      bool verboseMR )
 {
-   using HostMatrix = Matrix< Real, Devices::Host, int >;
-   using CudaMatrix = Matrix< Real, Devices::Cuda, int >;
+   using HostMatrix = Matrix< Real, TNL::Devices::Host, int >;
+   using CudaMatrix = Matrix< Real, TNL::Devices::Cuda, int >;
    using HostVector = Containers::Vector< Real, Devices::Host, int >;
    using CudaVector = Containers::Vector< Real, Devices::Cuda, int >;
 
@@ -322,8 +322,8 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
 
    /////
    // Benchmarking TNL formats
-   /*benchmarkSpMV< Real, SparseMatrix_CSR_Scalar                   >( benchmark, hostOutVector, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SparseMatrix_CSR_Vector                   >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMVLegacy< Real, SparseMatrix_CSR_Scalar                   >( benchmark, hostOutVector, inputFileName, verboseMR );
+   /*benchmarkSpMV< Real, SparseMatrix_CSR_Vector                   >( benchmark, hostOutVector, inputFileName, verboseMR );
    benchmarkSpMV< Real, SparseMatrix_CSR_Hybrid                   >( benchmark, hostOutVector, inputFileName, verboseMR );
    benchmarkSpMV< Real, SparseMatrix_CSR_Adaptive                 >( benchmark, hostOutVector, inputFileName, verboseMR );
    benchmarkSpMV< Real, SparseMatrix_Ellpack                      >( benchmark, hostOutVector, inputFileName, verboseMR );

@@ -18,8 +18,6 @@
 #include <TNL/Devices/Cuda.h>
 #include <TNL/Config/parseCommandLine.h>
 
-#include <Benchmarks/BLAS/array-operations.h>
-#include <Benchmarks/BLAS/vector-operations.h>
 #include "spmv-legacy.h"
 
 #include <TNL/Matrices/MatrixReader.h>
