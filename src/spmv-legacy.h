@@ -38,6 +38,7 @@
 using namespace TNL::Matrices;
 
 #include <Benchmarks/SpMV/ReferenceFormats/cusparseCSRMatrix.h>
+#include <Benchmarks/SpMV/ReferenceFormats/cusparseCSRMatrixLegacy.h>
 
 namespace TNL {
    namespace Benchmarks {
@@ -240,9 +241,27 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
                         const Config::ParameterContainer& parameters,
                         bool verboseMR )
 {
+   // The following is another workaround because of a bug in nvcc versions 10 and 11.
+   // If we use the current matrix formats, not the legacy ones, we get
+   // ' error: redefinition of ‘void TNL::Algorithms::__wrapper__device_stub_CudaReductionKernel...'
+   // It seems that there is a problem with lambda functions identification when we create
+   // two instances of TNL::Matrices::SparseMatrix. The second one comes from calling of
+   // `benchmarkSpMV< Real, SparseMatrix_CSR_Scalar >( benchmark, hostOutVector, inputFileName, verboseMR );`
+   // and simillar later in this function. Maybe splitting this function into two might help.
+#define USE_LEGACY_FORMATS
+#ifdef USE_LEGACY_FORMATS
+   // Here we use 'int' instead of 'Index' because of compatibility with cusparse.
+   using CSRHostMatrix = SpMV::ReferenceFormats::Legacy::CSR< Real, Devices::Host, int >;
+   using CSRCudaMatrix = SpMV::ReferenceFormats::Legacy::CSR< Real, Devices::Cuda, int >;
+   using CusparseMatrix = TNL::CusparseCSRLegacy< Real >;
+#else
    // Here we use 'int' instead of 'Index' because of compatibility with cusparse.
    using CSRHostMatrix = TNL::Matrices::SparseMatrix< Real, TNL::Devices::Host, int >;
    using CSRCudaMatrix = TNL::Matrices::SparseMatrix< Real, TNL::Devices::Cuda, int >;
+   using CusparseMatrix = TNL::CusparseCSR< Real >;
+#endif
+
+
    using HostVector = Containers::Vector< Real, Devices::Host, int >;
    using CudaVector = Containers::Vector< Real, Devices::Cuda, int >;
 
@@ -302,7 +321,7 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
    // Delete the CSRhostMatrix, so it doesn't take up unnecessary space
    csrHostMatrix.reset();
 
-   TNL::CusparseCSR< Real > cusparseMatrix;
+   CusparseMatrix cusparseMatrix;
    cusparseMatrix.init( csrCudaMatrix, &cusparseHandle );
 
    CudaVector cusparseInVector( csrCudaMatrix.getColumns() ), cusparseOutVector( csrCudaMatrix.getRows() );
@@ -323,14 +342,14 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
    /////
    // Benchmarking TNL formats
    benchmarkSpMVLegacy< Real, SparseMatrix_CSR_Scalar                   >( benchmark, hostOutVector, inputFileName, verboseMR );
-   /*benchmarkSpMV< Real, SparseMatrix_CSR_Vector                   >( benchmark, hostOutVector, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SparseMatrix_CSR_Hybrid                   >( benchmark, hostOutVector, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SparseMatrix_CSR_Adaptive                 >( benchmark, hostOutVector, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SparseMatrix_Ellpack                      >( benchmark, hostOutVector, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SlicedEllpackAlias                        >( benchmark, hostOutVector, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SparseMatrix_SlicedEllpack                >( benchmark, hostOutVector, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SparseMatrix_ChunkedEllpack               >( benchmark, hostOutVector, inputFileName, verboseMR );
-   benchmarkSpMV< Real, SparseMatrix_BiEllpack                    >( benchmark, hostOutVector, inputFileName, verboseMR );*/
+   benchmarkSpMVLegacy< Real, SparseMatrix_CSR_Vector                   >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMVLegacy< Real, SparseMatrix_CSR_Hybrid                   >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMVLegacy< Real, SparseMatrix_CSR_Adaptive                 >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMVLegacy< Real, SparseMatrix_Ellpack                      >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMVLegacy< Real, SlicedEllpackAlias                        >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMVLegacy< Real, SparseMatrix_SlicedEllpack                >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMVLegacy< Real, SparseMatrix_ChunkedEllpack               >( benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMVLegacy< Real, SparseMatrix_BiEllpack                    >( benchmark, hostOutVector, inputFileName, verboseMR );
 
 
    const bool withSymmetricMatrices = parameters.getParameter< bool >("with-symmetric-matrices");
