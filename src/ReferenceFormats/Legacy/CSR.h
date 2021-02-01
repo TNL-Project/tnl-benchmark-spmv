@@ -262,6 +262,9 @@ public:
    // copy assignment
    CSR& operator=( const CSR& matrix );
 
+   template< CSRKernel KernelType2 >
+   CSR& operator=( const CSR< RealType, DeviceType, IndexType, KernelType2 >& matrix );
+
    // cross-device copy assignment
    template< typename Real2, typename Device2, typename Index2, CSRKernel KernelType2,
              typename = typename Enabler< Device2 >::type >

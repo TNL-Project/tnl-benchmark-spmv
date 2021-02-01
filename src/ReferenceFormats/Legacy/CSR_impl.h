@@ -686,6 +686,23 @@ CSR< Real, Device, Index, KernelType >::operator=( const CSR& matrix )
    return *this;
 }
 
+template< typename Real,
+          typename Device,
+          typename Index,
+          CSRKernel KernelType >
+   template< CSRKernel KernelType2 >
+CSR< Real, Device, Index, KernelType >&
+CSR< Real, Device, Index, KernelType >::
+operator=( const CSR< Real, Device, Index, KernelType2 >& matrix )
+{
+   this->setLike( matrix );
+   this->values = matrix.values;
+   this->columnIndexes = matrix.columnIndexes;
+   this->rowPointers = matrix.rowPointers;
+   this->blocks = matrix.blocks;
+   return *this;
+}
+
 // cross-device copy assignment
 template< typename Real,
           typename Device,
