@@ -10,6 +10,7 @@
 
 #include <TNL/Assert.h>
 #include <TNL/Devices/Cuda.h>
+#include <TNL/Matrices/SparseMatrix.h>
 #ifdef HAVE_CUDA
 #include <cusparse.h>
 #endif
@@ -20,9 +21,9 @@ template< typename Real >
 class CusparseCSRBase
 {
    public:
-      typedef Real RealType;
-      typedef Devices::Cuda DeviceType;
-      typedef Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< RealType, Devices::Cuda, int > MatrixType;
+      using RealType = Real;
+      using DeviceType = TNL::Devices::Cuda;
+      using MatrixType = TNL::Matrices::SparseMatrix< Real, TNL::Devices::Cuda, int >;
 
       CusparseCSRBase()
       : matrix( 0 )
@@ -51,7 +52,7 @@ class CusparseCSRBase
 
       int getNumberOfMatrixElements() const
       {
-         return matrix->getNumberOfMatrixElements();
+         return matrix->getAllocatedElementsCount();
       }
 
 
@@ -73,7 +74,7 @@ class CusparseCSRBase
                          1.0,
                          this->matrixDescriptor,
                          this->matrix->values.getData(),
-                         this->matrix->rowPointers.getData(),
+                         this->matrix->getSegments().getOffsets().getData(),
                          this->matrix->columnIndexes.getData(),
                          inVector.getData(),
                          1.0,
@@ -122,7 +123,7 @@ class CusparseCSR< double > : public CusparseCSRBase< double >
                          alpha,
                          this->matrixDescriptor,
                          this->matrix->getValues().getData(),
-                         this->matrix->getRowPointers().getData(),
+                         this->matrix->getSegments().getOffsets().getData(),
                          this->matrix->getColumnIndexes().getData(),
                          inVector.getData(),
                          alpha,
@@ -157,7 +158,7 @@ class CusparseCSR< float > : public CusparseCSRBase< float >
                          alpha,
                          this->matrixDescriptor,
                          this->matrix->getValues().getData(),
-                         this->matrix->getRowPointers().getData(),
+                         this->matrix->getSegments().getOffsets().getData(),
                          this->matrix->getColumnIndexes().getData(),
                          inVector.getData(),
                          alpha,

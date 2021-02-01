@@ -36,6 +36,7 @@ void
 runSpMVBenchmarks( Benchmark & benchmark,
                    Benchmark::MetadataMap metadata,
                    const String & inputFileName,
+                   const Config::ParameterContainer& parameters,
                    bool verboseMR = false )
 {
    const String precision = getType< Real >();
@@ -46,7 +47,7 @@ runSpMVBenchmarks( Benchmark & benchmark,
                            metadata );
    // Start the actual benchmark in spmv.h
    try {
-      SpMVLegacy::benchmarkSpmvSynthetic< Real >( benchmark, inputFileName, verboseMR );
+      SpMVLegacy::benchmarkSpmvSynthetic< Real >( benchmark, inputFileName, parameters, verboseMR );
    }
    catch( const std::exception& ex ) {
       std::cerr << ex.what() << std::endl;
@@ -71,6 +72,8 @@ setupConfig( Config::ConfigDescription & config )
 {
    config.addDelimiter( "Benchmark settings:" );
    config.addRequiredEntry< String >( "input-file", "Input file name." );
+   config.addEntry< bool >( "with-symmetric-matrices", "Perform benchmark even for symmetric matrix formats.", true );
+   config.addEntry< bool >( "with-legacy-matrices", "Perform benchmark even for legacy TNL matrix formats.", true );
    config.addEntry< String >( "log-file", "Log file name.", "tnl-benchmark-spmv::" + getCurrDateTime() + ".log");
    config.addEntry< String >( "output-mode", "Mode for opening the log file.", "overwrite" );
    config.addEntryEnum( "append" );
@@ -135,9 +138,9 @@ main( int argc, char* argv[] )
 
    // Initiate setup of benchmarks
    if( precision == "all" || precision == "float" )
-      runSpMVBenchmarks< float >( benchmark, metadata, inputFileName, verboseMR );
+      runSpMVBenchmarks< float >( benchmark, metadata, inputFileName, parameters, verboseMR );
    if( precision == "all" || precision == "double" )
-      runSpMVBenchmarks< double >( benchmark, metadata, inputFileName, verboseMR );
+      runSpMVBenchmarks< double >( benchmark, metadata, inputFileName, parameters, verboseMR );
 
    if( ! benchmark.save( logFile ) ) {
       std::cerr << "Failed to write the benchmark results to file '" << parameters.getParameter< String >( "log-file" ) << "'." << std::endl;
