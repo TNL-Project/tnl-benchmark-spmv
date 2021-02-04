@@ -18,7 +18,7 @@
 #include <TNL/Devices/Cuda.h>
 #include <TNL/Config/parseCommandLine.h>
 
-#include "spmv-legacy.h"
+#include "spmv.h"
 
 #include <TNL/Matrices/MatrixReader.h>
 using namespace TNL::Matrices;
