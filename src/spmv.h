@@ -479,9 +479,8 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
       benchmarkSpMVLegacy< Real, Legacy::ChunkedEllpack                    >( benchmark, hostOutVector, inputFileName, verboseMR );
       benchmarkSpMVLegacy< Real, Legacy::BiEllpack                         >( benchmark, hostOutVector, inputFileName, verboseMR );
    }
-   /* AdEllpack is broken
-   benchmarkSpMV< Real, Matrices::AdEllpack              >( benchmark, hostOutVector, inputFileName, verboseMR );
-    */
+   // AdEllpack is broken
+   //benchmarkSpMV< Real, Matrices::AdEllpack              >( benchmark, hostOutVector, inputFileName, verboseMR );
 
    /////
    // Benchmarking TNL formats
