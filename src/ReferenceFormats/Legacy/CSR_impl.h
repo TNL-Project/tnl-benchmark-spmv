@@ -136,7 +136,7 @@ Index findLimit(const Index start,
                Type &type,
                Index &sum) {
    sum = 0;
-   for (Index current = start; current < size - 1; ++current) {
+   for( Index current = start; current < size - 1; ++current) {
       Index elements = matrix.getRowPointers().getElement(current + 1) -
                        matrix.getRowPointers().getElement(current);
       sum += elements;
@@ -171,7 +171,7 @@ void CSR< Real, Device, Index, KernelType >::setBlocks()
    std::vector<Block<Index>> inBlock;
    inBlock.reserve(rows); // reserve space to avoid reallocation
 
-   while (nextStart != rows - 1)
+   while( nextStart != rows - 1 )
    {
       Type type;
       nextStart = findLimit<Real, Index, Device, KernelType>(
@@ -193,7 +193,6 @@ void CSR< Real, Device, Index, KernelType >::setBlocks()
             this->rowPointers.getElement(start)
          );
       }
-
       start = nextStart;
    }
    inBlock.emplace_back(nextStart);
@@ -836,88 +835,6 @@ Index CSR< Real, Device, Index, KernelType >::getHybridModeSplit() const
 
 #ifdef HAVE_CUDA
 
-template< typename Real,
-          typename Index,
-          int warpSize,
-          int WARPS,
-          int SHARED_PER_WARP,
-          int MAX_ELEM_PER_WARP >
-__global__
-void SpMVCSRAdaptive( const Real *inVector,
-                      Real *outVector,
-                      const Index* rowPointers,
-                      const Index* columnIndexes,
-                      const Real* values,
-                      const Block<Index> *blocks,
-                      Index blocksSize,
-                      Index gridID) {
-   __shared__ Real shared[WARPS][SHARED_PER_WARP];
-   const Index index = (gridID * MAX_X_DIM) + (blockIdx.x * blockDim.x) + threadIdx.x;
-   const Index blockIdx = index / warpSize;
-   if (blockIdx >= blocksSize)
-      return;
-
-   Real result = 0.0;
-   const Index laneID = threadIdx.x & 31; // & is cheaper than %
-   Block<Index> block = blocks[blockIdx];
-   const Index minID = rowPointers[block.index[0]/* minRow */];
-   Index i, to, maxID;
-   if (block.byte[sizeof(Index) == 4 ? 7 : 15] & 0b1000000) {
-      /////////////////////////////////////* CSR STREAM *//////////////
-      const Index warpID = threadIdx.x / 32;
-      maxID = minID + /* maxID - minID */block.twobytes[sizeof(Index) == 4 ? 2 : 4];
-
-      /* Stream data to shared memory */
-      for (i = laneID + minID; i < maxID; i += warpSize)
-         shared[warpID][i - minID] = values[i] * inVector[columnIndexes[i]];
-
-      const Index maxRow = block.index[0]/* minRow */ +
-         /* maxRow - minRow */(block.twobytes[sizeof(Index) == 4 ? 3 : 5] & 0x3FFF);
-      /* Calculate result */
-      for (i = block.index[0]/* minRow */ + laneID; i < maxRow; i += warpSize) {
-         to = rowPointers[i + 1] - minID; // end of preprocessed data
-         result = 0;
-         /* Scalar reduction */
-         for (Index sharedID = rowPointers[i] - minID; sharedID < to; ++sharedID)
-            result += shared[warpID][sharedID];
-
-         outVector[i] = result; // Write result
-      }
-   } else if (block.byte[sizeof(Index) == 4 ? 7 : 15] & 0b10000000) {
-      /////////////////////////////////////* CSR VECTOR *//////////////
-      maxID = minID + /* maxID - minID */block.twobytes[sizeof(Index) == 4 ? 2 : 4];
-
-      for (i = minID + laneID; i < maxID; i += warpSize)
-         result += values[i] * inVector[columnIndexes[i]];
-
-      /* Parallel reduction */
-      result += __shfl_down_sync(0xFFFFFFFF, result, 16);
-      result += __shfl_down_sync(0xFFFFFFFF, result, 8);
-      result += __shfl_down_sync(0xFFFFFFFF, result, 4);
-      result += __shfl_down_sync(0xFFFFFFFF, result, 2);
-      result += __shfl_down_sync(0xFFFFFFFF, result, 1);
-      if (laneID == 0) outVector[block.index[0]/* minRow */] = result; // Write result
-   } else {
-      /////////////////////////////////////* CSR VECTOR L */////////////
-      /* Number of elements processed by previous warps */
-      const Index offset = block.index[1]/* warpInRow */ * MAX_ELEM_PER_WARP;
-      to = minID + (block.index[1]/* warpInRow */ + 1) * MAX_ELEM_PER_WARP;
-      maxID = rowPointers[block.index[0]/* minRow */ + 1];
-      if (to > maxID) to = maxID;
-      for (i = minID + offset + laneID; i < to; i += warpSize)
-      {
-         result += values[i] * inVector[columnIndexes[i]];
-      }
-
-      /* Parallel reduction */
-      result += __shfl_down_sync(0xFFFFFFFF, result, 16);
-      result += __shfl_down_sync(0xFFFFFFFF, result, 8);
-      result += __shfl_down_sync(0xFFFFFFFF, result, 4);
-      result += __shfl_down_sync(0xFFFFFFFF, result, 2);
-      result += __shfl_down_sync(0xFFFFFFFF, result, 1);
-      if (laneID == 0) atomicAdd(&outVector[block.index[0]/* minRow */], result);
-   }
-}
 
 template< typename Real,
           typename Index>
@@ -1767,6 +1684,110 @@ void SpMVCSRMultiVectorPrepare( const Real *inVector,
    }
 }
 
+template< typename Real, typename Index >
+__device__ Real CSRFetch( const Index* columnIndexes, const Real* values, const Real* vector, const Index i )
+{
+   return values[ i ] * vector[ columnIndexes[ i ] ];
+}
+
+template< typename Real,
+          typename Index,
+          int warpSize,
+          int WARPS,
+          int SHARED_PER_WARP,
+          int MAX_ELEM_PER_WARP,
+         typename Fetch >
+__global__
+void SpMVCSRAdaptive( const Real *inVector,
+                      Real *outVector,
+                      const Index* rowPointers,
+                      const Index* columnIndexes,
+                      const Real* values,
+                      const Block<Index> *blocks,
+                      Index blocksSize,
+                      Index gridID,
+                      const Fetch fetch )
+{
+   __shared__ Real shared[WARPS][SHARED_PER_WARP];
+   const Index index = ( ( gridID * MAX_X_DIM + blockIdx.x ) * blockDim.x ) + threadIdx.x;
+   const Index blockIdx = index / warpSize;
+   if( blockIdx >= blocksSize )
+      return;
+
+   Real result = 0.0;
+   bool compute( true );
+   const Index laneID = threadIdx.x & 31; // & is cheaper than %
+   Block<Index> block = blocks[blockIdx];
+   const Index minID = rowPointers[block.index[0]/* minRow */];
+   Index i, to, maxID;
+
+   if( block.byte[sizeof(Index) == 4 ? 7 : 15] & 0b1000000)
+   {
+      /////////////////////////////////////* CSR STREAM *//////////////
+      const Index warpID = threadIdx.x / 32;
+      maxID = minID + block.twobytes[sizeof(Index) == 4 ? 2 : 4];
+      //              ^-> maxID - minID
+
+      // Stream data to shared memory
+      for (i = laneID + minID; i < maxID; i += warpSize)
+         //shared[warpID][i - minID] = fetch( i, compute ); //CSRFetch( columnIndexes, values, inVector, i );
+         shared[warpID][i - minID] = values[i] * inVector[columnIndexes[i]];
+
+      const Index maxRow = block.index[0] + // minRow
+         (block.twobytes[sizeof(Index) == 4 ? 3 : 5] & 0x3FFF); // maxRow - minRow
+      // Calculate result
+      for (i = block.index[0]+ laneID; i < maxRow; i += warpSize) // block.index[0] -> minRow
+      {
+         to = rowPointers[i + 1] - minID; // end of preprocessed data
+         result = 0;
+         // Scalar reduction
+         for (Index sharedID = rowPointers[i] - minID; sharedID < to; ++sharedID)
+            result += shared[warpID][sharedID];
+
+         outVector[i] = result; // Write result
+      }
+   } else if (block.byte[sizeof(Index) == 4 ? 7 : 15] & 0b10000000) {
+      //////////////////////////////////// CSR VECTOR /////////////
+      maxID = minID + // maxID - minID
+               block.twobytes[sizeof(Index) == 4 ? 2 : 4];
+
+      for (i = minID + laneID; i < maxID; i += warpSize)
+         result += values[i] * inVector[columnIndexes[i]];
+
+      // Parallel reduction
+      result += __shfl_down_sync(0xFFFFFFFF, result, 16);
+      result += __shfl_down_sync(0xFFFFFFFF, result, 8);
+      result += __shfl_down_sync(0xFFFFFFFF, result, 4);
+      result += __shfl_down_sync(0xFFFFFFFF, result, 2);
+      result += __shfl_down_sync(0xFFFFFFFF, result, 1);
+      // Write result
+      if (laneID == 0) outVector[block.index[0]] = result; // block.index[0] -> minRow
+   } else {
+      //////////////////////////////////// CSR VECTOR L ////////////
+      // Number of elements processed by previous warps
+      const Index offset = block.index[1] * MAX_ELEM_PER_WARP;
+      //                   ^ warpInRow
+      to = minID + (block.index[1] + 1) * MAX_ELEM_PER_WARP;
+      //           ^ warpInRow
+      maxID = rowPointers[block.index[0] + 1];
+      //                  ^ minRow
+      if (to > maxID) to = maxID;
+      for (i = minID + offset + laneID; i < to; i += warpSize)
+      {
+         result += values[i] * inVector[columnIndexes[i]];
+      }
+
+      // Parallel reduction
+      result += __shfl_down_sync(0xFFFFFFFF, result, 16);
+      result += __shfl_down_sync(0xFFFFFFFF, result, 8);
+      result += __shfl_down_sync(0xFFFFFFFF, result, 4);
+      result += __shfl_down_sync(0xFFFFFFFF, result, 2);
+      result += __shfl_down_sync(0xFFFFFFFF, result, 1);
+      if (laneID == 0) atomicAdd(&outVector[block.index[0]], result);
+      //                                    ^ minRow
+   }
+}
+
 template< typename Real,
           typename Index,
           typename Device,
@@ -1778,18 +1799,27 @@ void SpMVCSRAdaptivePrepare( const Real *inVector,
    Index blocks;
    const Index threads = matrix.THREADS_ADAPTIVE;
 
-   /* Fill blocks */
+   const Index* columnIndexesData = matrix.getColumnIndexes().getData();
+   const Real* valuesData = matrix.getValues().getData();
+   auto fetch = [=] __cuda_callable__ ( Index globalIdx, bool& compute ) -> Real {
+      return valuesData[ globalIdx ] * inVector[ columnIndexesData[ globalIdx ] ];
+   };
+
+   // Fill blocks
    size_t neededThreads = matrix.blocks.getSize() * warpSize; // one warp per block
-   /* Execute kernels on device */
-   for (Index grid = 0; neededThreads != 0; ++grid) {
-      if (MAX_X_DIM * threads >= neededThreads) {
+   // Execute kernels on device
+   for( Index grid = 0; neededThreads != 0; ++grid )
+   {
+      if( MAX_X_DIM * threads >= neededThreads )
+      {
          blocks = roundUpDivision(neededThreads, threads);
          neededThreads = 0;
-      } else {
+      }
+      else
+      {
          blocks = MAX_X_DIM;
          neededThreads -= MAX_X_DIM * threads;
       }
-
       SpMVCSRAdaptive< Real, Index, warpSize,
             matrix.WARPS,
             matrix.SHARED_PER_WARP,
@@ -1802,8 +1832,8 @@ void SpMVCSRAdaptivePrepare( const Real *inVector,
                matrix.getValues().getData(),
                matrix.blocks.getData(),
                matrix.blocks.getSize() - 1, // last block shouldn't be used
-               grid
-      );
+               grid,
+               fetch );
    }
 }
 
