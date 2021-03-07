@@ -1715,7 +1715,6 @@ void SpMVCSRAdaptive( const Real *inVector,
       return;
 
    Real result = 0.0;
-   bool compute( true );
    const Index laneID = threadIdx.x & 31; // & is cheaper than %
    Block<Index> block = blocks[blockIdx];
    const Index minID = rowPointers[block.index[0]/* minRow */];
