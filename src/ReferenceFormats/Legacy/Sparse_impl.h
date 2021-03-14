@@ -14,8 +14,10 @@
 #include <TNL/Exceptions/NotImplementedError.h>
 
 namespace TNL {
-namespace Matrices {
-   namespace Legacy {
+    namespace Benchmarks {
+        namespace SpMV {
+            namespace ReferenceFormats {
+               namespace Legacy {
 
 template< typename Real,
           typename Device,
@@ -33,7 +35,7 @@ template< typename Real,
              typename Index2 >
 void Sparse< Real, Device, Index >::setLike( const Sparse< Real2, Device2, Index2 >& matrix )
 {
-   Matrix< Real, Device, Index >::setLike( matrix );
+   TNL::Matrices::Matrix< Real, Device, Index >::setLike( matrix );
    this->allocateMatrixElements( matrix.getAllocatedElementsCount() );
 }
 
@@ -75,7 +77,7 @@ template< typename Real,
           typename Index >
 void Sparse< Real, Device, Index >::reset()
 {
-   Matrix< Real, Device, Index >::reset();
+   TNL::Matrices::Matrix< Real, Device, Index >::reset();
    this->columnIndexes.reset();
 }
 
@@ -84,7 +86,7 @@ template< typename Real,
           typename Index >
 void Sparse< Real, Device, Index >::save( File& file ) const
 {
-   Matrix< Real, Device, Index >::save( file );
+   TNL::Matrices::Matrix< Real, Device, Index >::save( file );
    file << this->values << this->columnIndexes;
 }
 
@@ -93,7 +95,7 @@ template< typename Real,
           typename Index >
 void Sparse< Real, Device, Index >::load( File& file )
 {
-   Matrix< Real, Device, Index >::load( file );
+   TNL::Matrices::Matrix< Real, Device, Index >::load( file );
    file >> this->values >> this->columnIndexes;
 }
 
@@ -123,6 +125,8 @@ void Sparse< Real, Device, Index >::printStructure( std::ostream& str ) const
    throw Exceptions::NotImplementedError("Sparse::printStructure is not implemented yet.");
 }
 
-} //namespace Legacy
-} // namespace Matrices
+               } //namespace Legacy
+            } //namespace ReferenceFormats
+        } //namespace SpMV
+    } //namespace Benchmarks
 } // namespace TNL

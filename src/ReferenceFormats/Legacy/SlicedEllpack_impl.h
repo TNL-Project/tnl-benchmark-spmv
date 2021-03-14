@@ -16,8 +16,10 @@
 #include <TNL/Exceptions/NotImplementedError.h>
 
 namespace TNL {
-namespace Matrices {
-   namespace Legacy {
+    namespace Benchmarks {
+        namespace SpMV {
+            namespace ReferenceFormats {
+               namespace Legacy {
 
 template< typename Real,
           typename Device,
@@ -66,7 +68,7 @@ template< typename Real,
           typename Device,
           typename Index,
           int SliceSize >
-void SlicedEllpack< Real, Device, Index, SliceSize >::setCompressedRowLengths( ConstCompressedRowLengthsVectorView rowLengths )
+void SlicedEllpack< Real, Device, Index, SliceSize >::setCompressedRowLengths( ConstRowsCapacitiesTypeView rowLengths )
 {
    TNL_ASSERT_GT( this->getRows(), 0, "cannot set row lengths of an empty matrix" );
    TNL_ASSERT_GT( this->getColumns(), 0, "cannot set row lengths of an empty matrix" );
@@ -88,7 +90,7 @@ template< typename Real,
           typename Device,
           typename Index,
           int SliceSize >
-void SlicedEllpack< Real, Device, Index, SliceSize >::setRowCapacities( ConstCompressedRowLengthsVectorView rowLengths )
+void SlicedEllpack< Real, Device, Index, SliceSize >::setRowCapacities( ConstRowsCapacitiesTypeView rowLengths )
 {
    setCompressedRowLengths( rowLengths );
 }
@@ -97,7 +99,7 @@ template< typename Real,
           typename Device,
           typename Index,
           int SliceSize >
-void SlicedEllpack< Real, Device, Index, SliceSize >::getCompressedRowLengths( CompressedRowLengthsVectorView rowLengths ) const
+void SlicedEllpack< Real, Device, Index, SliceSize >::getCompressedRowLengths( RowsCapacitiesTypeView rowLengths ) const
 {
    TNL_ASSERT_EQ( rowLengths.getSize(), this->getRows(), "invalid size of the rowLengths vector" );
    for( IndexType row = 0; row < this->getRows(); row++ )
@@ -772,7 +774,7 @@ template< typename Real,
           typename Device,
           typename Index,
           int SliceSize >
-__device__ void SlicedEllpack< Real, Device, Index, SliceSize >::computeMaximalRowLengthInSlicesCuda( ConstCompressedRowLengthsVectorView rowLengths,
+__device__ void SlicedEllpack< Real, Device, Index, SliceSize >::computeMaximalRowLengthInSlicesCuda( ConstRowsCapacitiesTypeView rowLengths,
                                                                                                       const IndexType sliceIdx )
 {
    Index rowIdx = sliceIdx * SliceSize;
@@ -844,7 +846,7 @@ class SlicedEllpackDeviceDependentCode
                 typename Index,
                 int SliceSize >
       static bool computeMaximalRowLengthInSlices( SlicedEllpack< Real, Device, Index, SliceSize >& matrix,
-                                                   typename SlicedEllpack< Real, Device, Index >::ConstCompressedRowLengthsVectorView rowLengths )
+                                                   typename SlicedEllpack< Real, Device, Index >::ConstRowsCapacitiesTypeView rowLengths )
       {
          Index row( 0 ), slice( 0 ), sliceRowLength( 0 );
          while( row < matrix.getRows() )
@@ -890,7 +892,7 @@ template< typename Real,
           typename Index,
           int SliceSize >
 __global__ void SlicedEllpack_computeMaximalRowLengthInSlices_CudaKernel( SlicedEllpack< Real, Devices::Cuda, Index, SliceSize >* matrix,
-                                                                          typename SlicedEllpack< Real, Devices::Cuda, Index, SliceSize >::ConstCompressedRowLengthsVectorView rowLengths,
+                                                                          typename SlicedEllpack< Real, Devices::Cuda, Index, SliceSize >::ConstRowsCapacitiesTypeView rowLengths,
                                                                           int gridIdx )
 {
    const Index sliceIdx = gridIdx * Cuda::getMaxGridSize() * blockDim.x + blockIdx.x * blockDim.x + threadIdx.x;
@@ -987,11 +989,11 @@ class SlicedEllpackDeviceDependentCode< Devices::Cuda >
                 typename Index,
                 int SliceSize >
       static bool computeMaximalRowLengthInSlices( SlicedEllpack< Real, Device, Index, SliceSize >& matrix,
-                                                   typename SlicedEllpack< Real, Device, Index >::ConstCompressedRowLengthsVectorView rowLengths )
+                                                   typename SlicedEllpack< Real, Device, Index >::ConstRowsCapacitiesTypeView rowLengths )
       {
 #ifdef HAVE_CUDA
          typedef SlicedEllpack< Real, Device, Index, SliceSize > Matrix;
-         typedef typename Matrix::CompressedRowLengthsVector CompressedRowLengthsVector;
+         typedef typename Matrix::RowsCapacitiesType RowsCapacitiesType;
          Matrix* kernel_matrix = Cuda::passToDevice( matrix );
          const Index numberOfSlices = roundUpDivision( matrix.getRows(), SliceSize );
          dim3 cudaBlockSize( 256 ), cudaGridSize( Cuda::getMaxGridSize() );
@@ -1061,6 +1063,8 @@ class SlicedEllpackDeviceDependentCode< Devices::Cuda >
       }
 };
 
-} //namespace Legacy
-} // namespace Matrices
+               } //namespace Legacy
+            } //namespace ReferenceFormats
+        } //namespace SpMV
+    } //namespace Benchmarks
 } // namespace TNL

@@ -14,22 +14,24 @@
 #include <Benchmarks/SpMV/ReferenceFormats/Legacy/SparseRow.h>
 
 namespace TNL {
-namespace Matrices {
-   namespace Legacy {
+    namespace Benchmarks {
+        namespace SpMV {
+            namespace ReferenceFormats {
+               namespace Legacy {
 
 template< typename Real,
           typename Device,
           typename Index >
-class Sparse : public Matrix< Real, Device, Index >
+class Sparse : public TNL::Matrices::Matrix< Real, Device, Index >
 {
    public:
 
    typedef Real RealType;
    typedef Device DeviceType;
    typedef Index IndexType;
-   typedef typename Matrix< RealType, DeviceType, IndexType >::ValuesVectorType ValuesVector;
+   typedef typename TNL::Matrices::Matrix< RealType, DeviceType, IndexType >::ValuesVectorType ValuesVector;
    typedef Containers::Vector< IndexType, DeviceType, IndexType > ColumnIndexesVector;
-   typedef Matrix< Real, Device, Index > BaseType;
+   typedef TNL::Matrices::Matrix< Real, Device, Index > BaseType;
    typedef SparseRow< RealType, IndexType > MatrixRow;
    typedef SparseRow< const RealType, const IndexType > ConstMatrixRow;
 
@@ -62,8 +64,10 @@ class Sparse : public Matrix< Real, Device, Index >
    Index maxRowLength;
 };
 
-} //namespace Legacy
-} // namespace Matrices
+               } //namespace Legacy
+            } //namespace ReferenceFormats
+        } //namespace SpMV
+    } //namespace Benchmarks
 } // namespace TNL
 
 #include <Benchmarks/SpMV/ReferenceFormats/Legacy/Sparse_impl.h>

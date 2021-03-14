@@ -1,8 +1,8 @@
 /***************************************************************************
-                          tnlCusparseCSR.h  -  description
+                          tnlCusparseCSRLegacy.h  -  description
                              -------------------
-    begin                : Jul 3, 2014
-    copyright            : (C) 2014 by Tomas Oberhuber
+    begin                : Feb 1, 2021
+    copyright            : (C) 2021 by Tomas Oberhuber
     email                : tomas.oberhuber@fjfi.cvut.cz
  ***************************************************************************/
 
@@ -10,7 +10,7 @@
 
 #include <TNL/Assert.h>
 #include <TNL/Devices/Cuda.h>
-#include <TNL/Matrices/SparseMatrix.h>
+#include <Benchmarks/SpMV/ReferenceFormats/Legacy/CSR.h>
 #ifdef HAVE_CUDA
 #include <cusparse.h>
 #endif
@@ -18,14 +18,14 @@
 namespace TNL {
 
 template< typename Real >
-class CusparseCSRBase
+class CusparseCSRBaseLegacy
 {
    public:
       using RealType = Real;
       using DeviceType = TNL::Devices::Cuda;
-      using MatrixType = TNL::Matrices::SparseMatrix< Real, TNL::Devices::Cuda, int >;
+      using MatrixType = Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Devices::Cuda, int >;
 
-      CusparseCSRBase()
+      CusparseCSRBaseLegacy()
       : matrix( 0 )
       {
       };
@@ -74,7 +74,7 @@ class CusparseCSRBase
                          1.0,
                          this->matrixDescriptor,
                          this->matrix->values.getData(),
-                         this->matrix->getSegments().getOffsets().getData(),
+                         this->matrix->getRowPointers().getData(),
                          this->matrix->columnIndexes.getData(),
                          inVector.getData(),
                          1.0,
@@ -95,11 +95,11 @@ class CusparseCSRBase
 
 
 template< typename Real >
-class CusparseCSR
+class CusparseCSRLegacy
 {};
 
 template<>
-class CusparseCSR< double > : public CusparseCSRBase< double >
+class CusparseCSRLegacy< double > : public CusparseCSRBaseLegacy< double >
 {
    public:
 
@@ -123,7 +123,7 @@ class CusparseCSR< double > : public CusparseCSRBase< double >
                          alpha,
                          this->matrixDescriptor,
                          this->matrix->getValues().getData(),
-                         this->matrix->getSegments().getOffsets().getData(),
+                         this->matrix->getRowPointers().getData(),
                          this->matrix->getColumnIndexes().getData(),
                          inVector.getData(),
                          alpha,
@@ -134,7 +134,7 @@ class CusparseCSR< double > : public CusparseCSRBase< double >
 };
 
 template<>
-class CusparseCSR< float > : public CusparseCSRBase< float >
+class CusparseCSRLegacy< float > : public CusparseCSRBaseLegacy< float >
 {
    public:
 
@@ -158,7 +158,7 @@ class CusparseCSR< float > : public CusparseCSRBase< float >
                          alpha,
                          this->matrixDescriptor,
                          this->matrix->getValues().getData(),
-                         this->matrix->getSegments().getOffsets().getData(),
+                         this->matrix->getRowPointers().getData(),
                          this->matrix->getColumnIndexes().getData(),
                          inVector.getData(),
                          alpha,
