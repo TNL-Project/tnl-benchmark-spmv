@@ -29,7 +29,7 @@ class Sparse : public TNL::Matrices::Matrix< Real, Device, Index >
    typedef Real RealType;
    typedef Device DeviceType;
    typedef Index IndexType;
-   typedef typename TNL::Matrices::Matrix< RealType, DeviceType, IndexType >::ValuesVectorType ValuesVector;
+   typedef typename TNL::Matrices::Matrix< RealType, DeviceType, IndexType >::ValuesType ValuesVector;
    typedef Containers::Vector< IndexType, DeviceType, IndexType > ColumnIndexesVector;
    typedef TNL::Matrices::Matrix< Real, Device, Index > BaseType;
    typedef SparseRow< RealType, IndexType > MatrixRow;
