@@ -35,6 +35,13 @@
 #include <TNL/Algorithms/Segments/SlicedEllpack.h>
 #include <TNL/Algorithms/Segments/ChunkedEllpack.h>
 #include <TNL/Algorithms/Segments/BiEllpack.h>
+
+// Uncomment the following line to enable benchmarking the sandbox sparse matrix.
+//#define WITH_SANDBOX_MATRIX_BENCHMARK
+#ifdef WITH_SANDBOX_MATRIX_BENCHMARK
+#include <TNL/Matrices/Sandbox/SparseSandboxMatrix.h>
+#endif
+
 using namespace TNL::Matrices;
 
 #include <Benchmarks/SpMV/ReferenceFormats/cusparseCSRMatrix.h>
@@ -122,6 +129,10 @@ using BiEllpackSegments = Algorithms::Segments::BiEllpack< Device, Index, IndexA
 template< typename Real, typename Device, typename Index >
 using SymmetricSparseMatrix_BiEllpack = Matrices::SparseMatrix< Real, Device, Index, Matrices::SymmetricMatrix, BiEllpackSegments >;
 
+#ifdef WITH_SANDBOX_MATRIX_BENCHMARK
+template< typename Real, typename Device, typename Index >
+using SparseSandboxMatrix = Matrices::Sandbox::SparseSandboxMatrix< Real, Device, Index, Matrices::GeneralMatrix >;
+#endif
 
 /////
 // Legacy formats
@@ -496,6 +507,9 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
    benchmarkSpMV< Real, HostMatrixType, SparseMatrix_SlicedEllpack                >( benchmark, hostMatrix, hostOutVector, inputFileName, verboseMR );
    benchmarkSpMV< Real, HostMatrixType, SparseMatrix_ChunkedEllpack               >( benchmark, hostMatrix, hostOutVector, inputFileName, verboseMR );
    benchmarkSpMV< Real, HostMatrixType, SparseMatrix_BiEllpack                    >( benchmark, hostMatrix, hostOutVector, inputFileName, verboseMR );
+#ifdef WITH_SANDBOX_MATRIX_BENCHMARK
+   benchmarkSpMV< Real, HostMatrixType, SparseSandboxMatrix                       >( benchmark, hostMatrix, hostOutVector, inputFileName, verboseMR );
+#endif
    hostMatrix.reset();
 
    /////
