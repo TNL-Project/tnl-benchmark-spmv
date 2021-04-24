@@ -104,7 +104,7 @@ template< typename Real,
           typename Index >
 void Sparse< Real, Device, Index >::allocateMatrixElements( const IndexType& numberOfMatrixElements )
 {
-   TNL_ASSERT_GE( numberOfMatrixElements, 0, "Number of matrix elements must be non-negative." );
+   TNL_ASSERT_GE( numberOfMatrixElements, ( IndexType ) 0, "Number of matrix elements must be non-negative." );
 
    this->values.setSize( numberOfMatrixElements );
    this->columnIndexes.setSize( numberOfMatrixElements );

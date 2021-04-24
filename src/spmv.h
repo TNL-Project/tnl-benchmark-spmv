@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 #include "../Benchmarks.h"
 #include "SpmvBenchmarkResult.h"
 
@@ -46,6 +48,7 @@ using namespace TNL::Matrices;
 
 #include <Benchmarks/SpMV/ReferenceFormats/cusparseCSRMatrix.h>
 #include <Benchmarks/SpMV/ReferenceFormats/cusparseCSRMatrixLegacy.h>
+#include <Benchmarks/SpMV/ReferenceFormats/LightSpMVBenchmark.h>
 
 namespace TNL {
    namespace Benchmarks {
@@ -383,6 +386,7 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
    using CSRHostMatrix = SpMV::ReferenceFormats::Legacy::CSR< Real, Devices::Host, int >;
    using CSRCudaMatrix = SpMV::ReferenceFormats::Legacy::CSR< Real, Devices::Cuda, int >;
    using CusparseMatrix = TNL::CusparseCSRLegacy< Real >;
+   using LightSpMVCSRHostMatrix = SpMV::ReferenceFormats::Legacy::CSR< Real, Devices::Host, uint32_t >;
 #else
    // Here we use 'int' instead of 'Index' because of compatibility with cusparse.
    using CSRHostMatrix = TNL::Matrices::SparseMatrix< Real, TNL::Devices::Host, int >;
@@ -428,10 +432,10 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
    SpmvBenchmarkResult< Real, Devices::Host, int > csrBenchmarkResults( hostOutVector, hostOutVector, csrHostMatrix.getNonzeroElementsCount() );
    benchmark.time< Devices::Cuda >( resetHostVectors, "CPU", spmvCSRHost, csrBenchmarkResults );
 
+#ifdef HAVE_CUDA
    ////
    // Perform benchmark on CUDA device with cuSparse as a reference GPU format
    //
-#ifdef HAVE_CUDA
    benchmark.setMetadataColumns( Benchmark::MetadataColumns({
          { "matrix name", convertToString( inputFileName ) },
          { "rows", convertToString( csrHostMatrix.getRows() ) },
@@ -445,26 +449,45 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
    CSRCudaMatrix csrCudaMatrix;
    csrCudaMatrix = csrHostMatrix;
 
-   // Delete the CSRhostMatrix, so it doesn't take up unnecessary space
-   csrHostMatrix.reset();
-
    CusparseMatrix cusparseMatrix;
    cusparseMatrix.init( csrCudaMatrix, &cusparseHandle );
 
-   CudaVector cusparseInVector( csrCudaMatrix.getColumns() ), cusparseOutVector( csrCudaMatrix.getRows() );
+   CudaVector cudaInVector( csrCudaMatrix.getColumns() ), cudaOutVector( csrCudaMatrix.getRows() );
 
    auto resetCusparseVectors = [&]() {
-      cusparseInVector = 1.0;
-      cusparseOutVector = 0.0;
+      cudaInVector = 1.0;
+      cudaOutVector = 0.0;
    };
 
    auto spmvCusparse = [&]() {
-       cusparseMatrix.vectorProduct( cusparseInVector, cusparseOutVector );
+       cusparseMatrix.vectorProduct( cudaInVector, cudaOutVector );
    };
 
    SpmvBenchmarkResult< Real, Devices::Host, int > cusparseBenchmarkResults( hostOutVector, hostOutVector, csrHostMatrix.getNonzeroElementsCount() );
    benchmark.time< Devices::Cuda >( resetCusparseVectors, "GPU", spmvCusparse, cusparseBenchmarkResults );
    csrCudaMatrix.reset();
+
+   ////
+   // Perform benchmark on CUDA device with LightSpMV as a reference GPU format
+   //
+   benchmark.setMetadataColumns( Benchmark::MetadataColumns({
+      { "matrix name", convertToString( inputFileName ) },
+      { "rows", convertToString( csrHostMatrix.getRows() ) },
+      { "columns", convertToString( csrHostMatrix.getColumns() ) },
+      { "matrix format", String( "LightSpMV" ) }
+   } ));
+
+   LightSpMVCSRHostMatrix lightSpMVCSRHostMatrix;
+   lightSpMVCSRHostMatrix = csrHostMatrix;
+   LightSpMVBenchmark< Real > lightSpMVBenchmark( lightSpMVCSRHostMatrix, LightSpMVBenchmarkKernelVector );
+   auto resetLightSpMVVectors = [&]() {
+      lightSpMVBenchmark.resetVectors();
+   };
+
+   auto spmvLightSpMV = [&]() {
+       lightSpMVBenchmark.vectorProduct();
+   };
+   benchmark.time< Devices::Cuda >( resetLightSpMVVectors, "GPU", spmvLightSpMV, cusparseBenchmarkResults );
 #endif
    csrHostMatrix.reset();
 
