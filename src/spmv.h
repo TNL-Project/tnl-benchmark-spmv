@@ -38,9 +38,14 @@
 #include <TNL/Algorithms/Segments/ChunkedEllpack.h>
 #include <TNL/Algorithms/Segments/BiEllpack.h>
 
+// Comment the following to turn off some groups of SpMV benchmarks and speed-up the compilation
+#define WITH_TNL_BENCHMARK_SPMV_GENERAL_MATRICES
+#define WITH_TNL_BENCHMARK_SPMV_SYMMETRIC_MATRICES
+#define WITH_TNL_BENCHMARK_SPMV_LEGACY_FORMATS
+
 // Uncomment the following line to enable benchmarking the sandbox sparse matrix.
-//#define WITH_SANDBOX_MATRIX_BENCHMARK
-#ifdef WITH_SANDBOX_MATRIX_BENCHMARK
+//#define WITH_TNL_BENCHMARK_SPMV_SANDBOX_MATRIX
+#ifdef WITH_TNL_BENCHMARK_SPMV_SANDBOX_MATRIX
 #include <TNL/Matrices/Sandbox/SparseSandboxMatrix.h>
 #endif
 
@@ -132,7 +137,7 @@ using BiEllpackSegments = Algorithms::Segments::BiEllpack< Device, Index, IndexA
 template< typename Real, typename Device, typename Index >
 using SymmetricSparseMatrix_BiEllpack = Matrices::SparseMatrix< Real, Device, Index, Matrices::SymmetricMatrix, BiEllpackSegments >;
 
-#ifdef WITH_SANDBOX_MATRIX_BENCHMARK
+#ifdef WITH_TNL_BENCHMARK_SPMV_SANDBOX_MATRIX
 template< typename Real, typename Device, typename Index >
 using SparseSandboxMatrix = Matrices::Sandbox::SparseSandboxMatrix< Real, Device, Index, Matrices::GeneralMatrix >;
 #endif
@@ -491,6 +496,7 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
 #endif
    csrHostMatrix.reset();
 
+#ifdef WITH_TNL_BENCHMARK_SPMV_LEGACY_FORMATS
    /////
    // Benchmarking of TNL legacy formats
    //
@@ -515,7 +521,9 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
    }
    // AdEllpack is broken
    //benchmarkSpMV< Real, Matrices::AdEllpack              >( benchmark, hostOutVector, inputFileName, verboseMR );
+#endif
 
+#ifdef WITH_TNL_BENCHMARK_SPMV_GENERAL_MATRICES
    /////
    // Benchmarking TNL formats
    //
@@ -530,11 +538,13 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
    benchmarkSpMV< Real, HostMatrixType, SparseMatrix_SlicedEllpack                >( benchmark, hostMatrix, hostOutVector, inputFileName, verboseMR );
    benchmarkSpMV< Real, HostMatrixType, SparseMatrix_ChunkedEllpack               >( benchmark, hostMatrix, hostOutVector, inputFileName, verboseMR );
    benchmarkSpMV< Real, HostMatrixType, SparseMatrix_BiEllpack                    >( benchmark, hostMatrix, hostOutVector, inputFileName, verboseMR );
-#ifdef WITH_SANDBOX_MATRIX_BENCHMARK
+#ifdef WITH_TNL_BENCHMARK_SPMV_SANDBOX_MATRIX
    benchmarkSpMV< Real, HostMatrixType, SparseSandboxMatrix                       >( benchmark, hostMatrix, hostOutVector, inputFileName, verboseMR );
 #endif
    hostMatrix.reset();
+#endif
 
+#ifdef WITH_TNL_BENCHMARK_SPMV_SYMMETRIC_MATRICES
    /////
    // Benchmarking symmetric sparse matrices
    //
@@ -556,7 +566,7 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
       TNL::Matrices::MatrixReader< InputMatrix >::readMtx( inputFileName, hostMatrix, verboseMR );
       if( hostMatrix != symmetricHostMatrix )
       {
-         std::cerr << "ERROR !!!!!! " << std::endl;
+         std::cerr << "ERROR: Symmetric matrices do not match !!!" << std::endl;
       }
       benchmarkSpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR_Scalar                   >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, verboseMR );
       benchmarkSpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR_Vector                   >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, verboseMR );
@@ -567,6 +577,7 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
       benchmarkSpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_ChunkedEllpack               >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, verboseMR );
       benchmarkSpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_BiEllpack                    >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, verboseMR );
    }
+#endif
 }
 
 } // namespace SpMVLegacy

@@ -61,17 +61,21 @@ struct LightSpMVBenchmark
    {
       static_assert( std::is_same< typename Matrix::DeviceType, TNL::Devices::Host >::value, "The only device type accepted here is TNL::Devices::Host." );
 #ifdef HAVE_CUDA
-      Options opt;
+      cudaDeviceProp prop;
+      cudaGetDeviceProperties(&prop, 0);
+      opt._gpus.push_back(make_pair(0, prop));
+      opt._numGPUs = 1;
       opt._numRows = matrix.getRows();
       opt._numCols = matrix.getColumns();
       opt._rowOffsets = matrix.getRowPointers().getData();
       opt._numValues = matrix.getValues().getSize();
       opt._colIndexValues = matrix.getColumnIndexes().getData();
-      opt._numericalValues = matrix.getValues().getData();;
+      opt._numericalValues = matrix.getValues().getData();
       opt._alpha = 1.0; // matrix multiplicator
       opt._beta = 0.0;  // output vector multiplicator
       opt._vectorX = inVector.getData();
       opt._vectorY = outVector.getData();
+      opt._formula = 0;
       if( std::is_same< Real, float >::value )
       {
          if( kernelType == LightSpMVBenchmarkKernelVector )
@@ -130,7 +134,11 @@ struct LightSpMVBenchmark
 
    void vectorProduct()
    {
-      this->spmv->invokeKernel( 0 );
+#ifdef HAVE_CUDA
+      this->spmv->spmvKernel();
+      cudaDeviceSynchronize();
+#endif
+
    }
 
    const CudaVectorView& getCudaOutVector()
@@ -142,11 +150,17 @@ struct LightSpMVBenchmark
    {
 #ifdef HAVE_CUDA
       if( spmv ) delete spmv;
+      opt._rowOffsets = nullptr;
+      opt._colIndexValues = nullptr;
+      opt._numericalValues = nullptr;
+      opt._vectorX = nullptr;
+      opt._vectorY = nullptr;
 #endif
    }
 
    protected:
 #ifdef HAVE_CUDA
+      Options opt;
       SpMV* spmv = nullptr;
 #endif
       VectorType  inVector, outVector;
