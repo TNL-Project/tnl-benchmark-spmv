@@ -126,6 +126,11 @@ struct LightSpMVBenchmark
 #endif
    }
 
+   void setKernelType( LightSpMVBenchmarkKernelType type )
+   {
+      this->kernelType = type;
+   }
+
    void resetVectors()
    {
       this->inVectorView = 1.0;

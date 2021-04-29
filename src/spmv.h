@@ -39,9 +39,9 @@
 #include <TNL/Algorithms/Segments/BiEllpack.h>
 
 // Comment the following to turn off some groups of SpMV benchmarks and speed-up the compilation
-//#define WITH_TNL_BENCHMARK_SPMV_GENERAL_MATRICES
-//#define WITH_TNL_BENCHMARK_SPMV_SYMMETRIC_MATRICES
-//#define WITH_TNL_BENCHMARK_SPMV_LEGACY_FORMATS
+#define WITH_TNL_BENCHMARK_SPMV_GENERAL_MATRICES
+#define WITH_TNL_BENCHMARK_SPMV_SYMMETRIC_MATRICES
+#define WITH_TNL_BENCHMARK_SPMV_LEGACY_FORMATS
 
 // Uncomment the following line to enable benchmarking the sandbox sparse matrix.
 //#define WITH_TNL_BENCHMARK_SPMV_SANDBOX_MATRIX
@@ -374,10 +374,10 @@ benchmarkSpMV( Benchmark& benchmark,
 template< typename Real = double,
           typename Index = int >
 void
-benchmarkSpmvSynthetic( Benchmark& benchmark,
-                        const String& inputFileName,
-                        const Config::ParameterContainer& parameters,
-                        bool verboseMR )
+benchmarkSpmv( Benchmark& benchmark,
+               const String& inputFileName,
+               const Config::ParameterContainer& parameters,
+               bool verboseMR )
 {
    // The following is another workaround because of a bug in nvcc versions 10 and 11.
    // If we use the current matrix formats, not the legacy ones, we get
@@ -469,8 +469,8 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
        cusparseMatrix.vectorProduct( cudaInVector, cudaOutVector );
    };
 
-   SpmvBenchmarkResult< Real, Devices::Host, int > cusparseBenchmarkResults( hostOutVector, hostOutVector, csrHostMatrix.getNonzeroElementsCount() );
-   benchmark.time< Devices::Cuda >( resetCusparseVectors, "GPU", spmvCusparse, cusparseBenchmarkResults );
+   SpmvBenchmarkResult< Real, Devices::Host, int > cudaBenchmarkResults( hostOutVector, hostOutVector, csrHostMatrix.getNonzeroElementsCount() );
+   benchmark.time< Devices::Cuda >( resetCusparseVectors, "GPU", spmvCusparse, cudaBenchmarkResults );
 
 #ifdef HAVE_CSR5
    ////
@@ -489,7 +489,7 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
    auto csr5SpMV = [&]() {
        csr5Benchmark.vectorProduct();
    };
-   benchmark.time< Devices::Cuda >( resetCusparseVectors, "GPU", csr5SpMV, cusparseBenchmarkResults );
+   benchmark.time< Devices::Cuda >( resetCusparseVectors, "GPU", csr5SpMV, cudaBenchmarkResults );
    std::cerr << "CSR5 error = " << max( abs( cudaOutVector - cudaOutVector2 ) ) << std::endl;
    csrCudaMatrix.reset();
 #endif
@@ -501,7 +501,7 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
       { "matrix name", convertToString( inputFileName ) },
       { "rows", convertToString( csrHostMatrix.getRows() ) },
       { "columns", convertToString( csrHostMatrix.getColumns() ) },
-      { "matrix format", String( "LightSpMV" ) }
+      { "matrix format", String( "LightSpMV Vector" ) }
    } ));
 
    LightSpMVCSRHostMatrix lightSpMVCSRHostMatrix;
@@ -514,7 +514,16 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
    auto spmvLightSpMV = [&]() {
        lightSpMVBenchmark.vectorProduct();
    };
-   benchmark.time< Devices::Cuda >( resetLightSpMVVectors, "GPU", spmvLightSpMV, cusparseBenchmarkResults );
+   benchmark.time< Devices::Cuda >( resetLightSpMVVectors, "GPU", spmvLightSpMV, cudaBenchmarkResults );
+
+   benchmark.setMetadataColumns( Benchmark::MetadataColumns({
+      { "matrix name", convertToString( inputFileName ) },
+      { "rows", convertToString( csrHostMatrix.getRows() ) },
+      { "columns", convertToString( csrHostMatrix.getColumns() ) },
+      { "matrix format", String( "LightSpMV Warp" ) }
+   } ));
+   lightSpMVBenchmark.setKernelType( LightSpMVBenchmarkKernelWarp );
+   benchmark.time< Devices::Cuda >( resetLightSpMVVectors, "GPU", spmvLightSpMV, cudaBenchmarkResults );
 #endif
    csrHostMatrix.reset();
 

@@ -45,7 +45,7 @@ runSpMVBenchmarks( Benchmark & benchmark,
                            metadata );
    // Start the actual benchmark in spmv.h
    try {
-      SpMVLegacy::benchmarkSpmvSynthetic< Real >( benchmark, inputFileName, parameters, verboseMR );
+      SpMVLegacy::benchmarkSpmv< Real >( benchmark, inputFileName, parameters, verboseMR );
    }
    catch( const std::exception& ex ) {
       std::cerr << ex.what() << std::endl;
