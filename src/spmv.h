@@ -39,9 +39,9 @@
 #include <TNL/Algorithms/Segments/BiEllpack.h>
 
 // Comment the following to turn off some groups of SpMV benchmarks and speed-up the compilation
-#define WITH_TNL_BENCHMARK_SPMV_GENERAL_MATRICES
-#define WITH_TNL_BENCHMARK_SPMV_SYMMETRIC_MATRICES
-#define WITH_TNL_BENCHMARK_SPMV_LEGACY_FORMATS
+//#define WITH_TNL_BENCHMARK_SPMV_GENERAL_MATRICES
+//#define WITH_TNL_BENCHMARK_SPMV_SYMMETRIC_MATRICES
+//#define WITH_TNL_BENCHMARK_SPMV_LEGACY_FORMATS
 
 // Uncomment the following line to enable benchmarking the sandbox sparse matrix.
 //#define WITH_TNL_BENCHMARK_SPMV_SANDBOX_MATRIX
@@ -54,6 +54,7 @@ using namespace TNL::Matrices;
 #include <Benchmarks/SpMV/ReferenceFormats/cusparseCSRMatrix.h>
 #include <Benchmarks/SpMV/ReferenceFormats/cusparseCSRMatrixLegacy.h>
 #include <Benchmarks/SpMV/ReferenceFormats/LightSpMVBenchmark.h>
+#include <Benchmarks/SpMV/ReferenceFormats/CSR5Benchmark.h>
 
 namespace TNL {
    namespace Benchmarks {
@@ -470,7 +471,28 @@ benchmarkSpmvSynthetic( Benchmark& benchmark,
 
    SpmvBenchmarkResult< Real, Devices::Host, int > cusparseBenchmarkResults( hostOutVector, hostOutVector, csrHostMatrix.getNonzeroElementsCount() );
    benchmark.time< Devices::Cuda >( resetCusparseVectors, "GPU", spmvCusparse, cusparseBenchmarkResults );
+
+#ifdef HAVE_CSR5
+   ////
+   // Perform benchmark on CUDA device with CSR5 as a reference GPU format
+   //
+   benchmark.setMetadataColumns( Benchmark::MetadataColumns({
+      { "matrix name", convertToString( inputFileName ) },
+      { "rows", convertToString( csrHostMatrix.getRows() ) },
+      { "columns", convertToString( csrHostMatrix.getColumns() ) },
+      { "matrix format", String( "CSR5" ) }
+   } ));
+
+   CudaVector cudaOutVector2( cudaOutVector );
+   CSR5Benchmark::CSR5Benchmark< CSRCudaMatrix > csr5Benchmark( csrCudaMatrix, cudaInVector, cudaOutVector );
+
+   auto csr5SpMV = [&]() {
+       csr5Benchmark.vectorProduct();
+   };
+   benchmark.time< Devices::Cuda >( resetCusparseVectors, "GPU", csr5SpMV, cusparseBenchmarkResults );
+   std::cerr << "CSR5 error = " << max( abs( cudaOutVector - cudaOutVector2 ) ) << std::endl;
    csrCudaMatrix.reset();
+#endif
 
    ////
    // Perform benchmark on CUDA device with LightSpMV as a reference GPU format
