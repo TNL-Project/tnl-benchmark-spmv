@@ -31,8 +31,8 @@ using namespace TNL::Benchmarks;
 
 template< typename Real >
 void
-runSpMVBenchmarks( Benchmark & benchmark,
-                   Benchmark::MetadataMap metadata,
+runSpMVBenchmarks( Benchmark<> & benchmark,
+                   Benchmark<>::MetadataMap metadata,
                    const String & inputFileName,
                    const Config::ParameterContainer& parameters,
                    bool verboseMR = false )
@@ -129,10 +129,10 @@ main( int argc, char* argv[] )
    std::ofstream logFile( logFileName.getString(), mode );
 
    // init benchmark and common metadata
-   Benchmark benchmark( loops, verbose );
+   Benchmark<> benchmark( loops, verbose );
 
    // prepare global metadata
-   Benchmark::MetadataMap metadata = getHardwareMetadata();
+   Benchmark<>::MetadataMap metadata = getHardwareMetadata< Logging >();
 
    // Initiate setup of benchmarks
    if( precision == "all" || precision == "float" )

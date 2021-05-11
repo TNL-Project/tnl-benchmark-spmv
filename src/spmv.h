@@ -232,7 +232,7 @@ template< typename Real,
           template< typename, typename, typename > class Matrix,
           template< typename, typename, typename, typename > class Vector = Containers::Vector >
 void
-benchmarkSpMVLegacy( Benchmark& benchmark,
+benchmarkSpMVLegacy( Benchmark<>& benchmark,
                      const TNL::Containers::Vector< Real, Devices::Host, int >& csrResultVector,
                      const String& inputFileName,
                      bool verboseMR )
@@ -247,7 +247,7 @@ benchmarkSpMVLegacy( Benchmark& benchmark,
 
    SpMV::ReferenceFormats::Legacy::LegacyMatrixReader< HostMatrix >::readMtxFile( inputFileName, hostMatrix, verboseMR );
 
-   benchmark.setMetadataColumns( Benchmark::MetadataColumns({
+   benchmark.setMetadataColumns( Benchmark<>::MetadataColumns({
          { "matrix name", convertToString( inputFileName ) },
          { "rows", convertToString( hostMatrix.getRows() ) },
          { "columns", convertToString( hostMatrix.getColumns() ) },
@@ -300,7 +300,7 @@ template< typename Real,
           template< typename, typename, typename > class Matrix,
           template< typename, typename, typename, typename > class Vector = Containers::Vector >
 void
-benchmarkSpMV( Benchmark& benchmark,
+benchmarkSpMV( Benchmark<>& benchmark,
                const InputMatrix& inputMatrix,
                const TNL::Containers::Vector< Real, Devices::Host, int >& csrResultVector,
                const String& inputFileName,
@@ -322,7 +322,7 @@ benchmarkSpMV( Benchmark& benchmark,
       return;
    }
 
-   benchmark.setMetadataColumns( Benchmark::MetadataColumns({
+   benchmark.setMetadataColumns( Benchmark<>::MetadataColumns({
          { "matrix name", convertToString( inputFileName ) },
          { "rows", convertToString( hostMatrix.getRows() ) },
          { "columns", convertToString( hostMatrix.getColumns() ) },
@@ -374,7 +374,7 @@ benchmarkSpMV( Benchmark& benchmark,
 template< typename Real = double,
           typename Index = int >
 void
-benchmarkSpmv( Benchmark& benchmark,
+benchmarkSpmv( Benchmark<>& benchmark,
                const String& inputFileName,
                const Config::ParameterContainer& parameters,
                bool verboseMR )
@@ -417,7 +417,7 @@ benchmarkSpmv( Benchmark& benchmark,
    ////
    // Perform benchmark on host with CSR as a reference CPU format
    //
-   benchmark.setMetadataColumns( Benchmark::MetadataColumns({
+   benchmark.setMetadataColumns( Benchmark<>::MetadataColumns({
          { "matrix name", convertToString( inputFileName ) },
          { "rows", convertToString( csrHostMatrix.getRows() ) },
          { "columns", convertToString( csrHostMatrix.getColumns() ) },

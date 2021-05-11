@@ -24,8 +24,8 @@ __device__ inline T shfl_down_64bits(T var, int32_t srcLane,
 	int2 a = *reinterpret_cast<int2*>(&var);
 
 	/*exchange the data*/
-	a.x = __shfl_down(a.x, srcLane, width);
-	a.y = __shfl_down(a.y, srcLane, width);
+	a.x = __shfl_down_sync(0xffffffff,a.x, srcLane, width);
+	a.y = __shfl_down_sync(0xffffffff,a.y, srcLane, width);
 	
 	return *reinterpret_cast<T*>(&a);
 }
@@ -75,7 +75,7 @@ __global__ void csr32DynamicWarp(uint32_t* __restrict cudaRowCounter, const uint
 		row = atomicAdd(cudaRowCounter, 32 / THREADS_PER_VECTOR);
 	}
 	/*broadcast the value to other threads in the same warp and compute the row index of each vector*/
-	row = __shfl(row, 0) + warpVectorId;
+	row = __shfl_sync(0xffffffff,row, 0) + warpVectorId;
 
 	/*check the row range*/
 	while (row < _cudaNumRows) {
@@ -113,7 +113,7 @@ __global__ void csr32DynamicWarp(uint32_t* __restrict cudaRowCounter, const uint
 		}
 		/*intra-vector reduction*/
 		for (i = THREADS_PER_VECTOR >> 1; i > 0; i >>= 1) {
-			sum += __shfl_down(sum, i, THREADS_PER_VECTOR);
+			sum += __shfl_down_sync(0xffffffff,sum, i, THREADS_PER_VECTOR);
 		}
 
 		/*save the results and get a new row*/
@@ -127,7 +127,7 @@ __global__ void csr32DynamicWarp(uint32_t* __restrict cudaRowCounter, const uint
 			row = atomicAdd(cudaRowCounter, 32 / THREADS_PER_VECTOR);
 		}
 		/*broadcast the row index to the other threads in the same warp and compute the row index of each vetor*/
-		row = __shfl(row, 0) + warpVectorId;
+		row = __shfl_sync(0xffffffff,row, 0) + warpVectorId;
 
 	}/*while*/
 }
@@ -155,7 +155,7 @@ __global__ void csr32DynamicVector(uint32_t* __restrict cudaRowCounter, const ui
 		row = atomicAdd(cudaRowCounter, 1);
 	}
 	/*broadcast the value to other lanes from lane 0*/
-	row = __shfl(row, 0, THREADS_PER_VECTOR);
+	row = __shfl_sync(0xffffffff,row, 0, THREADS_PER_VECTOR);
 
 	/*check the row range*/
 	while (row < _cudaNumRows) {
@@ -193,7 +193,7 @@ __global__ void csr32DynamicVector(uint32_t* __restrict cudaRowCounter, const ui
 		}
 		/*intra-vector reduction*/
 		for (i = THREADS_PER_VECTOR >> 1; i > 0; i >>= 1) {
-			sum += __shfl_down(sum, i, THREADS_PER_VECTOR);
+			sum += __shfl_down_sync(0xffffffff,sum, i, THREADS_PER_VECTOR);
 		}
 
 		/*save the results and get a new row*/
@@ -204,7 +204,7 @@ __global__ void csr32DynamicVector(uint32_t* __restrict cudaRowCounter, const ui
 			/*get a new row index*/
 			row = atomicAdd(cudaRowCounter, 1);
 		}
-		row = __shfl(row, 0, THREADS_PER_VECTOR);
+		row = __shfl_sync(0xffffffff,row, 0, THREADS_PER_VECTOR);
 	}/*while*/
 }
 
@@ -233,7 +233,7 @@ __global__ void csr32DynamicVector(uint32_t* __restrict cudaRowCounter, const ui
 			row = atomicAdd(cudaRowCounter, 32 / THREADS_PER_VECTOR);
 		}
 		/*broadcast the value to other threads in the same warp and compute the row index of each vector*/
-		row = __shfl(row, 0) + warpVectorId;
+		row = __shfl_sync(0xffffffff,row, 0) + warpVectorId;
 
 		/*check the row range*/
 		while (row < _cudaNumRows) {
@@ -272,7 +272,7 @@ __global__ void csr32DynamicVector(uint32_t* __restrict cudaRowCounter, const ui
 			/*intra-vector reduction*/
 			sum *= alpha;
 			for (i = THREADS_PER_VECTOR >> 1; i > 0; i >>= 1) {
-				sum += __shfl_down(sum, i, THREADS_PER_VECTOR);
+				sum += __shfl_down_sync(0xffffffff,sum, i, THREADS_PER_VECTOR);
 			}
 
 			/*save the results and get a new row*/
@@ -286,7 +286,7 @@ __global__ void csr32DynamicVector(uint32_t* __restrict cudaRowCounter, const ui
 				row = atomicAdd(cudaRowCounter, 32 / THREADS_PER_VECTOR);
 			}
 			/*broadcast the row index to the other threads in the same warp and compute the row index of each vetor*/
-			row = __shfl(row, 0) + warpVectorId;
+			row = __shfl_sync(0xffffffff,row, 0) + warpVectorId;
 
 		}/*while*/
 	}
@@ -314,7 +314,7 @@ __global__ void csr32DynamicVector(uint32_t* __restrict cudaRowCounter, const ui
 			row = atomicAdd(cudaRowCounter, 1);
 		}
 		/*broadcast the value to other lanes from lane 0*/
-		row = __shfl(row, 0, THREADS_PER_VECTOR);
+		row = __shfl_sync(0xffffffff,row, 0, THREADS_PER_VECTOR);
 
 		/*check the row range*/
 		while (row < _cudaNumRows) {
@@ -353,7 +353,7 @@ __global__ void csr32DynamicVector(uint32_t* __restrict cudaRowCounter, const ui
 			/*intra-vector reduction*/
 			sum *= alpha;
 			for (i = THREADS_PER_VECTOR >> 1; i > 0; i >>= 1) {
-				sum += __shfl_down(sum, i, THREADS_PER_VECTOR);
+				sum += __shfl_down_sync(0xffffffff,sum, i, THREADS_PER_VECTOR);
 			}
 
 			/*save the results and get a new row*/
@@ -364,7 +364,7 @@ __global__ void csr32DynamicVector(uint32_t* __restrict cudaRowCounter, const ui
 				/*get a new row index*/
 				row = atomicAdd(cudaRowCounter, 1);
 			}
-			row = __shfl(row, 0, THREADS_PER_VECTOR);
+			row = __shfl_sync(0xffffffff,row, 0, THREADS_PER_VECTOR);
 		}/*while*/
 	}
 
@@ -392,7 +392,7 @@ __global__ void csr64DynamicVector(uint32_t* __restrict cudaRowCounter, const ui
 		row = atomicAdd(cudaRowCounter, 1);
 	}
 	/*broadcast the value to other lanes from lane 0*/
-	row = __shfl(row, 0, THREADS_PER_VECTOR);
+	row = __shfl_sync(0xffffffff,row, 0, THREADS_PER_VECTOR);
 
 	/*check the row range*/
 	while (row < _cudaNumRows) {
@@ -441,7 +441,7 @@ __global__ void csr64DynamicVector(uint32_t* __restrict cudaRowCounter, const ui
 			/*get a new row index*/
 			row = atomicAdd(cudaRowCounter, 1);
 		}
-		row = __shfl(row, 0, THREADS_PER_VECTOR);
+		row = __shfl_sync( 0xffffffff, row, 0, THREADS_PER_VECTOR);
 	}/*while*/
 }
 
@@ -470,7 +470,7 @@ __global__ void csr64DynamicWarp(uint32_t* __restrict cudaRowCounter, const uint
 		row = atomicAdd(cudaRowCounter, 32 / THREADS_PER_VECTOR);
 	}
 	/*broadcast the value to other threads in the same warp*/
-	row = __shfl(row, 0) + warpVectorId;
+	row = __shfl_sync(0xffffffff,row, 0) + warpVectorId;
 
 	/*check the row range*/
 	while (row < _cudaNumRows) {
@@ -523,7 +523,7 @@ __global__ void csr64DynamicWarp(uint32_t* __restrict cudaRowCounter, const uint
 			row = atomicAdd(cudaRowCounter, 32 / THREADS_PER_VECTOR);
 		}
 		/*broadcast the value to other threads in the same warp*/
-		row = __shfl(row, 0) + warpVectorId;
+		row = __shfl_sync(0xffffffff,row, 0) + warpVectorId;
 
 	}/*while*/
 }
@@ -552,7 +552,7 @@ __global__ void csr64DynamicVectorBLAS(uint32_t* __restrict cudaRowCounter, cons
 		row = atomicAdd(cudaRowCounter, 1);
 	}
 	/*broadcast the value to other lanes from lane 0*/
-	row = __shfl(row, 0, THREADS_PER_VECTOR);
+	row = __shfl_sync(0xffffffff,row, 0, THREADS_PER_VECTOR);
 
 	/*check the row range*/
 	while (row < _cudaNumRows) {
@@ -602,7 +602,7 @@ __global__ void csr64DynamicVectorBLAS(uint32_t* __restrict cudaRowCounter, cons
 			/*get a new row index*/
 			row = atomicAdd(cudaRowCounter, 1);
 		}
-		row = __shfl(row, 0, THREADS_PER_VECTOR);
+		row = __shfl_sync(0xffffffff,row, 0, THREADS_PER_VECTOR);
 	}/*while*/
 }
 
@@ -631,7 +631,7 @@ __global__ void csr64DynamicWarpBLAS(uint32_t* __restrict cudaRowCounter, const 
 		row = atomicAdd(cudaRowCounter, 32 / THREADS_PER_VECTOR);
 	}
 	/*broadcast the value to other threads in the same warp*/
-	row = __shfl(row, 0) + warpVectorId;
+	row = __shfl_sync(0xffffffff,row, 0) + warpVectorId;
 
 	/*check the row range*/
 	while (row < _cudaNumRows) {
@@ -685,7 +685,7 @@ __global__ void csr64DynamicWarpBLAS(uint32_t* __restrict cudaRowCounter, const 
 			row = atomicAdd(cudaRowCounter, 32 / THREADS_PER_VECTOR);
 		}
 		/*broadcast the value to other threads in the same warp*/
-		row = __shfl(row, 0) + warpVectorId;
+		row = __shfl_sync(0xffffffff,row, 0) + warpVectorId;
 
 	}/*while*/
 }
