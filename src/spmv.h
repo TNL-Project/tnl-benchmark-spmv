@@ -295,7 +295,7 @@ benchmarkSpMVLegacy( BenchmarkType& benchmark,
    SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( MatrixInfo< HostMatrix >::getFormat(), csrResultVector, cudaOutVector, cudaMatrix.getNonzeroElementsCount() );
    benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvCuda, cudaBenchmarkResults );
  #endif
-    std::cout << std::endl;
+   // std::cout << std::endl;
 }
 
 template< typename Real,
@@ -325,12 +325,12 @@ benchmarkSpMV( BenchmarkType& benchmark,
       return;
    }
 
-   benchmark.setMetadataColumns( BenchmarkType::MetadataColumns({
+   /*benchmark.setMetadataColumns( BenchmarkType::MetadataColumns({
          { "matrix name", convertToString( inputFileName ) },
          { "rows", convertToString( hostMatrix.getRows() ) },
          { "columns", convertToString( hostMatrix.getColumns() ) },
          { "matrix format", MatrixInfo< HostMatrix >::getFormat() }
-      } ));
+      } ));*/
    const int elements = hostMatrix.getNonzeroElementsCount();
    const double datasetSize = (double) elements * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
    benchmark.setOperation( datasetSize );
@@ -371,7 +371,7 @@ benchmarkSpMV( BenchmarkType& benchmark,
    SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( MatrixInfo< HostMatrix >::getFormat(), csrResultVector, cudaOutVector, cudaMatrix.getNonzeroElementsCount() );
    benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvCuda, cudaBenchmarkResults );
  #endif
-    std::cout << std::endl;
+   // std::cout << std::endl;
 }
 
 template< typename Real = double,

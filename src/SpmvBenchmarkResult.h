@@ -28,11 +28,12 @@ struct SpmvBenchmarkResult
    using HostVector = Containers::Vector< Real, Devices::Host, Index >;
    using BenchmarkVector = Containers::Vector< Real, Device, Index >;
 
-   using typename Logger::HeaderElements;
-   using typename Logger::RowElements;
+   using typename BenchmarkResult< Logger >::HeaderElements;
+   using typename BenchmarkResult< Logger >::RowElements;
    using BenchmarkResult< Logger >::stddev;
    using BenchmarkResult< Logger >::bandwidth;
    using BenchmarkResult< Logger >::speedup;
+   using BenchmarkResult< Logger >::time;
 
 
    SpmvBenchmarkResult( const String& format,
