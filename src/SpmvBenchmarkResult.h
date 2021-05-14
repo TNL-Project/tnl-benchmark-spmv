@@ -17,9 +17,10 @@ namespace Benchmarks {
 
 template< typename Real,
           typename Device,
-          typename Index >
+          typename Index,
+          typename Logger = JsonLogging >
 struct SpmvBenchmarkResult
-: public BenchmarkResult
+: public BenchmarkResult< Logger >
 {
    using RealType = Real;
    using DeviceType = Device;
@@ -27,15 +28,25 @@ struct SpmvBenchmarkResult
    using HostVector = Containers::Vector< Real, Devices::Host, Index >;
    using BenchmarkVector = Containers::Vector< Real, Device, Index >;
 
-   SpmvBenchmarkResult( const HostVector& csrResult,
+   using typename Logger::HeaderElements;
+   using typename Logger::RowElements;
+   using BenchmarkResult< Logger >::stddev;
+   using BenchmarkResult< Logger >::bandwidth;
+   using BenchmarkResult< Logger >::speedup;
+
+
+   SpmvBenchmarkResult( const String& format,
+                        const HostVector& csrResult,
                         const BenchmarkVector& benchmarkResult,
                         const IndexType nonzeros )
-   : csrResult( csrResult ), benchmarkResult( benchmarkResult ), nonzeros( nonzeros ){};
+   : format( format ), csrResult( csrResult ), benchmarkResult( benchmarkResult ), nonzeros( nonzeros ){};
 
    virtual HeaderElements getTableHeader() const override
    {
-      return HeaderElements( {"non-zeros", "time", "stddev", "stddev/time", "bandwidth", "speedup", "CSR Diff.Max", "CSR Diff.L2"} );
+      return HeaderElements( {"format", "device", "non-zeros", "time", "stddev", "stddev/time", "bandwidth", "speedup", "CSR Diff.Max", "CSR Diff.L2"} );
    }
+
+   void setFormat( const String& format ) { this->format = format; };
 
    virtual RowElements getRowElements() const override
    {
@@ -43,7 +54,9 @@ struct SpmvBenchmarkResult
       benchmarkResultCopy = benchmarkResult;
       auto diff = csrResult - benchmarkResultCopy;
       RowElements elements;
-      elements << nonzeros << time << stddev << stddev/time << bandwidth;
+      elements << format
+               << ( std::is_same< Device, Devices::Host >::value ? "CPU" : "GPU" )
+               << nonzeros << time << stddev << stddev/time << bandwidth;
       if( speedup != 0.0 )
          elements << speedup;
       else elements << "N/A";
@@ -51,10 +64,11 @@ struct SpmvBenchmarkResult
       return elements;
    }
 
+   String format;
    const HostVector& csrResult;
    const BenchmarkVector& benchmarkResult;
    const IndexType nonzeros;
 };
-   
+
 } //namespace Benchmarks
 } //namespace TNL
