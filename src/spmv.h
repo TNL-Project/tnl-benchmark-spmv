@@ -479,7 +479,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
        cusparseMatrix.vectorProduct( cudaInVector, cudaOutVector );
    };
 
-   SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( String( "cusprase" ), hostOutVector, hostOutVector, csrHostMatrix.getNonzeroElementsCount() );
+   SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( String( "cusparse" ), hostOutVector, cudaOutVector, csrHostMatrix.getNonzeroElementsCount() );
    benchmark.time< Devices::Cuda >( resetCusparseVectors, "GPU", spmvCusparse, cudaBenchmarkResults );
 
 #ifdef HAVE_CSR5
