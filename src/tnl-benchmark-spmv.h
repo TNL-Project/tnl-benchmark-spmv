@@ -25,6 +25,7 @@ using namespace TNL::Matrices;
 
 #include <exception>
 #include <ctime> // Used for file naming, so logs don't get overwritten.
+#include <experimental/filesystem> // check file existence
 
 using namespace TNL;
 using namespace TNL::Benchmarks;
@@ -116,20 +117,23 @@ main( int argc, char* argv[] )
 
    const String & inputFileName = parameters.getParameter< String >( "input-file" );
    const String & logFileName = parameters.getParameter< String >( "log-file" );
-   const String & outputMode = parameters.getParameter< String >( "output-mode" );
+   String outputMode = parameters.getParameter< String >( "output-mode" );
    const String & precision = parameters.getParameter< String >( "precision" );
    const int loops = parameters.getParameter< int >( "loops" );
    const int verbose = parameters.getParameter< int >( "verbose" );
    const int verboseMR = parameters.getParameter< int >( "verbose-MReader" );
 
    // open log file
+   bool exist = std::experimental::filesystem::exists(logFileName.getString());
+   if( ! exist )
+      outputMode = "";
    auto mode = std::ios::out;
    if( outputMode == "append" )
        mode |= std::ios::app;
    std::ofstream logFile( logFileName.getString(), mode );
 
    // init benchmark and common metadata
-   SpMV::BenchmarkType benchmark( loops, verbose );
+   SpMV::BenchmarkType benchmark( loops, verbose, outputMode );
 
    // prepare global metadata
    SpMV::BenchmarkType::MetadataMap metadata = getHardwareMetadata< Logging >();
