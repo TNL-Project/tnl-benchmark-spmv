@@ -1819,10 +1819,11 @@ void SpMVCSRAdaptivePrepare( const Real *inVector,
          blocks = MAX_X_DIM;
          neededThreads -= MAX_X_DIM * threads;
       }
+      using Matrix = CSR< Real, Device, Index, KernelType >;
       SpMVCSRAdaptive< Real, Index, warpSize,
-            matrix.WARPS,
-            matrix.SHARED_PER_WARP,
-            matrix.MAX_ELEMENTS_PER_WARP_ADAPT >
+            Matrix::WARPS,
+            Matrix::SHARED_PER_WARP,
+            Matrix::MAX_ELEMENTS_PER_WARP_ADAPT >
          <<<blocks, threads>>>(
                inVector,
                outVector,
