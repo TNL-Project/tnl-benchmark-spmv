@@ -41,8 +41,8 @@
 
 // Comment the following to turn off some groups of SpMV benchmarks and speed-up the compilation
 #define WITH_TNL_BENCHMARK_SPMV_GENERAL_MATRICES
-#define WITH_TNL_BENCHMARK_SPMV_SYMMETRIC_MATRICES
-#define WITH_TNL_BENCHMARK_SPMV_LEGACY_FORMATS
+//#define WITH_TNL_BENCHMARK_SPMV_SYMMETRIC_MATRICES
+//#define WITH_TNL_BENCHMARK_SPMV_LEGACY_FORMATS
 
 // Uncomment the following line to enable benchmarking the sandbox sparse matrix.
 //#define WITH_TNL_BENCHMARK_SPMV_SANDBOX_MATRIX

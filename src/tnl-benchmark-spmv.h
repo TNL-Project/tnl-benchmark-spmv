@@ -70,13 +70,14 @@ void
 setupConfig( Config::ConfigDescription & config )
 {
    config.addDelimiter( "Benchmark settings:" );
-   config.addRequiredEntry< String >( "input-file", "Input file name." );
+   config.addEntry< String >( "input-file", "Input file name.", "" );
    config.addEntry< bool >( "with-symmetric-matrices", "Perform benchmark even for symmetric matrix formats.", true );
    config.addEntry< bool >( "with-legacy-matrices", "Perform benchmark even for legacy TNL matrix formats.", true );
    config.addEntry< String >( "log-file", "Log file name.", "tnl-benchmark-spmv::" + getCurrDateTime() + ".log");
-   config.addEntry< String >( "output-mode", "Mode for opening the log file.", "append" );
+   config.addEntry< String >( "output-mode", "Mode for opening the log file - 'close' will only finalize the log file.", "append" );
    config.addEntryEnum( "append" );
    config.addEntryEnum( "overwrite" );
+   config.addEntryEnum( "close" );
    config.addEntry< String >( "precision", "Precision of the arithmetics.", "double" );
    config.addEntryEnum( "float" );
    config.addEntryEnum( "double" );
@@ -124,11 +125,23 @@ main( int argc, char* argv[] )
    const int verboseMR = parameters.getParameter< int >( "verbose-MReader" );
 
    // open log file
+   if( outputMode == "close" )
+   {
+      std::fstream file;
+      file.open( logFileName.getString(), std::ios::out | std::ios::app );
+      file << std::endl << "   ]" << std::endl << "}";
+      return EXIT_SUCCESS;
+   }
+   if( inputFileName == "" )
+   {
+      std::cerr << "ERROR: Input file name is required." << std::endl;
+      return EXIT_FAILURE;
+   }
    bool logFileAppend( false );
    if( std::experimental::filesystem::exists(logFileName.getString()) )
    {
       logFileAppend = true;
-      std::cout << "Log file " << logFileName << "exists and ";
+      std::cout << "Log file " << logFileName << " exists and ";
       if( outputMode == "append" )
          std::cout << "new logs will be appended." << std::endl;
       else
