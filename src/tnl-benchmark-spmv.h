@@ -74,7 +74,7 @@ setupConfig( Config::ConfigDescription & config )
    config.addEntry< bool >( "with-symmetric-matrices", "Perform benchmark even for symmetric matrix formats.", true );
    config.addEntry< bool >( "with-legacy-matrices", "Perform benchmark even for legacy TNL matrix formats.", true );
    config.addEntry< String >( "log-file", "Log file name.", "tnl-benchmark-spmv::" + getCurrDateTime() + ".log");
-   config.addEntry< String >( "output-mode", "Mode for opening the log file.", "overwrite" );
+   config.addEntry< String >( "output-mode", "Mode for opening the log file.", "append" );
    config.addEntryEnum( "append" );
    config.addEntryEnum( "overwrite" );
    config.addEntry< String >( "precision", "Precision of the arithmetics.", "double" );
@@ -101,7 +101,7 @@ main( int argc, char* argv[] )
    // FIXME: When ./tnl-benchmark-spmv-dbg is called without parameters:
    //           * The guide on what parameters to use prints twice.
    // FIXME: When ./tnl-benchmark-spmv-dbg is called with '--help':
-   //           * The guide on what parameter to use print once. 
+   //           * The guide on what parameter to use print once.
    //              But then it CRASHES due to segfault:
    //              The program attempts to get unknown parameter openmp-enabled
    //              Aborting the program.
@@ -124,16 +124,24 @@ main( int argc, char* argv[] )
    const int verboseMR = parameters.getParameter< int >( "verbose-MReader" );
 
    // open log file
-   bool exist = std::experimental::filesystem::exists(logFileName.getString());
-   if( ! exist )
-      outputMode = "";
+   bool logFileAppend( false );
+   if( std::experimental::filesystem::exists(logFileName.getString()) )
+   {
+      logFileAppend = true;
+      std::cout << "Log file " << logFileName << "exists and ";
+      if( outputMode == "append" )
+         std::cout << "new logs will be appended." << std::endl;
+      else
+         std::cout << "will be overwritten." << std::endl;
+   }
+
    auto mode = std::ios::out;
    if( outputMode == "append" )
        mode |= std::ios::app;
    std::ofstream logFile( logFileName.getString(), mode );
 
    // init benchmark and common metadata
-   TNL::Benchmarks::SpMV::BenchmarkType benchmark( loops, verbose, outputMode );
+   TNL::Benchmarks::SpMV::BenchmarkType benchmark( loops, verbose, outputMode, logFileAppend );
 
    // prepare global metadata
    TNL::Benchmarks::SpMV::BenchmarkType::MetadataMap metadata = getHardwareMetadata< Logging >();
