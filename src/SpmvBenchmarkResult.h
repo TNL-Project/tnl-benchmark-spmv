@@ -18,6 +18,7 @@ namespace Benchmarks {
 template< typename Real,
           typename Device,
           typename Index,
+          typename ResultReal = Real,
           typename Logger = JsonLogging >
 struct SpmvBenchmarkResult
 : public BenchmarkResult< Logger >
@@ -26,7 +27,7 @@ struct SpmvBenchmarkResult
    using DeviceType = Device;
    using IndexType = Index;
    using HostVector = Containers::Vector< Real, Devices::Host, Index >;
-   using BenchmarkVector = Containers::Vector< Real, Device, Index >;
+   using BenchmarkVector = Containers::Vector< ResultReal, Device, Index >;
 
    using typename BenchmarkResult< Logger >::HeaderElements;
    using typename BenchmarkResult< Logger >::RowElements;
@@ -45,7 +46,7 @@ struct SpmvBenchmarkResult
    virtual HeaderElements getTableHeader() const override
    {
       return HeaderElements( {
-         std::pair< String, int >( "format", 30 ),
+         std::pair< String, int >( "format", 35 ),
          std::pair< String, int >( "device", 12 ),
          std::pair< String, int >( "non-zeros", 12 ),
          std::pair< String, int >( "time", 12 ),
