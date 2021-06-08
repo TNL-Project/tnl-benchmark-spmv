@@ -41,8 +41,8 @@
 
 // Comment the following to turn off some groups of SpMV benchmarks and speed-up the compilation
 #define WITH_TNL_BENCHMARK_SPMV_GENERAL_MATRICES
-//#define WITH_TNL_BENCHMARK_SPMV_SYMMETRIC_MATRICES
-//#define WITH_TNL_BENCHMARK_SPMV_LEGACY_FORMATS
+#define WITH_TNL_BENCHMARK_SPMV_SYMMETRIC_MATRICES
+#define WITH_TNL_BENCHMARK_SPMV_LEGACY_FORMATS
 
 // Uncomment the following line to enable benchmarking the sandbox sparse matrix.
 //#define WITH_TNL_BENCHMARK_SPMV_SANDBOX_MATRIX
@@ -220,17 +220,6 @@ std::string getFormatShort( const Matrix& matrix )
     return format;
 }
 
-// Print information about the matrix.
-/*template< typename Matrix >
-void printMatrixInfo( const Matrix& matrix,
-                      std::ostream& str )
-{
-    str << "\n Format: " << getMatrixFormat( matrix ) << std::endl;
-    str << " Rows: " << matrix.getRows() << std::endl;
-    str << " Cols: " << matrix.getColumns() << std::endl;
-    str << " Nonzero Elements: " << matrix.getNumberOfNonzeroMatrixElements() << std::endl;
-}*/
-
 template< typename Real,
           template< typename, typename, typename > class Matrix,
           template< typename, typename, typename, typename > class Vector = Containers::Vector >
@@ -250,12 +239,6 @@ benchmarkSpMVLegacy( BenchmarkType& benchmark,
 
    SpMV::ReferenceFormats::Legacy::LegacyMatrixReader< HostMatrix >::readMtxFile( inputFileName, hostMatrix, verboseMR );
 
-   /*benchmark.setMetadataColumns( BenchmarkType::MetadataColumns({
-         { "matrix name", convertToString( inputFileName ) },
-         { "rows", convertToString( hostMatrix.getRows() ) },
-         { "columns", convertToString( hostMatrix.getColumns() ) },
-         { "matrix format", MatrixInfo< HostMatrix >::getFormat() }
-      } ));*/
    const int elements = hostMatrix.getNonzeroElementsCount();
    const double datasetSize = (double) elements * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
    benchmark.setOperation( datasetSize );
@@ -295,7 +278,6 @@ benchmarkSpMVLegacy( BenchmarkType& benchmark,
    SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( MatrixInfo< HostMatrix >::getFormat(), csrResultVector, cudaOutVector, cudaMatrix.getNonzeroElementsCount() );
    benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvCuda, cudaBenchmarkResults );
  #endif
-   // std::cout << std::endl;
 }
 
 template< typename Real,
@@ -325,12 +307,6 @@ benchmarkSpMV( BenchmarkType& benchmark,
       return;
    }
 
-   /*benchmark.setMetadataColumns( BenchmarkType::MetadataColumns({
-         { "matrix name", convertToString( inputFileName ) },
-         { "rows", convertToString( hostMatrix.getRows() ) },
-         { "columns", convertToString( hostMatrix.getColumns() ) },
-         { "matrix format", MatrixInfo< HostMatrix >::getFormat() }
-      } ));*/
    const int elements = hostMatrix.getNonzeroElementsCount();
    const double datasetSize = (double) elements * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
    benchmark.setOperation( datasetSize );
@@ -371,7 +347,6 @@ benchmarkSpMV( BenchmarkType& benchmark,
    SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( MatrixInfo< HostMatrix >::getFormat(), csrResultVector, cudaOutVector, cudaMatrix.getNonzeroElementsCount() );
    benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvCuda, cudaBenchmarkResults );
  #endif
-   // std::cout << std::endl;
 }
 
 template< typename Real = double,
@@ -425,13 +400,6 @@ benchmarkSpmv( BenchmarkType& benchmark,
       { "rows", convertToString( csrHostMatrix.getRows() ) },
       { "columns", convertToString( csrHostMatrix.getColumns() ) } } ) );
 
-   /*benchmark.setMetadataColumns( BenchmarkType::MetadataColumns({
-         { "matrix name", convertToString( inputFileName ) },
-         { "rows", convertToString( csrHostMatrix.getRows() ) },
-         { "columns", convertToString( csrHostMatrix.getColumns() ) },
-         { "matrix format", String( "CSR" ) }
-      } ));*/
-
    HostVector hostInVector( csrHostMatrix.getRows() ), hostOutVector( csrHostMatrix.getRows() );
 
    auto resetHostVectors = [&]() {
@@ -452,13 +420,6 @@ benchmarkSpmv( BenchmarkType& benchmark,
    ////
    // Perform benchmark on CUDA device with cuSparse as a reference GPU format
    //
-   /*benchmark.setMetadataColumns( Benchmark::MetadataColumns({
-         { "matrix name", convertToString( inputFileName ) },
-         { "rows", convertToString( csrHostMatrix.getRows() ) },
-         { "columns", convertToString( csrHostMatrix.getColumns() ) },
-         { "matrix format", String( "cuSparse" ) }
-      } ));*/
-
    cusparseHandle_t cusparseHandle;
    cusparseCreate( &cusparseHandle );
 
@@ -487,12 +448,6 @@ benchmarkSpmv( BenchmarkType& benchmark,
    // Perform benchmark on CUDA device with CSR5 as a reference GPU format
    //
    cudaBenchmarkResults.setFormat( String( "CSR5" ) );
-   /*benchmark.setMetadataColumns( Benchmark::MetadataColumns({
-      { "matrix name", convertToString( inputFileName ) },
-      { "rows", convertToString( csrHostMatrix.getRows() ) },
-      { "columns", convertToString( csrHostMatrix.getColumns() ) },
-      { "matrix format", String( "CSR5" ) }
-   } ));*/
 
    CudaVector cudaOutVector2( cudaOutVector );
    CSR5Benchmark::CSR5Benchmark< CSRCudaMatrix > csr5Benchmark( csrCudaMatrix, cudaInVector, cudaOutVector );
@@ -510,12 +465,6 @@ benchmarkSpmv( BenchmarkType& benchmark,
    // Perform benchmark on CUDA device with LightSpMV as a reference GPU format
    //
    cudaBenchmarkResults.setFormat( String( "LightSpMV Vector" ) );
-   /*benchmark.setMetadataColumns( Benchmark::MetadataColumns({
-      { "matrix name", convertToString( inputFileName ) },
-      { "rows", convertToString( csrHostMatrix.getRows() ) },
-      { "columns", convertToString( csrHostMatrix.getColumns() ) },
-      { "matrix format", String( "LightSpMV Vector" ) }
-   } ));*/
 
    LightSpMVCSRHostMatrix lightSpMVCSRHostMatrix;
    lightSpMVCSRHostMatrix = csrHostMatrix;
@@ -530,12 +479,6 @@ benchmarkSpmv( BenchmarkType& benchmark,
    benchmark.time< Devices::Cuda >( resetLightSpMVVectors, "GPU", spmvLightSpMV, cudaBenchmarkResults );
 
    cudaBenchmarkResults.setFormat( String( "LightSpMV Warp" ) );
-   /*benchmark.setMetadataColumns( Benchmark::MetadataColumns({
-      { "matrix name", convertToString( inputFileName ) },
-      { "rows", convertToString( csrHostMatrix.getRows() ) },
-      { "columns", convertToString( csrHostMatrix.getColumns() ) },
-      { "matrix format", String( "LightSpMV Warp" ) }
-   } ));*/
    lightSpMVBenchmark.setKernelType( LightSpMVBenchmarkKernelWarp );
    benchmark.time< Devices::Cuda >( resetLightSpMVVectors, "GPU", spmvLightSpMV, cudaBenchmarkResults );
 #endif
@@ -625,6 +568,6 @@ benchmarkSpmv( BenchmarkType& benchmark,
 #endif
 }
 
-} // namespace SpMVLegacy
-} // namespace Benchmarks
+      } // namespace SpMVLegacy
+   } // namespace Benchmarks
 } // namespace TNL
