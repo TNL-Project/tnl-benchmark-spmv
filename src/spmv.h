@@ -186,41 +186,6 @@ using SparseMatrixLegacy_CSR_LightWithoutAtomic = Benchmarks::SpMV::ReferenceFor
 template< typename Real, typename Device, typename Index >
 using SlicedEllpackAlias = Benchmarks::SpMV::ReferenceFormats::Legacy::SlicedEllpack< Real, Device, Index >;
 
-// Get the name (with extension) of input matrix file
-std::string getMatrixFileName( const String& InputFileName )
-{
-    std::string fileName = InputFileName;
-
-    const size_t last_slash_idx = fileName.find_last_of( "/\\" );
-    if( std::string::npos != last_slash_idx )
-        fileName.erase( 0, last_slash_idx + 1 );
-
-    return fileName;
-}
-
-// Get only the name of the format from getType()
-template< typename Matrix >
-std::string getMatrixFormat( const Matrix& matrix )
-{
-    std::string mtrxFullType = getType( matrix );
-    std::string mtrxType = mtrxFullType.substr( 0, mtrxFullType.find( "<" ) );
-    std::string format = mtrxType.substr( mtrxType.find( ':' ) + 2 );
-
-    return format;
-}
-
-template< typename Matrix >
-std::string getFormatShort( const Matrix& matrix )
-{
-    std::string mtrxFullType = getType( matrix );
-    std::string mtrxType = mtrxFullType.substr( 0, mtrxFullType.find( "<" ) );
-    std::string format = mtrxType.substr( mtrxType.find( ':' ) + 2 );
-    format = format.substr( format.find(':') + 2);
-    format = format.substr( 0, 3 );
-
-    return format;
-}
-
 template< typename Real,
           template< typename, typename, typename > class Matrix,
           template< typename, typename, typename, typename > class Vector = Containers::Vector >
@@ -238,7 +203,15 @@ benchmarkSpMVLegacy( BenchmarkType& benchmark,
    HostMatrix hostMatrix;
    CudaMatrix cudaMatrix;
 
-   SpMV::ReferenceFormats::Legacy::LegacyMatrixReader< HostMatrix >::readMtxFile( inputFileName, hostMatrix, verboseMR );
+   try
+   {
+      SpMV::ReferenceFormats::Legacy::LegacyMatrixReader< HostMatrix >::readMtxFile( inputFileName, hostMatrix, verboseMR );
+   }
+   catch(const std::exception& e)
+   {
+      std::cerr << "Unable to read the matrix: " << e.what() << std::endl;
+      return;
+   }
 
    const int elements = hostMatrix.getNonzeroElementsCount();
    const double datasetSize = (double) elements * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
@@ -265,7 +238,16 @@ benchmarkSpMVLegacy( BenchmarkType& benchmark,
    // Benchmark SpMV on CUDA
    //
 #ifdef HAVE_CUDA
-   cudaMatrix = hostMatrix;
+   try
+   {
+      cudaMatrix = hostMatrix;
+   }
+   catch(const std::exception& e)
+   {
+      std::cerr << "Unable to copy the matrix on GPU: " << e.what() << std::endl;
+      return;
+   }
+
    CudaVector cudaInVector( hostMatrix.getColumns() ), cudaOutVector( hostMatrix.getRows() );
 
    auto resetCudaVectors = [&]() {
@@ -304,7 +286,7 @@ benchmarkSpMV( BenchmarkType& benchmark,
    }
    catch(const std::exception& e)
    {
-      std::cerr << "Unable to convert the matrix to the target format." << std::endl;
+      std::cerr << "Unable to convert the matrix to the target format:"  << e.what() << std::endl;
       return;
    }
 
@@ -334,7 +316,16 @@ benchmarkSpMV( BenchmarkType& benchmark,
    //
 #ifdef HAVE_CUDA
    CudaMatrix cudaMatrix;
-   cudaMatrix = inputMatrix;
+   try
+   {
+      cudaMatrix = inputMatrix;
+   }
+   catch(const std::exception& e)
+   {
+      std::cerr << "Unable to copy the matrix on GPU:" << e.what() << std::endl;
+      return;
+   }
+
    CudaVector cudaInVector( hostMatrix.getColumns() ), cudaOutVector( hostMatrix.getRows() );
 
    auto resetCudaVectors = [&]() {
@@ -373,7 +364,7 @@ benchmarkBinarySpMV( BenchmarkType& benchmark,
    }
    catch(const std::exception& e)
    {
-      std::cerr << "Unable to convert the matrix to the target format." << std::endl;
+      std::cerr << "Unable to convert the matrix to the target format:" << e.what() << std::endl;
       return;
    }
 
@@ -403,7 +394,16 @@ benchmarkBinarySpMV( BenchmarkType& benchmark,
    //
 #ifdef HAVE_CUDA
    CudaMatrix cudaMatrix;
-   cudaMatrix = inputMatrix;
+   try
+   {
+      cudaMatrix = inputMatrix;
+   }
+   catch(const std::exception& e)
+   {
+      std::cerr << "Unable to copy the matrix on GPU:" << e.what() << std::endl;
+      return;
+   }
+
    CudaVector cudaInVector( hostMatrix.getColumns() ), cudaOutVector( hostMatrix.getRows() );
 
    auto resetCudaVectors = [&]() {
