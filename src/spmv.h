@@ -77,6 +77,9 @@ template< typename Real, typename Device, typename Index >
 using SparseMatrix_CSR_Hybrid = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, Algorithms::Segments::CSRHybrid >;
 
 template< typename Real, typename Device, typename Index >
+using SparseMatrix_CSR_Light = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, Algorithms::Segments::CSRLight >;
+
+template< typename Real, typename Device, typename Index >
 using SparseMatrix_CSR_Adaptive = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, Algorithms::Segments::CSRAdaptive >;
 
 template< typename Device, typename Index, typename IndexAllocator >
@@ -114,6 +117,9 @@ using SymmetricSparseMatrix_CSR_Vector = Matrices::SparseMatrix< Real, Device, I
 
 template< typename Real, typename Device, typename Index >
 using SymmetricSparseMatrix_CSR_Hybrid = Matrices::SparseMatrix< Real, Device, Index, Matrices::SymmetricMatrix, Algorithms::Segments::CSRHybrid >;
+
+template< typename Real, typename Device, typename Index >
+using SymmetricSparseMatrix_CSR_Light = Matrices::SparseMatrix< Real, Device, Index, Matrices::SymmetricMatrix, Algorithms::Segments::CSRLight >;
 
 template< typename Real, typename Device, typename Index >
 using SymmetricSparseMatrix_CSR_Adaptive = Matrices::SparseMatrix< Real, Device, Index, Matrices::SymmetricMatrix, Algorithms::Segments::CSRAdaptive >;
@@ -591,6 +597,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
    benchmarkSpMV< Real, HostMatrixType, SparseMatrix_CSR_Scalar                   >( benchmark, hostMatrix, hostOutVector, inputFileName, verboseMR );
    benchmarkSpMV< Real, HostMatrixType, SparseMatrix_CSR_Vector                   >( benchmark, hostMatrix, hostOutVector, inputFileName, verboseMR );
    benchmarkSpMV< Real, HostMatrixType, SparseMatrix_CSR_Hybrid                   >( benchmark, hostMatrix, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, HostMatrixType, SparseMatrix_CSR_Light                    >( benchmark, hostMatrix, hostOutVector, inputFileName, verboseMR );
    benchmarkSpMV< Real, HostMatrixType, SparseMatrix_CSR_Adaptive                 >( benchmark, hostMatrix, hostOutVector, inputFileName, verboseMR );
    benchmarkSpMV< Real, HostMatrixType, SparseMatrix_Ellpack                      >( benchmark, hostMatrix, hostOutVector, inputFileName, verboseMR );
    benchmarkSpMV< Real, HostMatrixType, SparseMatrix_SlicedEllpack                >( benchmark, hostMatrix, hostOutVector, inputFileName, verboseMR );
@@ -599,7 +606,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
 #ifdef WITH_TNL_BENCHMARK_SPMV_BINARY_MATRICES
    benchmarkBinarySpMV< Real, HostMatrixType, SparseMatrix_CSR_Scalar             >( benchmark, hostMatrix, hostOutVector, inputFileName, verboseMR );
    benchmarkBinarySpMV< Real, HostMatrixType, SparseMatrix_CSR_Vector             >( benchmark, hostMatrix, hostOutVector, inputFileName, verboseMR );
-   benchmarkBinarySpMV< Real, HostMatrixType, SparseMatrix_CSR_Hybrid             >( benchmark, hostMatrix, hostOutVector, inputFileName, verboseMR );
+   benchmarkBinarySpMV< Real, HostMatrixType, SparseMatrix_CSR_Light              >( benchmark, hostMatrix, hostOutVector, inputFileName, verboseMR );
    benchmarkBinarySpMV< Real, HostMatrixType, SparseMatrix_CSR_Adaptive           >( benchmark, hostMatrix, hostOutVector, inputFileName, verboseMR );
    benchmarkBinarySpMV< Real, HostMatrixType, SparseMatrix_Ellpack                >( benchmark, hostMatrix, hostOutVector, inputFileName, verboseMR );
    benchmarkBinarySpMV< Real, HostMatrixType, SparseMatrix_SlicedEllpack          >( benchmark, hostMatrix, hostOutVector, inputFileName, verboseMR );
