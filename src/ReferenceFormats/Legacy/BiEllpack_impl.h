@@ -13,6 +13,7 @@
 
 #include <Benchmarks/SpMV/ReferenceFormats/Legacy/BiEllpack.h>
 #include <TNL/Containers/Vector.h>
+#include <TNL/Algorithms/scan.h>
 #include <TNL/Math.h>
 #include <cstdio>
 
@@ -97,8 +98,7 @@ setCompressedRowLengths( ConstRowsCapacitiesTypeView constRowLengths )
     DeviceDependentCode::performRowBubbleSort( *this, rowLengths );
     DeviceDependentCode::computeColumnSizes( *this, rowLengths );
 
-    //this->groupPointers.computeExclusivePrefixSum();
-    this->groupPointers.template scan< Algorithms::ScanType::Exclusive >();
+    Algorithms::inplaceExclusiveScan( this->groupPointers );
 
     DeviceDependentCode::verifyRowPerm( *this, rowLengths );
     DeviceDependentCode::verifyRowLengths( *this, rowLengths );

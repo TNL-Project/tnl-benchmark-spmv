@@ -12,6 +12,7 @@
 
 #include <Benchmarks/SpMV/ReferenceFormats/Legacy/ChunkedEllpack.h>
 #include <TNL/Containers/Vector.h>
+#include <TNL/Algorithms/scan.h>
 #include <TNL/Math.h>
 #include <TNL/Exceptions/NotImplementedError.h>
 
@@ -218,7 +219,7 @@ void ChunkedEllpack< Real, Device, Index >::setCompressedRowLengths( ConstRowsCa
       this->rowPointers.setElement( 0, 0 );
       for( IndexType sliceIndex = 0; sliceIndex < numberOfSlices; sliceIndex++ )
          this->setSlice( rowLengths, sliceIndex, elementsToAllocation );
-      this->rowPointers.scan();
+      Algorithms::inplaceInclusiveScan( this->rowPointers );
    }
 
    if( std::is_same< Device, Devices::Cuda >::value )

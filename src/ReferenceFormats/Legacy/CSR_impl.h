@@ -12,6 +12,7 @@
 
 #include <Benchmarks/SpMV/ReferenceFormats/Legacy/CSR.h>
 #include <TNL/Containers/VectorView.h>
+#include <TNL/Algorithms/scan.h>
 #include <TNL/Math.h>
 #include <TNL/Algorithms/AtomicOperations.h>
 #include <TNL/Exceptions/NotImplementedError.h>
@@ -102,7 +103,7 @@ void CSR< Real, Device, Index, KernelType >::setCompressedRowLengths( ConstRowsC
    rowPtrs.bind( this->rowPointers.getData(), this->getRows() );
    rowPtrs = rowLengths;
    this->rowPointers.setElement( this->rows, 0 );
-   this->rowPointers.template scan< Algorithms::ScanType::Exclusive >();
+   Algorithms::inplaceExclusiveScan( this->rowPointers );
    this->maxRowLength = max( rowLengths );
 
    /****
