@@ -639,10 +639,11 @@ benchmarkSpmv( BenchmarkType& benchmark,
       }
       InputMatrix hostMatrix;
       TNL::Matrices::MatrixReader< InputMatrix >::readMtx( inputFileName, hostMatrix, verboseMR );
-      if( hostMatrix != symmetricHostMatrix )
-      {
-         std::cerr << "ERROR: Symmetric matrices do not match !!!" << std::endl;
-      }
+      // TODO: Comparison of symmetric and general matrix does not work yet.
+      //if( hostMatrix != symmetricHostMatrix )
+      //{
+      //   std::cerr << "ERROR: Symmetric matrices do not match !!!" << std::endl;
+      //}
       benchmarkSpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR_Scalar                   >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, verboseMR );
       benchmarkSpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR_Vector                   >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, verboseMR );
       benchmarkSpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR_Hybrid                   >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, verboseMR );
