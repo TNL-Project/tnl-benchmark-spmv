@@ -21,6 +21,11 @@
 #include "spmv.h"
 
 #include <TNL/Matrices/MatrixReader.h>
+
+#ifdef HAVE_PETSC
+#include <petscmat.h>
+#endif
+
 using namespace TNL::Matrices;
 
 #include <exception>
@@ -94,6 +99,9 @@ setupConfig( Config::ConfigDescription & config )
 int
 main( int argc, char* argv[] )
 {
+#ifdef HAVE_PETSC
+   PetscInitialize( &argc, &argv, nullptr, nullptr );
+#endif
    Config::ParameterContainer parameters;
    Config::ConfigDescription conf_desc;
 

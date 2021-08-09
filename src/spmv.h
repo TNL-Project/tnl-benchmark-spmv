@@ -39,6 +39,10 @@
 #include <TNL/Algorithms/Segments/ChunkedEllpack.h>
 #include <TNL/Algorithms/Segments/BiEllpack.h>
 
+#ifdef HAVE_PETSC
+#include <petscmat.h>
+#endif
+
 // Comment the following to turn off some groups of SpMV benchmarks and speed-up the compilation
 #define WITH_TNL_BENCHMARK_SPMV_GENERAL_MATRICES
 #define WITH_TNL_BENCHMARK_SPMV_SYMMETRIC_MATRICES
@@ -491,6 +495,38 @@ benchmarkSpmv( BenchmarkType& benchmark,
    benchmark.addLogsMetadata( csrBenchmarkResults.getTableHeader() );
    benchmark.writeHeader();
    benchmark.time< Devices::Host >( resetHostVectors, "", spmvCSRHost, csrBenchmarkResults );
+
+#ifdef HAVE_PETSC
+   Mat petscMatrix;
+   Containers::Vector< PetscInt, Devices::Host, PetscInt > petscRowPointers( csrHostMatrix.getRowPointers() );
+   Containers::Vector< PetscInt, Devices::Host, PetscInt > petscColumns( csrHostMatrix.getColumnIndexes() );
+   Containers::Vector< PetscScalar, Devices::Host, PetscInt > petscValues( csrHostMatrix.getValues() );
+   MatCreateSeqAIJWithArrays( PETSC_COMM_WORLD, //PETSC_COMM_SELF,
+                              csrHostMatrix.getRows(),
+                              csrHostMatrix.getColumns(),
+                              petscRowPointers.getData(),
+                              petscColumns.getData(),
+                              petscValues.getData(),
+                              &petscMatrix );
+   Vec inVector, outVector;
+   VecCreateSeq( PETSC_COMM_WORLD, csrHostMatrix.getColumns(), &inVector );
+   VecCreateSeq( PETSC_COMM_WORLD, csrHostMatrix.getRows(), &outVector );
+
+   auto resetPetscVectors = [&]() {
+      VecSet( inVector, 1.0 );
+      VecSet( outVector, 0.0 );
+   };
+
+   auto petscSpmvCSRHost = [&]() {
+      MatMult( petscMatrix, inVector, outVector );
+   };
+
+   SpmvBenchmarkResult< Real, Devices::Host, int > petscBenchmarkResults( String( "Petsc" ), hostOutVector, hostOutVector, csrHostMatrix.getNonzeroElementsCount() );
+   //benchmark.addLogsMetadata( petscBenchmarkResults.getTableHeader() );
+   //benchmark.writeHeader();
+   benchmark.time< Devices::Host >( resetPetscVectors, "", petscSpmvCSRHost, petscBenchmarkResults );
+#endif
+
 
 #ifdef HAVE_CUDA
    ////
