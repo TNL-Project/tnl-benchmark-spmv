@@ -364,6 +364,89 @@ template< typename Real,
           template< typename, typename, typename > class Matrix,
           template< typename, typename, typename, typename > class Vector = Containers::Vector >
 void
+benchmarkSpMVCSRLight( BenchmarkType& benchmark,
+                       const InputMatrix& inputMatrix,
+                       const TNL::Containers::Vector< Real, Devices::Host, int >& csrResultVector,
+                       const String& inputFileName,
+                       bool allCpuTests,
+                       bool verboseMR )
+{
+   using HostMatrix = Matrix< Real, TNL::Devices::Host, int >;
+   using CudaMatrix = Matrix< Real, TNL::Devices::Cuda, int >;
+   using HostVector = Containers::Vector< Real, Devices::Host, int >;
+   using CudaVector = Containers::Vector< Real, Devices::Cuda, int >;
+
+   HostMatrix hostMatrix;
+   try
+   {
+      hostMatrix = inputMatrix;
+   }
+   catch(const std::exception& e)
+   {
+      std::cerr << "Unable to convert the matrix to the target format:"  << e.what() << std::endl;
+      return;
+   }
+
+   const int elements = hostMatrix.getNonzeroElementsCount();
+   const double datasetSize = (double) elements * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
+   benchmark.setOperation( datasetSize );
+
+   /////
+   // Benchmark SpMV on host
+   //
+   if( allCpuTests )
+   {
+      HostVector hostInVector( hostMatrix.getColumns() ), hostOutVector( hostMatrix.getRows() );
+
+      auto resetHostVectors = [&]() {
+         hostInVector = 1.0;
+         hostOutVector = 0.0;
+      };
+
+      auto spmvHost = [&]() {
+         hostMatrix.vectorProduct( hostInVector, hostOutVector );
+
+      };
+      SpmvBenchmarkResult< Real, Devices::Host, int > hostBenchmarkResults( MatrixInfo< HostMatrix >::getFormat(), csrResultVector, hostOutVector, hostMatrix.getNonzeroElementsCount() );
+      benchmark.time< Devices::Host >( resetHostVectors, "CPU", spmvHost, hostBenchmarkResults );
+   }
+
+   /////
+   // Benchmark SpMV on CUDA
+   //
+#ifdef HAVE_CUDA
+   CudaMatrix cudaMatrix;
+   try
+   {
+      cudaMatrix = inputMatrix;
+   }
+   catch(const std::exception& e)
+   {
+      std::cerr << "Unable to copy the matrix on GPU:" << e.what() << std::endl;
+      return;
+   }
+
+   CudaVector cudaInVector( hostMatrix.getColumns() ), cudaOutVector( hostMatrix.getRows() );
+
+   auto resetCudaVectors = [&]() {
+      cudaInVector = 1.0;
+      cudaOutVector = 0.0;
+   };
+
+   auto spmvCuda = [&]() {
+      cudaMatrix.vectorProduct( cudaInVector, cudaOutVector );
+   };
+   SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( MatrixInfo< HostMatrix >::getFormat(), csrResultVector, cudaOutVector, cudaMatrix.getNonzeroElementsCount() );
+   benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvCuda, cudaBenchmarkResults );
+ #endif
+}
+
+
+template< typename Real,
+          typename InputMatrix,
+          template< typename, typename, typename > class Matrix,
+          template< typename, typename, typename, typename > class Vector = Containers::Vector >
+void
 benchmarkBinarySpMV( BenchmarkType& benchmark,
                      const InputMatrix& inputMatrix,
                      const TNL::Containers::Vector< Real, Devices::Host, int >& csrResultVector,
@@ -646,7 +729,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
    benchmarkSpMV< Real, HostMatrixType, SparseMatrix_CSR_Scalar                   >( benchmark, hostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
    benchmarkSpMV< Real, HostMatrixType, SparseMatrix_CSR_Vector                   >( benchmark, hostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
    benchmarkSpMV< Real, HostMatrixType, SparseMatrix_CSR_Hybrid                   >( benchmark, hostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
-   benchmarkSpMV< Real, HostMatrixType, SparseMatrix_CSR_Light                    >( benchmark, hostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
+   benchmarkSpMVCSRLight< Real, HostMatrixType, SparseMatrix_CSR_Light            >( benchmark, hostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
    benchmarkSpMV< Real, HostMatrixType, SparseMatrix_CSR_Adaptive                 >( benchmark, hostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
    benchmarkSpMV< Real, HostMatrixType, SparseMatrix_Ellpack                      >( benchmark, hostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
    benchmarkSpMV< Real, HostMatrixType, SparseMatrix_SlicedEllpack                >( benchmark, hostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
@@ -696,6 +779,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
       benchmarkSpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR_Scalar                   >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
       benchmarkSpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR_Vector                   >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
       benchmarkSpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR_Hybrid                   >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
+      benchmarkSpMVCSRLight< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR_Light            >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
       benchmarkSpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR_Adaptive                 >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
       benchmarkSpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_Ellpack                      >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
       benchmarkSpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_SlicedEllpack                >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
@@ -705,6 +789,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
       benchmarkBinarySpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR_Scalar             >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
       benchmarkBinarySpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR_Vector             >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
       benchmarkBinarySpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR_Hybrid             >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
+      benchmarkBinarySpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR_Light              >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
       benchmarkBinarySpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR_Adaptive           >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
       benchmarkBinarySpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_Ellpack                >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
       benchmarkBinarySpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_SlicedEllpack          >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
