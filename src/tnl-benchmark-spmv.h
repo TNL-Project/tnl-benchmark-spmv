@@ -78,6 +78,7 @@ setupConfig( Config::ConfigDescription & config )
    config.addEntry< String >( "input-file", "Input file name.", "" );
    config.addEntry< bool >( "with-symmetric-matrices", "Perform benchmark even for symmetric matrix formats.", true );
    config.addEntry< bool >( "with-legacy-matrices", "Perform benchmark even for legacy TNL matrix formats.", true );
+   config.addEntry< bool >( "with-all-cpu-tests", "All matrix formats are tested on both CPU and GPU. ", false );
    config.addEntry< String >( "log-file", "Log file name.", "tnl-benchmark-spmv::" + getCurrDateTime() + ".log");
    config.addEntry< String >( "output-mode", "Mode for opening the log file - 'close' will only finalize the log file.", "append" );
    config.addEntryEnum( "append" );
