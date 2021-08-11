@@ -12,6 +12,7 @@
 
 #include <Benchmarks/SpMV/ReferenceFormats/Legacy/SlicedEllpack.h>
 #include <TNL/Containers/Vector.h>
+#include <TNL/Algorithms/scan.h>
 #include <TNL/Math.h>
 #include <TNL/Exceptions/NotImplementedError.h>
 
@@ -82,7 +83,7 @@ void SlicedEllpack< Real, Device, Index, SliceSize >::setCompressedRowLengths( C
 
    this->maxRowLength = max( rowLengths );
 
-   this->slicePointers.template scan< Algorithms::ScanType::Exclusive >();
+   Algorithms::inplaceExclusiveScan( this->slicePointers );
    this->allocateMatrixElements( this->slicePointers.getElement( slices ) );
 }
 
