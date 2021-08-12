@@ -436,8 +436,14 @@ benchmarkSpMVCSRLight( BenchmarkType& benchmark,
    auto spmvCuda = [&]() {
       cudaMatrix.vectorProduct( cudaInVector, cudaOutVector );
    };
-   SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( MatrixInfo< HostMatrix >::getFormat(), csrResultVector, cudaOutVector, cudaMatrix.getNonzeroElementsCount() );
-   benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvCuda, cudaBenchmarkResults );
+
+   for( auto threadsPerRow : std::vector< int >{ 1, 2, 4, 8, 16, 32 } )
+   {
+      cudaMatrix.getSegments().getKernel().setThreadsPerSegment( threadsPerRow );
+      String format = MatrixInfo< HostMatrix >::getFormat() + " " + convertToString( threadsPerRow );
+      SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( format, csrResultVector, cudaOutVector, cudaMatrix.getNonzeroElementsCount() );
+      benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvCuda, cudaBenchmarkResults );
+   }
  #endif
 }
 
@@ -570,10 +576,13 @@ benchmarkSpmv( BenchmarkType& benchmark,
    ////
    // Perform benchmark on host with CSR as a reference CPU format
    //
+   auto nonzeros = csrHostMatrix.getNonzeroElementsCount();
    benchmark.addCommonLogs( BenchmarkType::CommonLogs( {
       { "matrix name", convertToString( inputFileName ) },
       { "rows", convertToString( csrHostMatrix.getRows() ) },
-      { "columns", convertToString( csrHostMatrix.getColumns() ) } } ) );
+      { "columns", convertToString( csrHostMatrix.getColumns() ) },
+      { "nonzeros", convertToString( nonzeros ) },
+      { "nonzeros per row", convertToString( ( double ) nonzeros / ( double ) csrHostMatrix.getRows() ) } } ) );
 
    HostVector hostInVector( csrHostMatrix.getRows() ), hostOutVector( csrHostMatrix.getRows() );
 
