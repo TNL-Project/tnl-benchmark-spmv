@@ -437,13 +437,18 @@ benchmarkSpMVCSRLight( BenchmarkType& benchmark,
       cudaMatrix.vectorProduct( cudaInVector, cudaOutVector );
    };
 
-   for( auto threadsPerRow : std::vector< int >{ 1, 2, 4, 8, 16, 32 } )
+   cudaMatrix.getSegments().getKernel().setThreadsMapping( Algorithms::Segments::CSRLightAutomaticThreadsLightSpMV );
+   String format = MatrixInfo< HostMatrix >::getFormat();
+   SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( format, csrResultVector, cudaOutVector, cudaMatrix.getNonzeroElementsCount() );
+   benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvCuda, cudaBenchmarkResults );
+
+   /*for( auto threadsPerRow : std::vector< int >{ 1, 2, 4, 8, 16, 32 } )
    {
       cudaMatrix.getSegments().getKernel().setThreadsPerSegment( threadsPerRow );
       String format = MatrixInfo< HostMatrix >::getFormat() + " " + convertToString( threadsPerRow );
       SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( format, csrResultVector, cudaOutVector, cudaMatrix.getNonzeroElementsCount() );
       benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvCuda, cudaBenchmarkResults );
-   }
+   }*/
  #endif
 }
 
