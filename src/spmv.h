@@ -437,7 +437,7 @@ benchmarkSpMVCSRLight( BenchmarkType& benchmark,
       cudaMatrix.vectorProduct( cudaInVector, cudaOutVector );
    };
 
-   cudaMatrix.getSegments().getKernel().setThreadsMapping( Algorithms::Segments::CSRLightAutomaticThreadsLightSpMV );
+   cudaMatrix.getSegments().getKernel().setThreadsMapping( Algorithms::Segments::CSRLightAutomaticThreads );
    String format = MatrixInfo< HostMatrix >::getFormat();
    SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( format, csrResultVector, cudaOutVector, cudaMatrix.getNonzeroElementsCount() );
    benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvCuda, cudaBenchmarkResults );
