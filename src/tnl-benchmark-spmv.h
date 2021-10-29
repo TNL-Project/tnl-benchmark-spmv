@@ -21,18 +21,24 @@
 #include "spmv.h"
 
 #include <TNL/Matrices/MatrixReader.h>
+
+#ifdef HAVE_PETSC
+#include <petscmat.h>
+#endif
+
 using namespace TNL::Matrices;
 
 #include <exception>
 #include <ctime> // Used for file naming, so logs don't get overwritten.
+#include <experimental/filesystem> // check file existence
 
 using namespace TNL;
 using namespace TNL::Benchmarks;
 
 template< typename Real >
 void
-runSpMVBenchmarks( Benchmark & benchmark,
-                   Benchmark::MetadataMap metadata,
+runSpMVBenchmarks( TNL::Benchmarks::SpMV::BenchmarkType & benchmark,
+                   TNL::Benchmarks::SpMV::BenchmarkType::MetadataMap metadata,
                    const String & inputFileName,
                    const Config::ParameterContainer& parameters,
                    bool verboseMR = false )
@@ -45,7 +51,7 @@ runSpMVBenchmarks( Benchmark & benchmark,
                            metadata );
    // Start the actual benchmark in spmv.h
    try {
-      SpMVLegacy::benchmarkSpmvSynthetic< Real >( benchmark, inputFileName, parameters, verboseMR );
+      TNL::Benchmarks::SpMV::benchmarkSpmv< Real >( benchmark, inputFileName, parameters, verboseMR );
    }
    catch( const std::exception& ex ) {
       std::cerr << ex.what() << std::endl;
@@ -69,13 +75,15 @@ void
 setupConfig( Config::ConfigDescription & config )
 {
    config.addDelimiter( "Benchmark settings:" );
-   config.addRequiredEntry< String >( "input-file", "Input file name." );
+   config.addEntry< String >( "input-file", "Input file name.", "" );
    config.addEntry< bool >( "with-symmetric-matrices", "Perform benchmark even for symmetric matrix formats.", true );
    config.addEntry< bool >( "with-legacy-matrices", "Perform benchmark even for legacy TNL matrix formats.", true );
+   config.addEntry< bool >( "with-all-cpu-tests", "All matrix formats are tested on both CPU and GPU. ", false );
    config.addEntry< String >( "log-file", "Log file name.", "tnl-benchmark-spmv::" + getCurrDateTime() + ".log");
-   config.addEntry< String >( "output-mode", "Mode for opening the log file.", "overwrite" );
+   config.addEntry< String >( "output-mode", "Mode for opening the log file - 'close' will only finalize the log file.", "append" );
    config.addEntryEnum( "append" );
    config.addEntryEnum( "overwrite" );
+   config.addEntryEnum( "close" );
    config.addEntry< String >( "precision", "Precision of the arithmetics.", "double" );
    config.addEntryEnum( "float" );
    config.addEntryEnum( "double" );
@@ -92,6 +100,9 @@ setupConfig( Config::ConfigDescription & config )
 int
 main( int argc, char* argv[] )
 {
+#ifdef HAVE_PETSC
+   PetscInitialize( &argc, &argv, nullptr, nullptr );
+#endif
    Config::ParameterContainer parameters;
    Config::ConfigDescription conf_desc;
 
@@ -100,7 +111,7 @@ main( int argc, char* argv[] )
    // FIXME: When ./tnl-benchmark-spmv-dbg is called without parameters:
    //           * The guide on what parameters to use prints twice.
    // FIXME: When ./tnl-benchmark-spmv-dbg is called with '--help':
-   //           * The guide on what parameter to use print once. 
+   //           * The guide on what parameter to use print once.
    //              But then it CRASHES due to segfault:
    //              The program attempts to get unknown parameter openmp-enabled
    //              Aborting the program.
@@ -116,23 +127,46 @@ main( int argc, char* argv[] )
 
    const String & inputFileName = parameters.getParameter< String >( "input-file" );
    const String & logFileName = parameters.getParameter< String >( "log-file" );
-   const String & outputMode = parameters.getParameter< String >( "output-mode" );
+   String outputMode = parameters.getParameter< String >( "output-mode" );
    const String & precision = parameters.getParameter< String >( "precision" );
    const int loops = parameters.getParameter< int >( "loops" );
    const int verbose = parameters.getParameter< int >( "verbose" );
    const int verboseMR = parameters.getParameter< int >( "verbose-MReader" );
 
    // open log file
+   if( outputMode == "close" )
+   {
+      std::fstream file;
+      file.open( logFileName.getString(), std::ios::out | std::ios::app );
+      file << std::endl << "   ]" << std::endl << "}";
+      return EXIT_SUCCESS;
+   }
+   if( inputFileName == "" )
+   {
+      std::cerr << "ERROR: Input file name is required." << std::endl;
+      return EXIT_FAILURE;
+   }
+   bool logFileAppend( false );
+   if( std::experimental::filesystem::exists(logFileName.getString()) )
+   {
+      logFileAppend = true;
+      std::cout << "Log file " << logFileName << " exists and ";
+      if( outputMode == "append" )
+         std::cout << "new logs will be appended." << std::endl;
+      else
+         std::cout << "will be overwritten." << std::endl;
+   }
+
    auto mode = std::ios::out;
    if( outputMode == "append" )
        mode |= std::ios::app;
    std::ofstream logFile( logFileName.getString(), mode );
 
    // init benchmark and common metadata
-   Benchmark benchmark( loops, verbose );
+   TNL::Benchmarks::SpMV::BenchmarkType benchmark( loops, verbose, outputMode, logFileAppend );
 
    // prepare global metadata
-   Benchmark::MetadataMap metadata = getHardwareMetadata();
+   TNL::Benchmarks::SpMV::BenchmarkType::MetadataMap metadata = getHardwareMetadata< Logging >();
 
    // Initiate setup of benchmarks
    if( precision == "all" || precision == "float" )

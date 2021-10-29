@@ -690,10 +690,10 @@ template< typename Real,
           typename Device,
           typename Index,
           CSRKernel KernelType >
-   template< CSRKernel KernelType2 >
+   template< typename IndexType2, CSRKernel KernelType2 >
 CSR< Real, Device, Index, KernelType >&
 CSR< Real, Device, Index, KernelType >::
-operator=( const CSR< Real, Device, Index, KernelType2 >& matrix )
+operator=( const CSR< Real, Device, IndexType2, KernelType2 >& matrix )
 {
    this->setLike( matrix );
    this->values = matrix.values;

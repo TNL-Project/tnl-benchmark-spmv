@@ -53,6 +53,17 @@ union Block {
 
    Block() = default;
 
+   template< typename Index2 >
+   Block& operator=( const Block< Index2 >& source ) {
+      index[ 0 ] = source.index[ 0 ];
+      index[ 1 ] = source.index[ 1 ];
+      for( int i = 0; i < ( sizeof(Index) == 4 ? 8 : 16); i ++ )
+         byte[ i ] = source.byte[ i ];
+      for( int i = 0; i < (sizeof(Index) == 4 ? 4 : 8); i++ )
+         twobytes[ i ] = source.twobytes[ i ];
+      return *this;
+   }
+
    Index index[2]; // index[0] is row pointer, index[1] is index in warp
    uint8_t byte[sizeof(Index) == 4 ? 8 : 16]; // byte[7/15] is type specificator
    uint16_t twobytes[sizeof(Index) == 4 ? 4 : 8]; //twobytes[2/4] is maxID - minID
@@ -262,8 +273,8 @@ public:
    // copy assignment
    CSR& operator=( const CSR& matrix );
 
-   template< CSRKernel KernelType2 >
-   CSR& operator=( const CSR< RealType, DeviceType, IndexType, KernelType2 >& matrix );
+   template< typename IndexType2, CSRKernel KernelType2 >
+   CSR& operator=( const CSR< RealType, DeviceType, IndexType2, KernelType2 >& matrix );
 
    // cross-device copy assignment
    template< typename Real2, typename Device2, typename Index2, CSRKernel KernelType2,
