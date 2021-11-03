@@ -611,7 +611,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
    };
 
    SpmvBenchmarkResult< Real, Devices::Host, int > csrBenchmarkResults( String( "CSR" ), hostOutVector, hostOutVector, csrHostMatrix.getNonzeroElementsCount() );
-   benchmark.addLogsMetadata( csrBenchmarkResults.getTableHeader() );
+   benchmark.addLogsMetadata( csrBenchmarkResults.getTableHeader(), csrBenchmarkResults.getColumnWidthHints() );
    benchmark.writeHeader();
    benchmark.time< Devices::Host >( resetHostVectors, "", spmvCSRHost, csrBenchmarkResults );
 
@@ -641,7 +641,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
    };
 
    SpmvBenchmarkResult< Real, Devices::Host, int > petscBenchmarkResults( String( "Petsc" ), hostOutVector, hostOutVector, csrHostMatrix.getNonzeroElementsCount() );
-   //benchmark.addLogsMetadata( petscBenchmarkResults.getTableHeader() );
+   //benchmark.addLogsMetadata( petscBenchmarkResults.getTableHeader(), petscBenchmarkResults.getColumnWidthHints() );
    //benchmark.writeHeader();
    benchmark.time< Devices::Host >( resetPetscVectors, "", petscSpmvCSRHost, petscBenchmarkResults );
 #endif

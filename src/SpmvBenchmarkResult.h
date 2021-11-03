@@ -45,17 +45,12 @@ struct SpmvBenchmarkResult
 
    virtual HeaderElements getTableHeader() const override
    {
-      return HeaderElements( {
-         std::pair< String, int >( "format", 35 ),
-         std::pair< String, int >( "device", 12 ),
-         std::pair< String, int >( "non-zeros", 12 ),
-         std::pair< String, int >( "time", 12 ),
-         std::pair< String, int >( "stddev", 12 ),
-         std::pair< String, int >( "stddev/time", 14 ),
-         std::pair< String, int >( "bandwidth", 12 ),
-         std::pair< String, int >( "speedup", 12 ),
-         std::pair< String, int >( "CSR Diff.Max", 14 ),
-         std::pair< String, int >( "CSR Diff.L2", 14 ) } );
+      return HeaderElements({ "format", "device", "non-zeros", "time", "stddev", "stddev/time", "bandwidth", "speedup", "CSR Diff.Max", "CSR Diff.L2" });
+   }
+
+   virtual std::vector< int > getColumnWidthHints() const override
+   {
+      return std::vector< int >({ 35, 12, 12, 12, 12, 14, 12, 12, 14, 14 });
    }
 
    void setFormat( const String& format ) { this->format = format; };
