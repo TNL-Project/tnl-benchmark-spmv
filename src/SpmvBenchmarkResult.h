@@ -21,7 +21,7 @@ template< typename Real,
           typename ResultReal = Real,
           typename Logger = JsonLogging >
 struct SpmvBenchmarkResult
-: public BenchmarkResult< Logger >
+: public BenchmarkResult
 {
    using RealType = Real;
    using DeviceType = Device;
@@ -29,12 +29,12 @@ struct SpmvBenchmarkResult
    using HostVector = Containers::Vector< Real, Devices::Host, Index >;
    using BenchmarkVector = Containers::Vector< ResultReal, Device, Index >;
 
-   using typename BenchmarkResult< Logger >::HeaderElements;
-   using typename BenchmarkResult< Logger >::RowElements;
-   using BenchmarkResult< Logger >::stddev;
-   using BenchmarkResult< Logger >::bandwidth;
-   using BenchmarkResult< Logger >::speedup;
-   using BenchmarkResult< Logger >::time;
+   using typename BenchmarkResult::HeaderElements;
+   using typename BenchmarkResult::RowElements;
+   using BenchmarkResult::stddev;
+   using BenchmarkResult::bandwidth;
+   using BenchmarkResult::speedup;
+   using BenchmarkResult::time;
 
 
    SpmvBenchmarkResult( const String& format,

@@ -166,7 +166,7 @@ main( int argc, char* argv[] )
    TNL::Benchmarks::SpMV::BenchmarkType benchmark( loops, verbose, outputMode, logFileAppend );
 
    // prepare global metadata
-   TNL::Benchmarks::SpMV::BenchmarkType::MetadataMap metadata = getHardwareMetadata< Logging >();
+   Logging::MetadataMap metadata = getHardwareMetadata();
 
    // Initiate setup of benchmarks
    if( precision == "all" || precision == "float" )
