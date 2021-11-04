@@ -821,6 +821,6 @@ benchmarkSpmv( BenchmarkType& benchmark,
 #endif
 }
 
-      } // namespace SpMVLegacy
+      } // namespace SpMV
    } // namespace Benchmarks
 } // namespace TNL

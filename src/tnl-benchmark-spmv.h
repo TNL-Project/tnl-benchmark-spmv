@@ -66,7 +66,7 @@ std::string getCurrDateTime()
    char buffer[ 80 ];
    time( &rawtime );
    timeinfo = localtime( &rawtime );
-   strftime( buffer, sizeof( buffer ), "%d-%m-%Y--%H:%M:%S", timeinfo );
+   strftime( buffer, sizeof( buffer ), "%Y-%m-%d--%H:%M:%S", timeinfo );
    std::string curr_date_time( buffer );
    return curr_date_time;
 }
@@ -75,7 +75,7 @@ void
 setupConfig( Config::ConfigDescription & config )
 {
    config.addDelimiter( "Benchmark settings:" );
-   config.addEntry< String >( "input-file", "Input file name.", "" );
+   config.addRequiredEntry< String >( "input-file", "Input file name." );
    config.addEntry< bool >( "with-symmetric-matrices", "Perform benchmark even for symmetric matrix formats.", true );
    config.addEntry< bool >( "with-legacy-matrices", "Perform benchmark even for legacy TNL matrix formats.", true );
    config.addEntry< bool >( "with-all-cpu-tests", "All matrix formats are tested on both CPU and GPU. ", false );
