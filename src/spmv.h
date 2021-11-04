@@ -226,7 +226,7 @@ benchmarkSpMVLegacy( BenchmarkType& benchmark,
 
    const int elements = hostMatrix.getNonzeroElementsCount();
    const double datasetSize = (double) elements * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
-   benchmark.setOperation( datasetSize );
+   benchmark.setDatasetSize( datasetSize );
 
    /////
    // Benchmark SpMV on host
@@ -307,7 +307,7 @@ benchmarkSpMV( BenchmarkType& benchmark,
 
    const int elements = hostMatrix.getNonzeroElementsCount();
    const double datasetSize = (double) elements * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
-   benchmark.setOperation( datasetSize );
+   benchmark.setDatasetSize( datasetSize );
 
    /////
    // Benchmark SpMV on host
@@ -390,7 +390,7 @@ benchmarkSpMVCSRLight( BenchmarkType& benchmark,
 
    const int elements = hostMatrix.getNonzeroElementsCount();
    const double datasetSize = (double) elements * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
-   benchmark.setOperation( datasetSize );
+   benchmark.setDatasetSize( datasetSize );
 
    /////
    // Benchmark SpMV on host
@@ -493,7 +493,7 @@ benchmarkBinarySpMV( BenchmarkType& benchmark,
 
    const int elements = hostMatrix.getNonzeroElementsCount();
    const double datasetSize = (double) elements * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
-   benchmark.setOperation( datasetSize );
+   benchmark.setDatasetSize( datasetSize );
 
    /////
    // Benchmark SpMV on host
@@ -586,18 +586,19 @@ benchmarkSpmv( BenchmarkType& benchmark,
    MatrixReader< CSRHostMatrix >::readMtx( inputFileName, csrHostMatrix, verboseMR );
    const int elements = csrHostMatrix.getNonzeroElementsCount();
    const double datasetSize = (double) elements * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
-   benchmark.setOperation( datasetSize );
+   benchmark.setDatasetSize( datasetSize );
 
    ////
    // Perform benchmark on host with CSR as a reference CPU format
    //
    auto nonzeros = csrHostMatrix.getNonzeroElementsCount();
-   benchmark.addCommonLogs( BenchmarkType::CommonLogs( {
+   benchmark.setMetadataColumns({
       { "matrix name", convertToString( inputFileName ) },
       { "rows", convertToString( csrHostMatrix.getRows() ) },
       { "columns", convertToString( csrHostMatrix.getColumns() ) },
       { "nonzeros", convertToString( nonzeros ) },
-      { "nonzeros per row", convertToString( ( double ) nonzeros / ( double ) csrHostMatrix.getRows() ) } } ) );
+      { "nonzeros per row", convertToString( ( double ) nonzeros / ( double ) csrHostMatrix.getRows() ) },
+   });
 
    HostVector hostInVector( csrHostMatrix.getRows() ), hostOutVector( csrHostMatrix.getRows() );
 
@@ -611,8 +612,6 @@ benchmarkSpmv( BenchmarkType& benchmark,
    };
 
    SpmvBenchmarkResult< Real, Devices::Host, int > csrBenchmarkResults( String( "CSR" ), hostOutVector, hostOutVector, csrHostMatrix.getNonzeroElementsCount() );
-   benchmark.addLogsMetadata( csrBenchmarkResults.getTableHeader(), csrBenchmarkResults.getColumnWidthHints() );
-   benchmark.writeHeader();
    benchmark.time< Devices::Host >( resetHostVectors, "", spmvCSRHost, csrBenchmarkResults );
 
 #ifdef HAVE_PETSC
@@ -641,8 +640,6 @@ benchmarkSpmv( BenchmarkType& benchmark,
    };
 
    SpmvBenchmarkResult< Real, Devices::Host, int > petscBenchmarkResults( String( "Petsc" ), hostOutVector, hostOutVector, csrHostMatrix.getNonzeroElementsCount() );
-   //benchmark.addLogsMetadata( petscBenchmarkResults.getTableHeader(), petscBenchmarkResults.getColumnWidthHints() );
-   //benchmark.writeHeader();
    benchmark.time< Devices::Host >( resetPetscVectors, "", petscSpmvCSRHost, petscBenchmarkResults );
 #endif
 
