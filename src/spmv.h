@@ -43,12 +43,6 @@
 #include <petscmat.h>
 #endif
 
-// Comment the following to turn off some groups of SpMV benchmarks and speed-up the compilation
-#define WITH_TNL_BENCHMARK_SPMV_GENERAL_MATRICES
-#define WITH_TNL_BENCHMARK_SPMV_SYMMETRIC_MATRICES
-#define WITH_TNL_BENCHMARK_SPMV_BINARY_MATRICES
-#define WITH_TNL_BENCHMARK_SPMV_LEGACY_FORMATS
-
 // Uncomment the following line to enable benchmarking the sandbox sparse matrix.
 //#define WITH_TNL_BENCHMARK_SPMV_SANDBOX_MATRIX
 #ifdef WITH_TNL_BENCHMARK_SPMV_SANDBOX_MATRIX
@@ -197,8 +191,7 @@ template< typename Real, typename Device, typename Index >
 using SlicedEllpackAlias = Benchmarks::SpMV::ReferenceFormats::Legacy::SlicedEllpack< Real, Device, Index >;
 
 template< typename Real,
-          template< typename, typename, typename > class Matrix,
-          template< typename, typename, typename, typename > class Vector = Containers::Vector >
+          template< typename, typename, typename > class Matrix >
 void
 benchmarkSpMVLegacy( BenchmarkType& benchmark,
                      const TNL::Containers::Vector< Real, Devices::Host, int >& csrResultVector,
@@ -713,7 +706,6 @@ benchmarkSpmv( BenchmarkType& benchmark,
    csrHostMatrix.reset();
 
    bool allCpuTests = parameters.getParameter< bool >( "with-all-cpu-tests" );
-#ifdef WITH_TNL_BENCHMARK_SPMV_LEGACY_FORMATS
    /////
    // Benchmarking of TNL legacy formats
    //
@@ -735,12 +727,10 @@ benchmarkSpmv( BenchmarkType& benchmark,
       benchmarkSpMVLegacy< Real, SlicedEllpackAlias                        >( benchmark, hostOutVector, inputFileName, allCpuTests, verboseMR );
       benchmarkSpMVLegacy< Real, Legacy::ChunkedEllpack                    >( benchmark, hostOutVector, inputFileName, allCpuTests, verboseMR );
       benchmarkSpMVLegacy< Real, Legacy::BiEllpack                         >( benchmark, hostOutVector, inputFileName, allCpuTests, verboseMR );
+      // AdEllpack is broken
+      //benchmarkSpMV< Real, Matrices::AdEllpack              >( benchmark, hostOutVector, inputFileName, verboseMR );
    }
-   // AdEllpack is broken
-   //benchmarkSpMV< Real, Matrices::AdEllpack              >( benchmark, hostOutVector, inputFileName, verboseMR );
-#endif
 
-#ifdef WITH_TNL_BENCHMARK_SPMV_GENERAL_MATRICES
    /////
    // Benchmarking TNL formats
    //
@@ -756,7 +746,6 @@ benchmarkSpmv( BenchmarkType& benchmark,
    benchmarkSpMV< Real, HostMatrixType, SparseMatrix_SlicedEllpack                >( benchmark, hostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
    benchmarkSpMV< Real, HostMatrixType, SparseMatrix_ChunkedEllpack               >( benchmark, hostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
    benchmarkSpMV< Real, HostMatrixType, SparseMatrix_BiEllpack                    >( benchmark, hostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
-#ifdef WITH_TNL_BENCHMARK_SPMV_BINARY_MATRICES
    benchmarkBinarySpMV< Real, HostMatrixType, SparseMatrix_CSR_Scalar              >( benchmark, hostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
    benchmarkBinarySpMV< Real, HostMatrixType, SparseMatrix_CSR_Vector              >( benchmark, hostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
    benchmarkSpMVCSRLight< Real, HostMatrixType, SparseMatrix_CSR_Light, bool >( benchmark, hostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
@@ -765,14 +754,11 @@ benchmarkSpmv( BenchmarkType& benchmark,
    benchmarkBinarySpMV< Real, HostMatrixType, SparseMatrix_SlicedEllpack           >( benchmark, hostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
    benchmarkBinarySpMV< Real, HostMatrixType, SparseMatrix_ChunkedEllpack          >( benchmark, hostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
    benchmarkBinarySpMV< Real, HostMatrixType, SparseMatrix_BiEllpack               >( benchmark, hostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
-#endif
 #ifdef WITH_TNL_BENCHMARK_SPMV_SANDBOX_MATRIX
-   benchmarkSpMV< Real, HostMatrixType, SparseSandboxMatrix                       >( benchmark, hostMatrix, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMV< Real, HostMatrixType, SparseSandboxMatrix                       >( benchmark, hostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
 #endif
    hostMatrix.reset();
-#endif
 
-#ifdef WITH_TNL_BENCHMARK_SPMV_SYMMETRIC_MATRICES
    /////
    // Benchmarking symmetric sparse matrices
    //
@@ -806,7 +792,6 @@ benchmarkSpmv( BenchmarkType& benchmark,
       benchmarkSpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_SlicedEllpack                 >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
       benchmarkSpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_ChunkedEllpack                >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
       benchmarkSpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_BiEllpack                     >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
-#ifdef WITH_TNL_BENCHMARK_SPMV_BINARY_MATRICES
       benchmarkBinarySpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR_Scalar              >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
       benchmarkBinarySpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR_Vector              >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
       //benchmarkBinarySpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR_Hybrid            >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
@@ -816,10 +801,141 @@ benchmarkSpmv( BenchmarkType& benchmark,
       benchmarkBinarySpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_SlicedEllpack           >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
       benchmarkBinarySpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_ChunkedEllpack          >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
       benchmarkBinarySpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_BiEllpack               >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
-#endif
    }
-#endif
 }
+
+// =============== EXPLICIT TEMPLATE INSTANTIATIONS ===============
+// The explicit template declarations (extern ...) are converted to definitions
+// in separate source files using the eti.py script. The developer should call
+// this script whenever the declarations are changed and commit the generated
+// definitions in the git repository.
+//
+// IMPORTANT:
+// - Each template instantiation must be written on exactly one line (the code
+//   generator script (spmv.py) does not support parsing multiple lines).
+// - Make sure that all "benchmark*" functions that are called above are
+//   instantiated below.
+// - Also make sure that all functions that are explicitly instantiated below
+//   are actually used.
+// - Explicit template instantiations cannot be guarded by #ifdef (the code
+//   generator script (spmv.py) does not support parsing macros).
+
+extern template void benchmarkSpMVLegacy< float, SparseMatrixLegacy_CSR_Scalar             >( BenchmarkType&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMVLegacy< float, SparseMatrixLegacy_CSR_Vector             >( BenchmarkType&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+//extern template void benchmarkSpMVLegacy< float, SparseMatrixLegacy_CSR_Light              >( BenchmarkType&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool );
+//extern template void benchmarkSpMVLegacy< float, SparseMatrixLegacy_CSR_Light2             >( BenchmarkType&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool );
+//extern template void benchmarkSpMVLegacy< float, SparseMatrixLegacy_CSR_Light3             >( BenchmarkType&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool );
+//extern template void benchmarkSpMVLegacy< float, SparseMatrixLegacy_CSR_Light4             >( BenchmarkType&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool );
+//extern template void benchmarkSpMVLegacy< float, SparseMatrixLegacy_CSR_Light5             >( BenchmarkType&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool );
+//extern template void benchmarkSpMVLegacy< float, SparseMatrixLegacy_CSR_Light6             >( BenchmarkType&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool );
+extern template void benchmarkSpMVLegacy< float, SparseMatrixLegacy_CSR_Adaptive           >( BenchmarkType&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMVLegacy< float, SparseMatrixLegacy_CSR_MultiVector        >( BenchmarkType&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMVLegacy< float, SparseMatrixLegacy_CSR_LightWithoutAtomic >( BenchmarkType&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMVLegacy< float, ReferenceFormats::Legacy::Ellpack         >( BenchmarkType&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMVLegacy< float, SlicedEllpackAlias                        >( BenchmarkType&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMVLegacy< float, ReferenceFormats::Legacy::ChunkedEllpack  >( BenchmarkType&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMVLegacy< float, ReferenceFormats::Legacy::BiEllpack       >( BenchmarkType&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+// AdEllpack is broken
+//extern template void benchmarkSpMV< float, Matrices::AdEllpack              >( BenchmarkType&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool );
+
+extern template void benchmarkSpMV< float, Matrices::SparseMatrix< float, Devices::Host >, SparseMatrix_CSR_Scalar                   >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host >&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMV< float, Matrices::SparseMatrix< float, Devices::Host >, SparseMatrix_CSR_Vector                   >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host >&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+//extern template void benchmarkSpMV< float, Matrices::SparseMatrix< float, Devices::Host >, SparseMatrix_CSR_Hybrid                   >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host >&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMVCSRLight< float, Matrices::SparseMatrix< float, Devices::Host >, SparseMatrix_CSR_Light            >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host >&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMV< float, Matrices::SparseMatrix< float, Devices::Host >, SparseMatrix_CSR_Adaptive                 >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host >&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMV< float, Matrices::SparseMatrix< float, Devices::Host >, SparseMatrix_Ellpack                      >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host >&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMV< float, Matrices::SparseMatrix< float, Devices::Host >, SparseMatrix_SlicedEllpack                >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host >&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMV< float, Matrices::SparseMatrix< float, Devices::Host >, SparseMatrix_ChunkedEllpack               >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host >&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMV< float, Matrices::SparseMatrix< float, Devices::Host >, SparseMatrix_BiEllpack                    >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host >&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkBinarySpMV< float, Matrices::SparseMatrix< float, Devices::Host >, SparseMatrix_CSR_Scalar              >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host >&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkBinarySpMV< float, Matrices::SparseMatrix< float, Devices::Host >, SparseMatrix_CSR_Vector              >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host >&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMVCSRLight< float, Matrices::SparseMatrix< float, Devices::Host >, SparseMatrix_CSR_Light, bool       >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host >&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkBinarySpMV< float, Matrices::SparseMatrix< float, Devices::Host >, SparseMatrix_CSR_Adaptive            >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host >&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkBinarySpMV< float, Matrices::SparseMatrix< float, Devices::Host >, SparseMatrix_Ellpack                 >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host >&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkBinarySpMV< float, Matrices::SparseMatrix< float, Devices::Host >, SparseMatrix_SlicedEllpack           >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host >&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkBinarySpMV< float, Matrices::SparseMatrix< float, Devices::Host >, SparseMatrix_ChunkedEllpack          >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host >&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkBinarySpMV< float, Matrices::SparseMatrix< float, Devices::Host >, SparseMatrix_BiEllpack               >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host >&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+#ifdef WITH_TNL_BENCHMARK_SPMV_SANDBOX_MATRIX
+extern template void benchmarkSpMV< float, Matrices::SparseMatrix< float, Devices::Host >, SparseSandboxMatrix                       >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host >&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+#endif
+
+extern template void benchmarkSpMV< float, Matrices::SparseMatrix< float, Devices::Host, int, Matrices::SymmetricMatrix >, SymmetricSparseMatrix_CSR_Scalar                    >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host, int, Matrices::SymmetricMatrix >&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMV< float, Matrices::SparseMatrix< float, Devices::Host, int, Matrices::SymmetricMatrix >, SymmetricSparseMatrix_CSR_Vector                    >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host, int, Matrices::SymmetricMatrix >&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+//extern template void benchmarkSpMV< float, Matrices::SparseMatrix< float, Devices::Host, int, Matrices::SymmetricMatrix >, SymmetricSparseMatrix_CSR_Hybrid                   >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host, int, Matrices::SymmetricMatrix >&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMVCSRLight< float, Matrices::SparseMatrix< float, Devices::Host, int, Matrices::SymmetricMatrix >, SymmetricSparseMatrix_CSR_Light             >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host, int, Matrices::SymmetricMatrix >&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMV< float, Matrices::SparseMatrix< float, Devices::Host, int, Matrices::SymmetricMatrix >, SymmetricSparseMatrix_CSR_Adaptive                  >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host, int, Matrices::SymmetricMatrix >&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMV< float, Matrices::SparseMatrix< float, Devices::Host, int, Matrices::SymmetricMatrix >, SymmetricSparseMatrix_Ellpack                       >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host, int, Matrices::SymmetricMatrix >&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMV< float, Matrices::SparseMatrix< float, Devices::Host, int, Matrices::SymmetricMatrix >, SymmetricSparseMatrix_SlicedEllpack                 >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host, int, Matrices::SymmetricMatrix >&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMV< float, Matrices::SparseMatrix< float, Devices::Host, int, Matrices::SymmetricMatrix >, SymmetricSparseMatrix_ChunkedEllpack                >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host, int, Matrices::SymmetricMatrix >&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMV< float, Matrices::SparseMatrix< float, Devices::Host, int, Matrices::SymmetricMatrix >, SymmetricSparseMatrix_BiEllpack                     >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host, int, Matrices::SymmetricMatrix >&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkBinarySpMV< float, Matrices::SparseMatrix< float, Devices::Host, int, Matrices::SymmetricMatrix >, SymmetricSparseMatrix_CSR_Scalar              >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host, int, Matrices::SymmetricMatrix >&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkBinarySpMV< float, Matrices::SparseMatrix< float, Devices::Host, int, Matrices::SymmetricMatrix >, SymmetricSparseMatrix_CSR_Vector              >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host, int, Matrices::SymmetricMatrix >&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+//extern template void benchmarkBinarySpMV< float, Matrices::SparseMatrix< float, Devices::Host, int, Matrices::SymmetricMatrix >, SymmetricSparseMatrix_CSR_Hybrid            >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host, int, Matrices::SymmetricMatrix >&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMVCSRLight< float, Matrices::SparseMatrix< float, Devices::Host, int, Matrices::SymmetricMatrix >, SymmetricSparseMatrix_CSR_Light, bool       >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host, int, Matrices::SymmetricMatrix >&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkBinarySpMV< float, Matrices::SparseMatrix< float, Devices::Host, int, Matrices::SymmetricMatrix >, SymmetricSparseMatrix_CSR_Adaptive            >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host, int, Matrices::SymmetricMatrix >&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkBinarySpMV< float, Matrices::SparseMatrix< float, Devices::Host, int, Matrices::SymmetricMatrix >, SymmetricSparseMatrix_Ellpack                 >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host, int, Matrices::SymmetricMatrix >&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkBinarySpMV< float, Matrices::SparseMatrix< float, Devices::Host, int, Matrices::SymmetricMatrix >, SymmetricSparseMatrix_SlicedEllpack           >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host, int, Matrices::SymmetricMatrix >&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkBinarySpMV< float, Matrices::SparseMatrix< float, Devices::Host, int, Matrices::SymmetricMatrix >, SymmetricSparseMatrix_ChunkedEllpack          >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host, int, Matrices::SymmetricMatrix >&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkBinarySpMV< float, Matrices::SparseMatrix< float, Devices::Host, int, Matrices::SymmetricMatrix >, SymmetricSparseMatrix_BiEllpack               >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host, int, Matrices::SymmetricMatrix >&, const TNL::Containers::Vector< float, Devices::Host, int >&, const String&, bool, bool );
+
+
+extern template void benchmarkSpMVLegacy< double, SparseMatrixLegacy_CSR_Scalar             >( BenchmarkType&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMVLegacy< double, SparseMatrixLegacy_CSR_Vector             >( BenchmarkType&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+//extern template void benchmarkSpMVLegacy< double, SparseMatrixLegacy_CSR_Light              >( BenchmarkType&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool );
+//extern template void benchmarkSpMVLegacy< double, SparseMatrixLegacy_CSR_Light2             >( BenchmarkType&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool );
+//extern template void benchmarkSpMVLegacy< double, SparseMatrixLegacy_CSR_Light3             >( BenchmarkType&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool );
+//extern template void benchmarkSpMVLegacy< double, SparseMatrixLegacy_CSR_Light4             >( BenchmarkType&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool );
+//extern template void benchmarkSpMVLegacy< double, SparseMatrixLegacy_CSR_Light5             >( BenchmarkType&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool );
+//extern template void benchmarkSpMVLegacy< double, SparseMatrixLegacy_CSR_Light6             >( BenchmarkType&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool );
+extern template void benchmarkSpMVLegacy< double, SparseMatrixLegacy_CSR_Adaptive           >( BenchmarkType&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMVLegacy< double, SparseMatrixLegacy_CSR_MultiVector        >( BenchmarkType&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMVLegacy< double, SparseMatrixLegacy_CSR_LightWithoutAtomic >( BenchmarkType&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMVLegacy< double, ReferenceFormats::Legacy::Ellpack         >( BenchmarkType&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMVLegacy< double, SlicedEllpackAlias                        >( BenchmarkType&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMVLegacy< double, ReferenceFormats::Legacy::ChunkedEllpack  >( BenchmarkType&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMVLegacy< double, ReferenceFormats::Legacy::BiEllpack       >( BenchmarkType&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+// AdEllpack is broken
+//extern template void benchmarkSpMV< double, Matrices::AdEllpack              >( BenchmarkType&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool );
+
+extern template void benchmarkSpMV< double, Matrices::SparseMatrix< double, Devices::Host >, SparseMatrix_CSR_Scalar                   >( BenchmarkType&, const Matrices::SparseMatrix< double, Devices::Host >&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMV< double, Matrices::SparseMatrix< double, Devices::Host >, SparseMatrix_CSR_Vector                   >( BenchmarkType&, const Matrices::SparseMatrix< double, Devices::Host >&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+//extern template void benchmarkSpMV< double, Matrices::SparseMatrix< double, Devices::Host >, SparseMatrix_CSR_Hybrid                   >( BenchmarkType&, const Matrices::SparseMatrix< double, Devices::Host >&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMVCSRLight< double, Matrices::SparseMatrix< double, Devices::Host >, SparseMatrix_CSR_Light            >( BenchmarkType&, const Matrices::SparseMatrix< double, Devices::Host >&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMV< double, Matrices::SparseMatrix< double, Devices::Host >, SparseMatrix_CSR_Adaptive                 >( BenchmarkType&, const Matrices::SparseMatrix< double, Devices::Host >&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMV< double, Matrices::SparseMatrix< double, Devices::Host >, SparseMatrix_Ellpack                      >( BenchmarkType&, const Matrices::SparseMatrix< double, Devices::Host >&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMV< double, Matrices::SparseMatrix< double, Devices::Host >, SparseMatrix_SlicedEllpack                >( BenchmarkType&, const Matrices::SparseMatrix< double, Devices::Host >&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMV< double, Matrices::SparseMatrix< double, Devices::Host >, SparseMatrix_ChunkedEllpack               >( BenchmarkType&, const Matrices::SparseMatrix< double, Devices::Host >&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMV< double, Matrices::SparseMatrix< double, Devices::Host >, SparseMatrix_BiEllpack                    >( BenchmarkType&, const Matrices::SparseMatrix< double, Devices::Host >&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkBinarySpMV< double, Matrices::SparseMatrix< double, Devices::Host >, SparseMatrix_CSR_Scalar              >( BenchmarkType&, const Matrices::SparseMatrix< double, Devices::Host >&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkBinarySpMV< double, Matrices::SparseMatrix< double, Devices::Host >, SparseMatrix_CSR_Vector              >( BenchmarkType&, const Matrices::SparseMatrix< double, Devices::Host >&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMVCSRLight< double, Matrices::SparseMatrix< double, Devices::Host >, SparseMatrix_CSR_Light, bool       >( BenchmarkType&, const Matrices::SparseMatrix< double, Devices::Host >&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkBinarySpMV< double, Matrices::SparseMatrix< double, Devices::Host >, SparseMatrix_CSR_Adaptive            >( BenchmarkType&, const Matrices::SparseMatrix< double, Devices::Host >&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkBinarySpMV< double, Matrices::SparseMatrix< double, Devices::Host >, SparseMatrix_Ellpack                 >( BenchmarkType&, const Matrices::SparseMatrix< double, Devices::Host >&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkBinarySpMV< double, Matrices::SparseMatrix< double, Devices::Host >, SparseMatrix_SlicedEllpack           >( BenchmarkType&, const Matrices::SparseMatrix< double, Devices::Host >&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkBinarySpMV< double, Matrices::SparseMatrix< double, Devices::Host >, SparseMatrix_ChunkedEllpack          >( BenchmarkType&, const Matrices::SparseMatrix< double, Devices::Host >&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkBinarySpMV< double, Matrices::SparseMatrix< double, Devices::Host >, SparseMatrix_BiEllpack               >( BenchmarkType&, const Matrices::SparseMatrix< double, Devices::Host >&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+#ifdef WITH_TNL_BENCHMARK_SPMV_SANDBOX_MATRIX
+extern template void benchmarkSpMV< double, Matrices::SparseMatrix< double, Devices::Host >, SparseSandboxMatrix                       >( BenchmarkType&, const Matrices::SparseMatrix< double, Devices::Host >&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+#endif
+
+extern template void benchmarkSpMV< double, Matrices::SparseMatrix< double, Devices::Host, int, Matrices::SymmetricMatrix >, SymmetricSparseMatrix_CSR_Scalar                    >( BenchmarkType&, const Matrices::SparseMatrix< double, Devices::Host, int, Matrices::SymmetricMatrix >&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMV< double, Matrices::SparseMatrix< double, Devices::Host, int, Matrices::SymmetricMatrix >, SymmetricSparseMatrix_CSR_Vector                    >( BenchmarkType&, const Matrices::SparseMatrix< double, Devices::Host, int, Matrices::SymmetricMatrix >&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+//extern template void benchmarkSpMV< double, Matrices::SparseMatrix< double, Devices::Host, int, Matrices::SymmetricMatrix >, SymmetricSparseMatrix_CSR_Hybrid                   >( BenchmarkType&, const Matrices::SparseMatrix< double, Devices::Host, int, Matrices::SymmetricMatrix >&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMVCSRLight< double, Matrices::SparseMatrix< double, Devices::Host, int, Matrices::SymmetricMatrix >, SymmetricSparseMatrix_CSR_Light             >( BenchmarkType&, const Matrices::SparseMatrix< double, Devices::Host, int, Matrices::SymmetricMatrix >&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMV< double, Matrices::SparseMatrix< double, Devices::Host, int, Matrices::SymmetricMatrix >, SymmetricSparseMatrix_CSR_Adaptive                  >( BenchmarkType&, const Matrices::SparseMatrix< double, Devices::Host, int, Matrices::SymmetricMatrix >&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMV< double, Matrices::SparseMatrix< double, Devices::Host, int, Matrices::SymmetricMatrix >, SymmetricSparseMatrix_Ellpack                       >( BenchmarkType&, const Matrices::SparseMatrix< double, Devices::Host, int, Matrices::SymmetricMatrix >&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMV< double, Matrices::SparseMatrix< double, Devices::Host, int, Matrices::SymmetricMatrix >, SymmetricSparseMatrix_SlicedEllpack                 >( BenchmarkType&, const Matrices::SparseMatrix< double, Devices::Host, int, Matrices::SymmetricMatrix >&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMV< double, Matrices::SparseMatrix< double, Devices::Host, int, Matrices::SymmetricMatrix >, SymmetricSparseMatrix_ChunkedEllpack                >( BenchmarkType&, const Matrices::SparseMatrix< double, Devices::Host, int, Matrices::SymmetricMatrix >&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMV< double, Matrices::SparseMatrix< double, Devices::Host, int, Matrices::SymmetricMatrix >, SymmetricSparseMatrix_BiEllpack                     >( BenchmarkType&, const Matrices::SparseMatrix< double, Devices::Host, int, Matrices::SymmetricMatrix >&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkBinarySpMV< double, Matrices::SparseMatrix< double, Devices::Host, int, Matrices::SymmetricMatrix >, SymmetricSparseMatrix_CSR_Scalar              >( BenchmarkType&, const Matrices::SparseMatrix< double, Devices::Host, int, Matrices::SymmetricMatrix >&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkBinarySpMV< double, Matrices::SparseMatrix< double, Devices::Host, int, Matrices::SymmetricMatrix >, SymmetricSparseMatrix_CSR_Vector              >( BenchmarkType&, const Matrices::SparseMatrix< double, Devices::Host, int, Matrices::SymmetricMatrix >&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+//extern template void benchmarkBinarySpMV< double, Matrices::SparseMatrix< double, Devices::Host, int, Matrices::SymmetricMatrix >, SymmetricSparseMatrix_CSR_Hybrid            >( BenchmarkType&, const Matrices::SparseMatrix< double, Devices::Host, int, Matrices::SymmetricMatrix >&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkSpMVCSRLight< double, Matrices::SparseMatrix< double, Devices::Host, int, Matrices::SymmetricMatrix >, SymmetricSparseMatrix_CSR_Light, bool       >( BenchmarkType&, const Matrices::SparseMatrix< double, Devices::Host, int, Matrices::SymmetricMatrix >&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkBinarySpMV< double, Matrices::SparseMatrix< double, Devices::Host, int, Matrices::SymmetricMatrix >, SymmetricSparseMatrix_CSR_Adaptive            >( BenchmarkType&, const Matrices::SparseMatrix< double, Devices::Host, int, Matrices::SymmetricMatrix >&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkBinarySpMV< double, Matrices::SparseMatrix< double, Devices::Host, int, Matrices::SymmetricMatrix >, SymmetricSparseMatrix_Ellpack                 >( BenchmarkType&, const Matrices::SparseMatrix< double, Devices::Host, int, Matrices::SymmetricMatrix >&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkBinarySpMV< double, Matrices::SparseMatrix< double, Devices::Host, int, Matrices::SymmetricMatrix >, SymmetricSparseMatrix_SlicedEllpack           >( BenchmarkType&, const Matrices::SparseMatrix< double, Devices::Host, int, Matrices::SymmetricMatrix >&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkBinarySpMV< double, Matrices::SparseMatrix< double, Devices::Host, int, Matrices::SymmetricMatrix >, SymmetricSparseMatrix_ChunkedEllpack          >( BenchmarkType&, const Matrices::SparseMatrix< double, Devices::Host, int, Matrices::SymmetricMatrix >&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
+extern template void benchmarkBinarySpMV< double, Matrices::SparseMatrix< double, Devices::Host, int, Matrices::SymmetricMatrix >, SymmetricSparseMatrix_BiEllpack               >( BenchmarkType&, const Matrices::SparseMatrix< double, Devices::Host, int, Matrices::SymmetricMatrix >&, const TNL::Containers::Vector< double, Devices::Host, int >&, const String&, bool, bool );
 
       } // namespace SpMV
    } // namespace Benchmarks

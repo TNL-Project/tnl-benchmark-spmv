@@ -17,8 +17,8 @@
 #pragma push
 #pragma diag_suppress = 1444
 #include "LightSpMV-1.0/SpMV.h"
-#include "LightSpMV-1.0/SpMV.cu"
-#include "LightSpMV-1.0/SpMVCSR.cu"
+//#include "LightSpMV-1.0/SpMV.cu"
+//#include "LightSpMV-1.0/SpMVCSR.cu"
 #pragma pop
 #endif
 #include <TNL/Matrices/SparseMatrix.h>
