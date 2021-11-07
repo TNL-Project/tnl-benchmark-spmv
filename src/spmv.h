@@ -16,8 +16,8 @@
 
 #include <cstdint>
 
-#include "../Benchmarks.h"
-#include "../JsonLogging.h"
+#include <TNL/Benchmarks/Benchmarks.h>
+#include <TNL/Benchmarks/JsonLogging.h>
 #include "SpmvBenchmarkResult.h"
 
 #include <TNL/Pointers/DevicePointer.h>

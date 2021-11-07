@@ -10,7 +10,7 @@
 
 #pragma once
 
-#include "../Benchmarks.h"
+#include <TNL/Benchmarks/Benchmarks.h>
 
 namespace TNL {
 namespace Benchmarks {
