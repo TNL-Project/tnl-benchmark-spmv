@@ -37,23 +37,20 @@ struct SpmvBenchmarkResult
    using BenchmarkResult::time;
 
 
-   SpmvBenchmarkResult( const String& format,
-                        const HostVector& csrResult,
-                        const BenchmarkVector& benchmarkResult,
-                        const IndexType nonzeros )
-   : format( format ), csrResult( csrResult ), benchmarkResult( benchmarkResult ), nonzeros( nonzeros ){};
+   SpmvBenchmarkResult( const HostVector& csrResult,
+                        const BenchmarkVector& benchmarkResult )
+   : csrResult( csrResult ), benchmarkResult( benchmarkResult )
+   {}
 
    virtual HeaderElements getTableHeader() const override
    {
-      return HeaderElements({ "format", "device", "non-zeros", "time", "stddev", "stddev/time", "bandwidth", "speedup", "CSR Diff.Max", "CSR Diff.L2" });
+      return HeaderElements({ "time", "stddev", "stddev/time", "bandwidth", "speedup", "CSR Diff.Max", "CSR Diff.L2" });
    }
 
    virtual std::vector< int > getColumnWidthHints() const override
    {
-      return std::vector< int >({ 35, 12, 12, 12, 12, 14, 12, 12, 14, 14 });
+      return std::vector< int >({ 12, 12, 14, 12, 12, 14, 14 });
    }
-
-   void setFormat( const String& format ) { this->format = format; };
 
    virtual RowElements getRowElements() const override
    {
@@ -61,20 +58,17 @@ struct SpmvBenchmarkResult
       benchmarkResultCopy = benchmarkResult;
       auto diff = csrResult - benchmarkResultCopy;
       RowElements elements;
-      elements << format
-               << ( std::is_same< Device, Devices::Host >::value ? "CPU" : "GPU" )
-               << nonzeros << time << stddev << stddev/time << bandwidth;
+      elements << time << stddev << stddev/time << bandwidth;
       if( speedup != 0.0 )
          elements << speedup;
-      else elements << "N/A";
+      else
+         elements << "N/A";
       elements << max( abs( diff ) ) << lpNorm( diff, 2.0 );
       return elements;
    }
 
-   String format;
    const HostVector& csrResult;
    const BenchmarkVector& benchmarkResult;
-   const IndexType nonzeros;
 };
 
 } //namespace Benchmarks

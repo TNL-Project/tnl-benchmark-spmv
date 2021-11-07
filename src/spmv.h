@@ -204,6 +204,8 @@ benchmarkSpMVLegacy( BenchmarkType& benchmark,
    using HostVector = Containers::Vector< Real, Devices::Host, int >;
    using CudaVector = Containers::Vector< Real, Devices::Cuda, int >;
 
+   benchmark.setMetadataElement({ "format", MatrixInfo< HostMatrix >::getFormat() });
+
    HostMatrix hostMatrix;
    CudaMatrix cudaMatrix;
 
@@ -213,12 +215,12 @@ benchmarkSpMVLegacy( BenchmarkType& benchmark,
    }
    catch(const std::exception& e)
    {
-      std::cerr << "Unable to read the matrix: " << e.what() << std::endl;
+      benchmark.addErrorMessage( "Unable to read the matrix:" + String(e.what()) );
       return;
    }
 
-   const int elements = hostMatrix.getNonzeroElementsCount();
-   const double datasetSize = (double) elements * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
+   const int nonzeros = hostMatrix.getNonzeroElementsCount();
+   const double datasetSize = (double) nonzeros * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
    benchmark.setDatasetSize( datasetSize );
 
    /////
@@ -237,7 +239,7 @@ benchmarkSpMVLegacy( BenchmarkType& benchmark,
          hostMatrix.vectorProduct( hostInVector, hostOutVector );
 
       };
-      SpmvBenchmarkResult< Real, Devices::Host, int > hostBenchmarkResults( MatrixInfo< HostMatrix >::getFormat(), csrResultVector, hostOutVector, hostMatrix.getNonzeroElementsCount() );
+      SpmvBenchmarkResult< Real, Devices::Host, int > hostBenchmarkResults( csrResultVector, hostOutVector );
       benchmark.time< Devices::Host >( resetHostVectors, "CPU", spmvHost, hostBenchmarkResults );
    }
 
@@ -251,7 +253,7 @@ benchmarkSpMVLegacy( BenchmarkType& benchmark,
    }
    catch(const std::exception& e)
    {
-      std::cerr << "Unable to copy the matrix on GPU: " << e.what() << std::endl;
+      benchmark.addErrorMessage( "Unable to copy the matrix on GPU: " + String(e.what()) );
       return;
    }
 
@@ -265,7 +267,7 @@ benchmarkSpMVLegacy( BenchmarkType& benchmark,
    auto spmvCuda = [&]() {
       cudaMatrix.vectorProduct( cudaInVector, cudaOutVector );
    };
-   SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( MatrixInfo< HostMatrix >::getFormat(), csrResultVector, cudaOutVector, cudaMatrix.getNonzeroElementsCount() );
+   SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( csrResultVector, cudaOutVector );
    benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvCuda, cudaBenchmarkResults );
  #endif
 }
@@ -286,6 +288,8 @@ benchmarkSpMV( BenchmarkType& benchmark,
    using HostVector = Containers::Vector< Real, Devices::Host, int >;
    using CudaVector = Containers::Vector< Real, Devices::Cuda, int >;
 
+   benchmark.setMetadataElement({ "format", MatrixInfo< HostMatrix >::getFormat() });
+
    HostMatrix hostMatrix;
    try
    {
@@ -293,12 +297,12 @@ benchmarkSpMV( BenchmarkType& benchmark,
    }
    catch(const std::exception& e)
    {
-      std::cerr << "Unable to convert the matrix to the target format:"  << e.what() << std::endl;
+      benchmark.addErrorMessage( "Unable to convert the matrix to the target format:" + String(e.what()) );
       return;
    }
 
-   const int elements = hostMatrix.getNonzeroElementsCount();
-   const double datasetSize = (double) elements * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
+   const int nonzeros = hostMatrix.getNonzeroElementsCount();
+   const double datasetSize = (double) nonzeros * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
    benchmark.setDatasetSize( datasetSize );
 
    /////
@@ -317,7 +321,7 @@ benchmarkSpMV( BenchmarkType& benchmark,
          hostMatrix.vectorProduct( hostInVector, hostOutVector );
 
       };
-      SpmvBenchmarkResult< Real, Devices::Host, int > hostBenchmarkResults( MatrixInfo< HostMatrix >::getFormat(), csrResultVector, hostOutVector, hostMatrix.getNonzeroElementsCount() );
+      SpmvBenchmarkResult< Real, Devices::Host, int > hostBenchmarkResults( csrResultVector, hostOutVector );
       benchmark.time< Devices::Host >( resetHostVectors, "CPU", spmvHost, hostBenchmarkResults );
    }
 
@@ -332,7 +336,7 @@ benchmarkSpMV( BenchmarkType& benchmark,
    }
    catch(const std::exception& e)
    {
-      std::cerr << "Unable to copy the matrix on GPU:" << e.what() << std::endl;
+      benchmark.addErrorMessage( "Unable to copy the matrix on GPU: " + String(e.what()) );
       return;
    }
 
@@ -346,7 +350,7 @@ benchmarkSpMV( BenchmarkType& benchmark,
    auto spmvCuda = [&]() {
       cudaMatrix.vectorProduct( cudaInVector, cudaOutVector );
    };
-   SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( MatrixInfo< HostMatrix >::getFormat(), csrResultVector, cudaOutVector, cudaMatrix.getNonzeroElementsCount() );
+   SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( csrResultVector, cudaOutVector );
    benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvCuda, cudaBenchmarkResults );
  #endif
 }
@@ -368,6 +372,8 @@ benchmarkSpMVCSRLight( BenchmarkType& benchmark,
    using HostVector = Containers::Vector< Real, Devices::Host, int >;
    using CudaVector = Containers::Vector< Real, Devices::Cuda, int >;
 
+   benchmark.setMetadataElement({ "format", MatrixInfo< HostMatrix >::getFormat() });
+
    HostMatrix hostMatrix;
    try
    {
@@ -375,12 +381,12 @@ benchmarkSpMVCSRLight( BenchmarkType& benchmark,
    }
    catch(const std::exception& e)
    {
-      std::cerr << "Unable to convert the matrix to the target format:"  << e.what() << std::endl;
+      benchmark.addErrorMessage( "Unable to convert the matrix to the target format:" + String(e.what()) );
       return;
    }
 
-   const int elements = hostMatrix.getNonzeroElementsCount();
-   const double datasetSize = (double) elements * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
+   const int nonzeros = hostMatrix.getNonzeroElementsCount();
+   const double datasetSize = (double) nonzeros * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
    benchmark.setDatasetSize( datasetSize );
 
    /////
@@ -399,7 +405,7 @@ benchmarkSpMVCSRLight( BenchmarkType& benchmark,
          hostMatrix.vectorProduct( hostInVector, hostOutVector );
 
       };
-      SpmvBenchmarkResult< Real, Devices::Host, int > hostBenchmarkResults( MatrixInfo< HostMatrix >::getFormat(), csrResultVector, hostOutVector, hostMatrix.getNonzeroElementsCount() );
+      SpmvBenchmarkResult< Real, Devices::Host, int > hostBenchmarkResults( csrResultVector, hostOutVector );
       benchmark.time< Devices::Host >( resetHostVectors, "CPU", spmvHost, hostBenchmarkResults );
    }
 
@@ -414,7 +420,7 @@ benchmarkSpMVCSRLight( BenchmarkType& benchmark,
    }
    catch(const std::exception& e)
    {
-      std::cerr << "Unable to copy the matrix on GPU:" << e.what() << std::endl;
+      benchmark.addErrorMessage( "Unable to copy the matrix on GPU: " + String(e.what()) );
       return;
    }
 
@@ -432,14 +438,18 @@ benchmarkSpMVCSRLight( BenchmarkType& benchmark,
    {
       cudaMatrix.getSegments().getKernel().setThreadsMapping( Algorithms::Segments::CSRLightAutomaticThreads );
       String format = MatrixInfo< HostMatrix >::getFormat() + " Automatic";
-      SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( format, csrResultVector, cudaOutVector, cudaMatrix.getNonzeroElementsCount() );
+      benchmark.setMetadataElement({ "format", format });
+
+      SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( csrResultVector, cudaOutVector );
       benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvCuda, cudaBenchmarkResults );
    };
 
    {
       cudaMatrix.getSegments().getKernel().setThreadsMapping( Algorithms::Segments::CSRLightAutomaticThreadsLightSpMV );
       String format = MatrixInfo< HostMatrix >::getFormat() + " Automatic Light";
-      SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( format, csrResultVector, cudaOutVector, cudaMatrix.getNonzeroElementsCount() );
+      benchmark.setMetadataElement({ "format", format });
+
+      SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( csrResultVector, cudaOutVector );
       benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvCuda, cudaBenchmarkResults );
    };
 
@@ -447,7 +457,9 @@ benchmarkSpMVCSRLight( BenchmarkType& benchmark,
    {
       cudaMatrix.getSegments().getKernel().setThreadsPerSegment( threadsPerRow );
       String format = MatrixInfo< HostMatrix >::getFormat() + " " + convertToString( threadsPerRow );
-      SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( format, csrResultVector, cudaOutVector, cudaMatrix.getNonzeroElementsCount() );
+      benchmark.setMetadataElement({ "format", format });
+
+      SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( csrResultVector, cudaOutVector );
       benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvCuda, cudaBenchmarkResults );
    }*/
  #endif
@@ -470,6 +482,8 @@ benchmarkBinarySpMV( BenchmarkType& benchmark,
    using HostVector = Containers::Vector< Real, Devices::Host, int >;
    using CudaVector = Containers::Vector< Real, Devices::Cuda, int >;
 
+   benchmark.setMetadataElement({ "format", MatrixInfo< HostMatrix >::getFormat() });
+
    HostMatrix hostMatrix;
    try
    {
@@ -477,12 +491,12 @@ benchmarkBinarySpMV( BenchmarkType& benchmark,
    }
    catch(const std::exception& e)
    {
-      std::cerr << "Unable to convert the matrix to the target format:" << e.what() << std::endl;
+      benchmark.addErrorMessage( "Unable to convert the matrix to the target format:" + String(e.what()) );
       return;
    }
 
-   const int elements = hostMatrix.getNonzeroElementsCount();
-   const double datasetSize = (double) elements * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
+   const int nonzeros = hostMatrix.getNonzeroElementsCount();
+   const double datasetSize = (double) nonzeros * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
    benchmark.setDatasetSize( datasetSize );
 
    /////
@@ -501,7 +515,7 @@ benchmarkBinarySpMV( BenchmarkType& benchmark,
          hostMatrix.vectorProduct( hostInVector, hostOutVector );
 
       };
-      SpmvBenchmarkResult< Real, Devices::Host, int > hostBenchmarkResults( MatrixInfo< HostMatrix >::getFormat(), csrResultVector, hostOutVector, hostMatrix.getNonzeroElementsCount() );
+      SpmvBenchmarkResult< Real, Devices::Host, int > hostBenchmarkResults( csrResultVector, hostOutVector );
       benchmark.time< Devices::Host >( resetHostVectors, "CPU", spmvHost, hostBenchmarkResults );
    }
 
@@ -516,7 +530,7 @@ benchmarkBinarySpMV( BenchmarkType& benchmark,
    }
    catch(const std::exception& e)
    {
-      std::cerr << "Unable to copy the matrix on GPU:" << e.what() << std::endl;
+      benchmark.addErrorMessage( "Unable to copy the matrix on GPU: " + String(e.what()) );
       return;
    }
 
@@ -530,7 +544,7 @@ benchmarkBinarySpMV( BenchmarkType& benchmark,
    auto spmvCuda = [&]() {
       cudaMatrix.vectorProduct( cudaInVector, cudaOutVector );
    };
-   SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( MatrixInfo< HostMatrix >::getFormat(), csrResultVector, cudaOutVector, cudaMatrix.getNonzeroElementsCount() );
+   SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( csrResultVector, cudaOutVector );
    benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvCuda, cudaBenchmarkResults );
  #endif
 }
@@ -645,7 +659,7 @@ dispatchSymmetric( BenchmarkType& benchmark,
    }
    catch(const std::exception& e)
    {
-      std::cerr << e.what() << " ... SKIPPING " << std::endl;
+      benchmark.addErrorMessage( "Unable to read the symmetric matrix: " + String(e.what()) );
       return;
    }
    InputMatrix hostMatrix;
@@ -706,20 +720,20 @@ benchmarkSpmv( BenchmarkType& benchmark,
    // Set-up benchmark datasize
    //
    MatrixReader< CSRHostMatrix >::readMtx( inputFileName, csrHostMatrix, verboseMR );
-   const int elements = csrHostMatrix.getNonzeroElementsCount();
-   const double datasetSize = (double) elements * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
+   const int nonzeros = csrHostMatrix.getNonzeroElementsCount();
+   const double datasetSize = (double) nonzeros * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
    benchmark.setDatasetSize( datasetSize );
 
    ////
    // Perform benchmark on host with CSR as a reference CPU format
    //
-   auto nonzeros = csrHostMatrix.getNonzeroElementsCount();
    benchmark.setMetadataColumns({
       { "matrix name", convertToString( inputFileName ) },
       { "rows", convertToString( csrHostMatrix.getRows() ) },
       { "columns", convertToString( csrHostMatrix.getColumns() ) },
       { "nonzeros", convertToString( nonzeros ) },
-      { "nonzeros per row", convertToString( ( double ) nonzeros / ( double ) csrHostMatrix.getRows() ) },
+      // NOTE: this can be easily calculated with Pandas based on the other metadata
+      //{ "nonzeros per row", convertToString( ( double ) nonzeros / ( double ) csrHostMatrix.getRows() ) },
    });
 
    HostVector hostInVector( csrHostMatrix.getRows() ), hostOutVector( csrHostMatrix.getRows() );
@@ -733,8 +747,9 @@ benchmarkSpmv( BenchmarkType& benchmark,
        csrHostMatrix.vectorProduct( hostInVector, hostOutVector );
    };
 
-   SpmvBenchmarkResult< Real, Devices::Host, int > csrBenchmarkResults( String( "CSR" ), hostOutVector, hostOutVector, csrHostMatrix.getNonzeroElementsCount() );
-   benchmark.time< Devices::Host >( resetHostVectors, "", spmvCSRHost, csrBenchmarkResults );
+   SpmvBenchmarkResult< Real, Devices::Host, int > csrBenchmarkResults( hostOutVector, hostOutVector );
+   benchmark.setMetadataElement({ "format", "CSR" });
+   benchmark.time< Devices::Host >( resetHostVectors, "CPU", spmvCSRHost, csrBenchmarkResults );
 
 #ifdef HAVE_PETSC
    Mat petscMatrix;
@@ -761,8 +776,9 @@ benchmarkSpmv( BenchmarkType& benchmark,
       MatMult( petscMatrix, inVector, outVector );
    };
 
-   SpmvBenchmarkResult< Real, Devices::Host, int > petscBenchmarkResults( String( "Petsc" ), hostOutVector, hostOutVector, csrHostMatrix.getNonzeroElementsCount() );
-   benchmark.time< Devices::Host >( resetPetscVectors, "", petscSpmvCSRHost, petscBenchmarkResults );
+   SpmvBenchmarkResult< Real, Devices::Host, int > petscBenchmarkResults( hostOutVector, hostOutVector );
+   benchmark.setMetadataElement({ "format", "Petsc" });
+   benchmark.time< Devices::Host >( resetPetscVectors, "CPU", petscSpmvCSRHost, petscBenchmarkResults );
 #endif
 
 
@@ -790,15 +806,14 @@ benchmarkSpmv( BenchmarkType& benchmark,
        cusparseMatrix.vectorProduct( cudaInVector, cudaOutVector );
    };
 
-   SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( String( "cusparse" ), hostOutVector, cudaOutVector, csrHostMatrix.getNonzeroElementsCount() );
+   SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( hostOutVector, cudaOutVector );
+   benchmark.setMetadataElement({ "format", "cusparse" });
    benchmark.time< Devices::Cuda >( resetCusparseVectors, "GPU", spmvCusparse, cudaBenchmarkResults );
 
 #ifdef HAVE_CSR5
    ////
    // Perform benchmark on CUDA device with CSR5 as a reference GPU format
    //
-   cudaBenchmarkResults.setFormat( String( "CSR5" ) );
-
    CudaVector cudaOutVector2( cudaOutVector );
    CSR5Benchmark::CSR5Benchmark< CSRCudaMatrix > csr5Benchmark( csrCudaMatrix, cudaInVector, cudaOutVector );
 
@@ -806,6 +821,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
        csr5Benchmark.vectorProduct();
    };
 
+   benchmark.setMetadataElement({ "format", "CSR5" });
    benchmark.time< Devices::Cuda >( resetCusparseVectors, "GPU", csr5SpMV, cudaBenchmarkResults );
    std::cerr << "CSR5 error = " << max( abs( cudaOutVector - cudaOutVector2 ) ) << std::endl;
    csrCudaMatrix.reset();
@@ -814,8 +830,6 @@ benchmarkSpmv( BenchmarkType& benchmark,
    ////
    // Perform benchmark on CUDA device with LightSpMV as a reference GPU format
    //
-   cudaBenchmarkResults.setFormat( String( "LightSpMV Vector" ) );
-
    LightSpMVCSRHostMatrix lightSpMVCSRHostMatrix;
    lightSpMVCSRHostMatrix = csrHostMatrix;
    LightSpMVBenchmark< Real > lightSpMVBenchmark( lightSpMVCSRHostMatrix, LightSpMVBenchmarkKernelVector );
@@ -826,10 +840,11 @@ benchmarkSpmv( BenchmarkType& benchmark,
    auto spmvLightSpMV = [&]() {
        lightSpMVBenchmark.vectorProduct();
    };
+   benchmark.setMetadataElement({ "format", "LightSpMV Vector" });
    benchmark.time< Devices::Cuda >( resetLightSpMVVectors, "GPU", spmvLightSpMV, cudaBenchmarkResults );
 
-   cudaBenchmarkResults.setFormat( String( "LightSpMV Warp" ) );
    lightSpMVBenchmark.setKernelType( LightSpMVBenchmarkKernelWarp );
+   benchmark.setMetadataElement({ "format", "LightSpMV Warp" });
    benchmark.time< Devices::Cuda >( resetLightSpMVVectors, "GPU", spmvLightSpMV, cudaBenchmarkResults );
 #endif
    csrHostMatrix.reset();
