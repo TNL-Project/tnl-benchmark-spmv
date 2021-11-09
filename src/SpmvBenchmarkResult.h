@@ -49,7 +49,7 @@ struct SpmvBenchmarkResult
 
    virtual std::vector< int > getColumnWidthHints() const override
    {
-      return std::vector< int >({ 12, 12, 14, 12, 12, 14, 14 });
+      return std::vector< int >({ 14, 14, 14, 14, 14, 14, 14 });
    }
 
    virtual RowElements getRowElements() const override
@@ -58,7 +58,8 @@ struct SpmvBenchmarkResult
       benchmarkResultCopy = benchmarkResult;
       auto diff = csrResult - benchmarkResultCopy;
       RowElements elements;
-      elements << time << stddev << stddev/time << bandwidth;
+      // write in scientific format to avoid precision loss
+      elements << std::scientific << time << stddev << stddev/time << bandwidth;
       if( speedup != 0.0 )
          elements << speedup;
       else
