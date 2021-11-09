@@ -728,12 +728,16 @@ benchmarkSpmv( BenchmarkType& benchmark,
    // Perform benchmark on host with CSR as a reference CPU format
    //
    benchmark.setMetadataColumns({
-      { "matrix name", convertToString( inputFileName ) },
+      { "matrix name", inputFileName },
       { "rows", convertToString( csrHostMatrix.getRows() ) },
       { "columns", convertToString( csrHostMatrix.getColumns() ) },
       { "nonzeros", convertToString( nonzeros ) },
       // NOTE: this can be easily calculated with Pandas based on the other metadata
       //{ "nonzeros per row", convertToString( ( double ) nonzeros / ( double ) csrHostMatrix.getRows() ) },
+   });
+   benchmark.setMetadataWidths({
+      { "matrix name", 32 },
+      { "format", 35 },
    });
 
    HostVector hostInVector( csrHostMatrix.getRows() ), hostOutVector( csrHostMatrix.getRows() );
