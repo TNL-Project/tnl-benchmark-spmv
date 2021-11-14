@@ -150,10 +150,10 @@ main( int argc, char* argv[] )
    auto mode = std::ios::out;
    if( outputMode == "append" )
        mode |= std::ios::app;
-   std::ofstream logFile( logFileName.getString(), mode );
+   std::ofstream logFile( logFileName, mode );
 
    // init benchmark and common metadata
-   TNL::Benchmarks::SpMV::BenchmarkType benchmark( loops, verbose );
+   TNL::Benchmarks::SpMV::BenchmarkType benchmark( logFile, loops, verbose );
 
    // prepare global metadata
    Logging::MetadataMap metadata = getHardwareMetadata();
@@ -163,11 +163,6 @@ main( int argc, char* argv[] )
       runSpMVBenchmarks< float >( benchmark, metadata, inputFileName, parameters, verboseMR );
    if( precision == "all" || precision == "double" )
       runSpMVBenchmarks< double >( benchmark, metadata, inputFileName, parameters, verboseMR );
-
-   if( ! benchmark.save( logFile ) ) {
-      std::cerr << "Failed to write the benchmark results to file '" << parameters.getParameter< String >( "log-file" ) << "'." << std::endl;
-      return EXIT_FAILURE;
-   }
 
    // Confirm that the benchmark has finished
    std::cout << "\n== BENCHMARK FINISHED ==" << std::endl;
