@@ -152,11 +152,12 @@ main( int argc, char* argv[] )
        mode |= std::ios::app;
    std::ofstream logFile( logFileName, mode );
 
-   // init benchmark and common metadata
+   // init benchmark and set parameters
    TNL::Benchmarks::SpMV::BenchmarkType benchmark( logFile, loops, verbose );
 
-   // prepare global metadata
-   Logging::MetadataMap metadata = getHardwareMetadata();
+   // write global metadata into a separate file
+   std::map< std::string, std::string > metadata = getHardwareMetadata();
+   writeMapAsJson( metadata, logFileName, ".metadata.json" );
 
    // Initiate setup of benchmarks
    if( precision == "all" || precision == "float" )
