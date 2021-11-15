@@ -38,17 +38,10 @@ using namespace TNL::Benchmarks;
 template< typename Real >
 void
 runSpMVBenchmarks( TNL::Benchmarks::SpMV::BenchmarkType & benchmark,
-                   TNL::Benchmarks::SpMV::BenchmarkType::MetadataMap metadata,
                    const String & inputFileName,
                    const Config::ParameterContainer& parameters,
                    bool verboseMR = false )
 {
-   const String precision = getType< Real >();
-   metadata["precision"] = precision;
-
-   // Sparse matrix-vector multiplication
-   benchmark.newBenchmark( String("Sparse matrix-vector multiplication (") + precision + ")",
-                           metadata );
    // Start the actual benchmark in spmv.h
    try {
       TNL::Benchmarks::SpMV::benchmarkSpmv< Real >( benchmark, inputFileName, parameters, verboseMR );
@@ -161,11 +154,11 @@ main( int argc, char* argv[] )
 
    // Initiate setup of benchmarks
    if( precision == "all" || precision == "float" )
-      runSpMVBenchmarks< float >( benchmark, metadata, inputFileName, parameters, verboseMR );
+      runSpMVBenchmarks< float >( benchmark, inputFileName, parameters, verboseMR );
    if( precision == "all" || precision == "double" )
-      runSpMVBenchmarks< double >( benchmark, metadata, inputFileName, parameters, verboseMR );
+      runSpMVBenchmarks< double >( benchmark, inputFileName, parameters, verboseMR );
 
    // Confirm that the benchmark has finished
-   std::cout << "\n== BENCHMARK FINISHED ==" << std::endl;
+   std::cout << "\n==> BENCHMARK FINISHED" << std::endl;
    return EXIT_SUCCESS;
 }

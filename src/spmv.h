@@ -729,6 +729,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
    //
    benchmark.setMetadataColumns({
       { "matrix name", inputFileName },
+      { "precision", getType< Real >() },
       { "rows", convertToString( csrHostMatrix.getRows() ) },
       { "columns", convertToString( csrHostMatrix.getColumns() ) },
       { "nonzeros", convertToString( nonzeros ) },
