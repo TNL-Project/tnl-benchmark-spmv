@@ -44,12 +44,12 @@ struct SpmvBenchmarkResult
 
    virtual HeaderElements getTableHeader() const override
    {
-      return HeaderElements({ "time", "stddev", "stddev/time", "bandwidth", "speedup", "CSR Diff.Max", "CSR Diff.L2" });
+      return HeaderElements({ "time", "stddev", "stddev/time", "loops", "bandwidth", "speedup", "CSR Diff.Max", "CSR Diff.L2" });
    }
 
    virtual std::vector< int > getColumnWidthHints() const override
    {
-      return std::vector< int >({ 14, 14, 14, 14, 14, 14, 14 });
+      return std::vector< int >({ 14, 14, 14, 6, 14, 14, 14, 14 });
    }
 
    virtual RowElements getRowElements() const override
@@ -59,7 +59,7 @@ struct SpmvBenchmarkResult
       auto diff = csrResult - benchmarkResultCopy;
       RowElements elements;
       // write in scientific format to avoid precision loss
-      elements << std::scientific << time << stddev << stddev/time << bandwidth;
+      elements << std::scientific << time << stddev << stddev/time << loops << bandwidth;
       if( speedup != 0.0 )
          elements << speedup;
       else
