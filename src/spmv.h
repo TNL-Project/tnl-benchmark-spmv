@@ -738,7 +738,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
    });
    benchmark.setMetadataWidths({
       { "matrix name", 32 },
-      { "format", 35 },
+      { "format", 46 },
    });
 
    HostVector hostInVector( csrHostMatrix.getRows() ), hostOutVector( csrHostMatrix.getRows() );
