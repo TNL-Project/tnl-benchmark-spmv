@@ -10,7 +10,7 @@
 
 #pragma once
 
-#include "../Benchmarks.h"
+#include <TNL/Benchmarks/Benchmarks.h>
 
 namespace TNL {
 namespace Benchmarks {
@@ -21,7 +21,7 @@ template< typename Real,
           typename ResultReal = Real,
           typename Logger = JsonLogging >
 struct SpmvBenchmarkResult
-: public BenchmarkResult< Logger >
+: public BenchmarkResult
 {
    using RealType = Real;
    using DeviceType = Device;
@@ -29,36 +29,28 @@ struct SpmvBenchmarkResult
    using HostVector = Containers::Vector< Real, Devices::Host, Index >;
    using BenchmarkVector = Containers::Vector< ResultReal, Device, Index >;
 
-   using typename BenchmarkResult< Logger >::HeaderElements;
-   using typename BenchmarkResult< Logger >::RowElements;
-   using BenchmarkResult< Logger >::stddev;
-   using BenchmarkResult< Logger >::bandwidth;
-   using BenchmarkResult< Logger >::speedup;
-   using BenchmarkResult< Logger >::time;
+   using typename BenchmarkResult::HeaderElements;
+   using typename BenchmarkResult::RowElements;
+   using BenchmarkResult::stddev;
+   using BenchmarkResult::bandwidth;
+   using BenchmarkResult::speedup;
+   using BenchmarkResult::time;
 
 
-   SpmvBenchmarkResult( const String& format,
-                        const HostVector& csrResult,
-                        const BenchmarkVector& benchmarkResult,
-                        const IndexType nonzeros )
-   : format( format ), csrResult( csrResult ), benchmarkResult( benchmarkResult ), nonzeros( nonzeros ){};
+   SpmvBenchmarkResult( const HostVector& csrResult,
+                        const BenchmarkVector& benchmarkResult )
+   : csrResult( csrResult ), benchmarkResult( benchmarkResult )
+   {}
 
    virtual HeaderElements getTableHeader() const override
    {
-      return HeaderElements( {
-         std::pair< String, int >( "format", 35 ),
-         std::pair< String, int >( "device", 12 ),
-         std::pair< String, int >( "non-zeros", 12 ),
-         std::pair< String, int >( "time", 12 ),
-         std::pair< String, int >( "stddev", 12 ),
-         std::pair< String, int >( "stddev/time", 14 ),
-         std::pair< String, int >( "bandwidth", 12 ),
-         std::pair< String, int >( "speedup", 12 ),
-         std::pair< String, int >( "CSR Diff.Max", 14 ),
-         std::pair< String, int >( "CSR Diff.L2", 14 ) } );
+      return HeaderElements({ "time", "stddev", "stddev/time", "loops", "bandwidth", "speedup", "CSR Diff.Max", "CSR Diff.L2" });
    }
 
-   void setFormat( const String& format ) { this->format = format; };
+   virtual std::vector< int > getColumnWidthHints() const override
+   {
+      return std::vector< int >({ 14, 14, 14, 6, 14, 14, 14, 14 });
+   }
 
    virtual RowElements getRowElements() const override
    {
@@ -66,20 +58,18 @@ struct SpmvBenchmarkResult
       benchmarkResultCopy = benchmarkResult;
       auto diff = csrResult - benchmarkResultCopy;
       RowElements elements;
-      elements << format
-               << ( std::is_same< Device, Devices::Host >::value ? "CPU" : "GPU" )
-               << nonzeros << time << stddev << stddev/time << bandwidth;
+      // write in scientific format to avoid precision loss
+      elements << std::scientific << time << stddev << stddev/time << loops << bandwidth;
       if( speedup != 0.0 )
          elements << speedup;
-      else elements << "N/A";
+      else
+         elements << "N/A";
       elements << max( abs( diff ) ) << lpNorm( diff, 2.0 );
       return elements;
    }
 
-   String format;
    const HostVector& csrResult;
    const BenchmarkVector& benchmarkResult;
-   const IndexType nonzeros;
 };
 
 } //namespace Benchmarks
