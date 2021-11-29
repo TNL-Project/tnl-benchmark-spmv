@@ -29,6 +29,7 @@
 #include <TNL/Algorithms/Segments/SlicedEllpack.h>
 #include <TNL/Algorithms/Segments/ChunkedEllpack.h>
 #include <TNL/Algorithms/Segments/BiEllpack.h>
+#include <TNL/Algorithms/sort.h>
 
 #ifdef HAVE_PETSC
 #include <petscmat.h>
@@ -716,6 +717,21 @@ benchmarkSpmv( BenchmarkType& benchmark,
    benchmark.setDatasetSize( datasetSize );
 
    ////
+   // Nonzero elements per row statiistics
+   //
+   TNL::Containers::Vector< int > nonzerosPerRow;
+   TNL::Containers::Vector< double > aux;
+   csrHostMatrix.getCompressedRowLengths( nonzerosPerRow );
+   double average = sum( nonzerosPerRow ) / nonzerosPerRow.getSize();
+   aux = nonzerosPerRow - average;
+   double std_dev = lpNorm( aux, 2.0 ) / nonzerosPerRow.getSize();
+   TNL::Algorithms::ascendingSort( nonzerosPerRow );
+   double percentile_25 = nonzerosPerRow[ nonzerosPerRow.getSize() * 0.25 ];
+   double percentile_50 = nonzerosPerRow[ nonzerosPerRow.getSize() * 0.5 ];
+   double percentile_75 = nonzerosPerRow[ nonzerosPerRow.getSize() * 0.75 ];
+
+
+   ////
    // Perform benchmark on host with CSR as a reference CPU format
    //
    benchmark.setMetadataColumns({
@@ -724,8 +740,11 @@ benchmarkSpmv( BenchmarkType& benchmark,
       { "rows", convertToString( csrHostMatrix.getRows() ) },
       { "columns", convertToString( csrHostMatrix.getColumns() ) },
       { "nonzeros", convertToString( nonzeros ) },
-      // NOTE: this can be easily calculated with Pandas based on the other metadata
-      //{ "nonzeros per row", convertToString( ( double ) nonzeros / ( double ) csrHostMatrix.getRows() ) },
+      { "nonzeros per row std_dev", convertToString( std_dev ) },
+      { "nonzeros per row percentile 25", convertToString( percentile_25 ) },
+      { "nonzeros per row percentile 50", convertToString( percentile_50 ) },
+      { "nonzeros per row percentile 75", convertToString( percentile_75 ) }
+      // NOTE: 'nonzeros per row average' can be easily calculated with Pandas based on the other metadata
    });
    benchmark.setMetadataWidths({
       { "matrix name", 32 },
