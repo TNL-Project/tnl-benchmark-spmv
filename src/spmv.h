@@ -719,7 +719,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
    ////
    // Nonzero elements per row statiistics
    //
-   TNL::Containers::Vector< int > nonzerosPerRow;
+   TNL::Containers::Vector< int > nonzerosPerRow( csrHostMatrix.getRows() );
    TNL::Containers::Vector< double > aux;
    csrHostMatrix.getCompressedRowLengths( nonzerosPerRow );
    double average = sum( nonzerosPerRow ) / nonzerosPerRow.getSize();
