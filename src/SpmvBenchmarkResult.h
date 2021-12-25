@@ -1,13 +1,3 @@
-/***************************************************************************
-                          SpmvBenchmarkResult.h  -  description
-                             -------------------
-    begin                : Mar 5, 2020
-    copyright            : (C) 2020 by Tomas Oberhuber
-    email                : tomas.oberhuber@fjfi.cvut.cz
- ***************************************************************************/
-
-/* See Copyright Notice in tnl/Copyright */
-
 #pragma once
 
 #include <TNL/Benchmarks/Benchmarks.h>

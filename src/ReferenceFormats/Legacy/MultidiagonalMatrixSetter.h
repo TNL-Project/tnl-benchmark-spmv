@@ -1,13 +1,3 @@
-/***************************************************************************
-                          MultidiagonalMatrixSetter.h  -  description
-                             -------------------
-    begin                : Jan 2, 2015
-    copyright            : (C) 2015 by oberhuber
-    email                : tomas.oberhuber@fjfi.cvut.cz
- ***************************************************************************/
-
-/* See Copyright Notice in tnl/Copyright */
-
 #pragma once
 
 #include <TNL/Meshes/Grid.h>

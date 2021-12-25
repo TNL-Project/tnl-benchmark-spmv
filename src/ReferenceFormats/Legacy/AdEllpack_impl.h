@@ -1,13 +1,3 @@
-/***************************************************************************
-                          AdEllpack_impl.h  -  description
-                             -------------------
-    begin                : Aug 27, 2018
-    copyright            : (C) 2018 by Tomas Oberhuber
-    email                : tomas.oberhuber@fjfi.cvut.cz
- ***************************************************************************/
-
-/* See Copyright Notice in tnl/Copyright */
-
 #include <Benchmarks/SpMV/ReferenceFormats/Legacy/AdEllpack.h>
 #include <TNL/Containers/Vector.h>
 #include <TNL/Math.h>

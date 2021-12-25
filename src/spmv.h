@@ -1,13 +1,3 @@
-/***************************************************************************
-                          spmv.h  -  description
-                             -------------------
-    begin                : Dec 30, 2018
-    copyright            : (C) 2015 by Tomas Oberhuber et al.
-    email                : tomas.oberhuber@fjfi.cvut.cz
- ***************************************************************************/
-
-/* See Copyright Notice in tnl/Copyright */
-
 // Implemented by: Lukas Cejka
 //      Original implemented by J. Klinkovsky in Benchmarks/BLAS
 //      This is an edited copy of Benchmarks/BLAS/spmv.h by: Lukas Cejka
