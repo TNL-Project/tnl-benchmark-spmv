@@ -87,9 +87,9 @@ public:
 
    ChunkedEllpack();
 
-   static String getSerializationType();
+   static std::string getSerializationType();
 
-   virtual String getSerializationTypeVirtual() const;
+   std::string getSerializationTypeVirtual() const override;
 
    void setDimensions( const IndexType rows,
                        const IndexType columns );

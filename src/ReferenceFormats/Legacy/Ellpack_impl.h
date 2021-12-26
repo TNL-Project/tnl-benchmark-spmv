@@ -22,19 +22,19 @@ Ellpack< Real, Device, Index > :: Ellpack()
 template< typename Real,
           typename Device,
           typename Index >
-String Ellpack< Real, Device, Index >::getSerializationType()
+std::string Ellpack< Real, Device, Index >::getSerializationType()
 {
-   return String( "Matrices::Ellpack< " ) +
-          String( TNL::getType< Real >() ) +
+   return "Matrices::Ellpack< " +
+          TNL::getType< Real >() +
           ", [any device], " +
           getType< Index >() +
-          String( " >" );
+          " >";
 }
 
 template< typename Real,
           typename Device,
           typename Index >
-String Ellpack< Real, Device, Index >::getSerializationTypeVirtual() const
+std::string Ellpack< Real, Device, Index >::getSerializationTypeVirtual() const
 {
    return this->getSerializationType();
 }
