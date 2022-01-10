@@ -1,13 +1,3 @@
-/***************************************************************************
-                          ChunkedEllpack_impl.h  -  description
-                             -------------------
-    begin                : Dec 12, 2013
-    copyright            : (C) 2013 by Tomas Oberhuber
-    email                : tomas.oberhuber@fjfi.cvut.cz
- ***************************************************************************/
-
-/* See Copyright Notice in tnl/Copyright */
-
 #pragma once
 
 #include <Benchmarks/SpMV/ReferenceFormats/Legacy/ChunkedEllpack.h>

@@ -1,13 +1,3 @@
-/***************************************************************************
-                          tnlCusparseCSRLegacy.h  -  description
-                             -------------------
-    begin                : Feb 1, 2021
-    copyright            : (C) 2021 by Tomas Oberhuber
-    email                : tomas.oberhuber@fjfi.cvut.cz
- ***************************************************************************/
-
-/* See Copyright Notice in tnl/Copyright */
-
 #include <TNL/Assert.h>
 #include <TNL/Devices/Cuda.h>
 #include <Benchmarks/SpMV/ReferenceFormats/Legacy/CSR.h>

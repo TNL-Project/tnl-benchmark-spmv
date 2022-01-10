@@ -1,13 +1,3 @@
-/***************************************************************************
-                          tnl-benchmark-spmv.h  -  description
-                             -------------------
-    begin                : March 3, 2019
-    copyright            : (C) 2019 by Tomas Oberhuber et al.
-    email                : tomas.oberhuber@fjfi.cvut.cz
- ***************************************************************************/
-
-/* See Copyright Notice in tnl/Copyright */
-
 // Implemented by: Lukas Cejka
 //      Original implemented by J. Klinkovsky in Benchmarks/BLAS
 //      This is an edited copy of Benchmarks/BLAS/spmv.h by: Lukas Cejka

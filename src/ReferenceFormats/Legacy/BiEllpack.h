@@ -1,13 +1,3 @@
-/***************************************************************************
-                          BiEllpack.h  -  description
-                             -------------------
-    begin                : Aug 27, 2018
-    copyright            : (C) 2018 by Tomas Oberhuber
-    email                : tomas.oberhuber@fjfi.cvut.cz
- ***************************************************************************/
-
-/* See Copyright Notice in tnl/Copyright */
-
 /****
  * This class implements BiELL format from:
  *
