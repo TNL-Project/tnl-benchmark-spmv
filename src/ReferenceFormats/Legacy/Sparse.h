@@ -39,9 +39,9 @@ class Sparse : public TNL::Matrices::Matrix< Real, Device, Index >
 
    void reset();
 
-   void save( File& file ) const;
+   void save( File& file ) const override;
 
-   void load( File& file );
+   void load( File& file ) override;
 
    void printStructure( std::ostream& str ) const;
 

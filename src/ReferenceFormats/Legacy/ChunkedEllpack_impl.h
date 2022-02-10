@@ -33,19 +33,19 @@ ChunkedEllpack< Real, Device, Index >::ChunkedEllpack()
 template< typename Real,
           typename Device,
           typename Index >
-String ChunkedEllpack< Real, Device, Index >::getSerializationType()
+std::string ChunkedEllpack< Real, Device, Index >::getSerializationType()
 {
-   return String( "Matrices::ChunkedEllpack< ") +
+   return "Matrices::ChunkedEllpack< " +
           getType< Real >() +
-          String( ", [any device], " ) +
-          String( TNL::getType< Index >() ) +
-          String( " >" );
+          ", [any device], " +
+          TNL::getType< Index >() +
+          " >";
 }
 
 template< typename Real,
           typename Device,
           typename Index >
-String ChunkedEllpack< Real, Device, Index >::getSerializationTypeVirtual() const
+std::string ChunkedEllpack< Real, Device, Index >::getSerializationTypeVirtual() const
 {
    return this->getSerializationType();
 }

@@ -24,20 +24,20 @@ template< typename Real,
           typename Device,
           typename Index,
           int SliceSize >
-String SlicedEllpack< Real, Device, Index, SliceSize >::getSerializationType()
+std::string SlicedEllpack< Real, Device, Index, SliceSize >::getSerializationType()
 {
-   return String( "Matrices::SlicedEllpack< ") +
+   return "Matrices::SlicedEllpack< " +
           TNL::getType< Real >() +
           ", [any_device], " +
-          String( TNL::getType< Index >() ) +
-          String( " >" );
+          TNL::getType< Index >() +
+          " >";
 }
 
 template< typename Real,
           typename Device,
           typename Index,
           int SliceSize >
-String SlicedEllpack< Real, Device, Index, SliceSize >::getSerializationTypeVirtual() const
+std::string SlicedEllpack< Real, Device, Index, SliceSize >::getSerializationTypeVirtual() const
 {
    return this->getSerializationType();
 }

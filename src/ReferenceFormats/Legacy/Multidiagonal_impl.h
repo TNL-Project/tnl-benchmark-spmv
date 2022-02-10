@@ -24,21 +24,21 @@ Multidiagonal< Real, Device, Index > :: Multidiagonal()
 template< typename Real,
           typename Device,
           typename Index >
-String Multidiagonal< Real, Device, Index >::getSerializationType()
+std::string Multidiagonal< Real, Device, Index >::getSerializationType()
 {
-   return String( "Matrices::Multidiagonal< ") +
+   return "Matrices::Multidiagonal< " +
           getType< Real >() +
-          String( ", " ) +
-          String( Device :: getDeviceType() ) +
-          String( ", " ) +
-          String( TNL::getType< Index >() ) +
-          String( " >" );
+          ", " +
+          Device :: getDeviceType() +
+          ", " +
+          TNL::getType< Index >() +
+          " >";
 }
 
 template< typename Real,
           typename Device,
           typename Index >
-String Multidiagonal< Real, Device, Index >::getSerializationTypeVirtual() const
+std::string Multidiagonal< Real, Device, Index >::getSerializationTypeVirtual() const
 {
    return this->getSerializationType();
 }

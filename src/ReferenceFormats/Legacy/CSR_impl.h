@@ -43,20 +43,20 @@ template< typename Real,
           typename Device,
           typename Index,
           CSRKernel KernelType >
-String CSR< Real, Device, Index, KernelType >::getSerializationType()
+std::string CSR< Real, Device, Index, KernelType >::getSerializationType()
 {
-   return String( "Matrices::CSR< ") +
+   return "Matrices::CSR< "+
           TNL::getType< Real>() +
           ", [any_device], " +
-          String( TNL::getType< Index >() ) +
-          String( " >" );
+          TNL::getType< Index >() +
+          " >";
 }
 
 template< typename Real,
           typename Device,
           typename Index,
           CSRKernel KernelType >
-String CSR< Real, Device, Index, KernelType >::getSerializationTypeVirtual() const
+std::string CSR< Real, Device, Index, KernelType >::getSerializationTypeVirtual() const
 {
    return this->getSerializationType();
 }

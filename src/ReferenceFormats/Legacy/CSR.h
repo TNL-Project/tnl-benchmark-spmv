@@ -142,12 +142,12 @@ public:
 
    CSR();
 
-   static String getSerializationType();
+   static std::string getSerializationType();
 
-   virtual String getSerializationTypeVirtual() const;
+   std::string getSerializationTypeVirtual() const override;
 
    void setDimensions( const IndexType rows,
-                       const IndexType columns );
+                       const IndexType columns ) override;
 
    void setCompressedRowLengths( ConstRowsCapacitiesTypeView rowLengths );
 
@@ -271,15 +271,15 @@ public:
              typename = typename Enabler< Device2 >::type >
    CSR& operator=( const CSR< Real2, Device2, Index2, KernelType2 >& matrix );
 
-   void save( File& file ) const;
+   void save( File& file ) const override;
 
-   void load( File& file );
+   void load( File& file ) override;
 
    void save( const String& fileName ) const;
 
    void load( const String& fileName );
 
-   void print( std::ostream& str ) const;
+   void print( std::ostream& str ) const override;
 
    //void setCudaKernelType( const SPMVCudaKernel kernel );
 
