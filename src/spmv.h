@@ -664,7 +664,7 @@ dispatchSymmetric( BenchmarkType& benchmark,
 {
    using SymmetricInputMatrix = TNL::Matrices::SparseMatrix< Real, TNL::Devices::Host, int, TNL::Matrices::SymmetricMatrix >;
    using InputMatrix = TNL::Matrices::SparseMatrix< Real, TNL::Devices::Host, int >;
-   bool allCpuTests = parameters.getParameter< bool >( "with-all-cpu-tests" );
+   //bool allCpuTests = parameters.getParameter< bool >( "with-all-cpu-tests" );
    bool withEllpack = parameters.getParameter< bool >( "with-ellpack-formats" );
    SymmetricInputMatrix symmetricHostMatrix;
    try
