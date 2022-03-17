@@ -9,17 +9,17 @@
 #include( cmake/BuildCSR5.cmake )
 
 # PETSc requires MPI
-if( BUILD_MPI )
-   find_package( PETSc COMPONENTS CXX )
-endif()
+#if( ( ${BUILD_MPI} ) AND ( NOT ${WITH_PETSC} EQUAL "no" ) )
+#   find_package( PETSc COMPONENTS CXX )
+#endif()
 
-if( PETSC_FOUND )
-   message( "PETSC library found: ${PETSC_VERSION}")
-   set( PETSC_CXX_FLAGS -DHAVE_PETSC ${PETSC_DEFINITIONS} )
-   message( "   PETSC_INCLUDES  = ${PETSC_INCLUDES}" )
-   message( "   PETSC_CXX_FLAGS = ${PETSC_CXX_FLAGS}" )
-   message( "   PETSC_LIBRARIES = ${PETSC_LIBRARIES}" )
-endif()
+#if( PETSC_FOUND )
+#   message( "PETSC library found: ${PETSC_VERSION}")
+#   set( PETSC_CXX_FLAGS -DHAVE_PETSC ${PETSC_DEFINITIONS} )
+#   message( "   PETSC_INCLUDES  = ${PETSC_INCLUDES}" )
+#   message( "   PETSC_CXX_FLAGS = ${PETSC_CXX_FLAGS}" )
+#   message( "   PETSC_LIBRARIES = ${PETSC_LIBRARIES}" )
+#endif()
 
 if( BUILD_CUDA )
    file( GLOB EXPLICIT_TEMPLATES spmv.templates/*.cu )
