@@ -9,7 +9,7 @@
 #include( cmake/BuildCSR5.cmake )
 
 # PETSc requires MPI
-#if( ( ${BUILD_MPI} ) AND ( NOT ${WITH_PETSC} EQUAL "no" ) )
+#if( TNL_BUILD_MPI AND TNL_USE_PETSC )
 #   find_package( PETSc COMPONENTS CXX )
 #endif()
 
@@ -21,7 +21,7 @@
 #   message( "   PETSC_LIBRARIES = ${PETSC_LIBRARIES}" )
 #endif()
 
-if( BUILD_CUDA )
+if( TNL_BUILD_CUDA )
    file( GLOB EXPLICIT_TEMPLATES spmv.templates/*.cu )
    cuda_include_directories( ${CXX_BENCHMARKS_INCLUDE_DIRS} )
    cuda_add_executable( tnl-benchmark-spmv tnl-benchmark-spmv.cu ${EXPLICIT_TEMPLATES} ReferenceFormats/LightSpMV-1.0/SpMV.cu ReferenceFormats/LightSpMV-1.0/SpMVCSR.cu
