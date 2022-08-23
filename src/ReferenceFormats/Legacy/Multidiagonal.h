@@ -2,7 +2,7 @@
 
 #include <TNL/Matrices/Matrix.h>
 #include <TNL/Containers/Vector.h>
-#include <TNL/Benchmarks/SpMV/ReferenceFormats/Legacy/MultidiagonalRow.h>
+#include "MultidiagonalRow.h"
 
 namespace TNL {
     namespace Benchmarks {
@@ -223,4 +223,4 @@ protected:
     } //namespace Benchmarks
 } // namespace TNL
 
-#include <TNL/Benchmarks/SpMV/ReferenceFormats/Legacy/Multidiagonal_impl.h>
+#include "Multidiagonal_impl.h"

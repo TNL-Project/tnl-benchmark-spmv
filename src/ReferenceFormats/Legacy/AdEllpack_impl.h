@@ -1,9 +1,9 @@
-#include <Benchmarks/SpMV/ReferenceFormats/Legacy/AdEllpack.h>
+#pragma once
+
+#include "AdEllpack.h"
 #include <TNL/Containers/Vector.h>
 #include <TNL/Math.h>
 #include <TNL/TypeInfo.h>
-
-#pragma once
 
 namespace TNL {
     namespace Benchmarks {

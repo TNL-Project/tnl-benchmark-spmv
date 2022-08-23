@@ -48,7 +48,7 @@ class SparseRow
          return getElementColumn( elementIndex );
       };
 
-      
+
       __cuda_callable__
       const Real& getElementValue( const Index& elementIndex ) const;
 
@@ -93,4 +93,4 @@ std::ostream& operator<<( std::ostream& str, const SparseRow< Real, Index >& row
     } //namespace Benchmarks
 } // namespace TNL
 
-#include <Benchmarks/SpMV/ReferenceFormats/Legacy/SparseRow_impl.h>
+#include "SparseRow_impl.h"
