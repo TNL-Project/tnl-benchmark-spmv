@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Benchmarks/SpMV/ReferenceFormats/Legacy/ChunkedEllpack.h>
+#include "ChunkedEllpack.h"
 #include <TNL/Containers/Vector.h>
 #include <TNL/Algorithms/scan.h>
 #include <TNL/Math.h>

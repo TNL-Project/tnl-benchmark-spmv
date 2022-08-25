@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Benchmarks/SpMV/ReferenceFormats/Legacy/SparseRow.h>
+#include "SparseRow.h"
 #include <TNL/Exceptions/NotImplementedError.h>
 
 // Following includes are here to enable usage of std::vector and std::cout. To avoid having to include Device type (HOW would this be done anyway)

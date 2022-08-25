@@ -11,15 +11,16 @@
 #include "SpmvBenchmarkResult.h"
 
 #include <TNL/Pointers/DevicePointer.h>
-#include <Benchmarks/SpMV/ReferenceFormats/Legacy/CSR.h>
-#include <Benchmarks/SpMV/ReferenceFormats/Legacy/Ellpack.h>
-#include <Benchmarks/SpMV/ReferenceFormats/Legacy/SlicedEllpack.h>
-#include <Benchmarks/SpMV/ReferenceFormats/Legacy/ChunkedEllpack.h>
-#include <Benchmarks/SpMV/ReferenceFormats/Legacy/AdEllpack.h>
-#include <Benchmarks/SpMV/ReferenceFormats/Legacy/BiEllpack.h>
-#include <Benchmarks/SpMV/ReferenceFormats/Legacy/LegacyMatrixReader.h>
+#include "ReferenceFormats/Legacy/CSR.h"
+#include "ReferenceFormats/Legacy/Ellpack.h"
+#include "ReferenceFormats/Legacy/SlicedEllpack.h"
+#include "ReferenceFormats/Legacy/ChunkedEllpack.h"
+#include "ReferenceFormats/Legacy/AdEllpack.h"
+#include "ReferenceFormats/Legacy/BiEllpack.h"
+#include "ReferenceFormats/Legacy/LegacyMatrixReader.h"
 
 #include <TNL/Matrices/MatrixInfo.h>
+#include "ReferenceFormats/Legacy/MatrixInfo.h"
 
 #include <TNL/Matrices/SparseMatrix.h>
 #include <TNL/Matrices/MatrixType.h>

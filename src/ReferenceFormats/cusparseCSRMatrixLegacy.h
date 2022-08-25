@@ -1,6 +1,6 @@
 #include <TNL/Assert.h>
 #include <TNL/Devices/Cuda.h>
-#include <Benchmarks/SpMV/ReferenceFormats/Legacy/CSR.h>
+#include "Legacy/CSR.h"
 #ifdef HAVE_CUDA
 #include <cusparse.h>
 #endif

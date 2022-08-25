@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Benchmarks/SpMV/ReferenceFormats/Legacy/CSR.h>
+#include "CSR.h"
 #include <TNL/Containers/VectorView.h>
 #include <TNL/Algorithms/scan.h>
 #include <TNL/Math.h>

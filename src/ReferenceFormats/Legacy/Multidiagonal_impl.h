@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Benchmarks/SpMV/ReferenceFormats/Legacy/Multidiagonal.h>
+#include "Multidiagonal.h"
 #include <TNL/Containers/Vector.h>
 #include <TNL/Math.h>
 #include <TNL/Exceptions/NotImplementedError.h>

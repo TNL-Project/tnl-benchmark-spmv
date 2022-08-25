@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Benchmarks/SpMV/ReferenceFormats/Legacy/Ellpack.h>
+#include "Ellpack.h"
 #include <TNL/Containers/Vector.h>
 #include <TNL/Math.h>
 #include <TNL/Exceptions/NotImplementedError.h>
