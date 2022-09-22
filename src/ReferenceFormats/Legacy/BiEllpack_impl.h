@@ -816,7 +816,9 @@ void BiEllpack< Real, Device, Index >::performRowBubbleSort( Containers::Vector<
         if( this->getRows() - 1 < end)
             end = this->getRows() - 1;
         bool sorted = false;
-        Index permIndex1, permIndex2, offset = 0;
+        Index permIndex1 = 0;
+        Index permIndex2 = 0;
+        Index offset = 0;
         while( !sorted )
         {
             sorted = true;
@@ -959,7 +961,8 @@ public:
 				end = matrix.getRows();
 			for( Index i = begin; i < end - 1; i++ )
 			{
-				Index permIndex1, permIndex2;
+				Index permIndex1 = 0;
+				Index permIndex2 = 0;
 				bool first = false;
 				bool second = false;
 				for( Index j = begin; j < end; j++ )
@@ -1059,7 +1062,9 @@ public:
 			if(matrix.getRows() - 1 < end)
 				end = matrix.getRows() - 1;
 			bool sorted = false;
-			Index permIndex1, permIndex2, offset = 0;
+			Index permIndex1 = 0;
+			Index permIndex2 = 0;
+			Index offset = 0;
 			while( !sorted )
 			{
 				sorted = true;
@@ -1194,7 +1199,9 @@ void BiEllpack< Real, Device, Index >::performRowBubbleSortCudaKernel( const typ
     if( this->getRows() - 1 < end )
         end = this->getRows() - 1;
     bool sorted = false;
-    IndexType permIndex1, permIndex2, offset = 0;
+    IndexType permIndex1 = 0;
+    IndexType permIndex2 = 0;
+    IndexType offset = 0;
     while( !sorted )
     {
         sorted = true;
@@ -1372,7 +1379,8 @@ public:
 				end = matrix.getRows();
 			for( Index i = begin; i < end - 1; i++ )
 			{
-				Index permIndex1, permIndex2;
+				Index permIndex1 = 0;
+				Index permIndex2 = 0;
 				bool first = false;
 				bool second = false;
 				for( Index j = begin; j < end; j++ )
