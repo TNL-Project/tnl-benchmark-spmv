@@ -937,7 +937,7 @@ void SpMVCSRLight( const Real *inVector,
                    const Index rows,
                    unsigned *rowCnt) {
    Real sum;
-   Index row, i, rowStart, rowEnd;
+   Index row = 0, i, rowStart, rowEnd;
    const Index laneId = threadIdx.x % groupSize; /*lane index in the vector*/
    const Index vectorId = threadIdx.x / groupSize; /*vector index in the thread block*/
    const Index warpLaneId = threadIdx.x & 31;	/*lane index in the warp*/
@@ -1013,7 +1013,7 @@ void SpMVCSRLight2( const Real *inVector,
                    const Index rows,
                    unsigned *rowCnt) {
    Real sum;
-   Index i, rowStart, rowEnd, row;
+   Index i, rowStart, rowEnd, row = 0;
    const Index laneId = threadIdx.x % groupSize; /*lane index in the vector*/
    const Index warpLaneId = threadIdx.x & 31;	/*lane index in the warp*/
    const Index warpVectorId = warpLaneId / groupSize;	/*vector index in the warp*/
@@ -1082,7 +1082,7 @@ void SpMVCSRLight3( const Real *inVector,
                    const Index rows,
                    unsigned *rowCnt) {
    Real sum;
-   Index i, rowEnd, row;
+   Index i, rowEnd, row = 0;
    const Index laneId = threadIdx.x % groupSize; /*lane index in the vector*/
    const Index warpLaneId = threadIdx.x & 31;	/*lane index in the warp*/
    const Index warpVectorId = warpLaneId / groupSize;	/*vector index in the warp*/
