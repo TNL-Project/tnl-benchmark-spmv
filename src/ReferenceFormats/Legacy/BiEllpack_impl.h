@@ -153,6 +153,7 @@ Index BiEllpack< Real, Device, Index >::getNumberOfGroups( const IndexType row )
     throw "bug - row was not found";
 #else
     TNL_ASSERT_TRUE( false, "bug - row was not found" );
+    return 0;
 #endif
 }
 
