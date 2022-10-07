@@ -19,13 +19,13 @@ struct MatrixInfo< Benchmarks::SpMV::ReferenceFormats::Legacy::BiEllpack< Real, 
    getDensity()
    {
       return "sparse";
-   };
+   }
 
    static String
    getFormat()
    {
       return "BiEllpack Legacy";
-   };
+   }
 };
 
 template< typename Real, typename Device, typename Index >
@@ -36,13 +36,13 @@ struct MatrixInfo< Benchmarks::SpMV::ReferenceFormats::Legacy::
    getDensity()
    {
       return "sparse";
-   };
+   }
 
    static String
    getFormat()
    {
       return "CSR Legacy Scalar";
-   };
+   }
 };
 
 template< typename Real, typename Device, typename Index >
@@ -53,13 +53,13 @@ struct MatrixInfo< Benchmarks::SpMV::ReferenceFormats::Legacy::
    getDensity()
    {
       return "sparse";
-   };
+   }
 
    static String
    getFormat()
    {
       return "CSR Legacy Vector";
-   };
+   }
 };
 
 template< typename Real, typename Device, typename Index >
@@ -70,13 +70,13 @@ struct MatrixInfo< Benchmarks::SpMV::ReferenceFormats::Legacy::
    getDensity()
    {
       return "sparse";
-   };
+   }
 
    static String
    getFormat()
    {
       return "CSR Legacy Light";
-   };
+   }
 };
 
 template< typename Real, typename Device, typename Index >
@@ -87,13 +87,13 @@ struct MatrixInfo< Benchmarks::SpMV::ReferenceFormats::Legacy::
    getDensity()
    {
       return "sparse";
-   };
+   }
 
    static String
    getFormat()
    {
       return "CSR Legacy Light2";
-   };
+   }
 };
 
 template< typename Real, typename Device, typename Index >
@@ -104,13 +104,13 @@ struct MatrixInfo< Benchmarks::SpMV::ReferenceFormats::Legacy::
    getDensity()
    {
       return "sparse";
-   };
+   }
 
    static String
    getFormat()
    {
       return "CSR Legacy Light3";
-   };
+   }
 };
 
 template< typename Real, typename Device, typename Index >
@@ -121,13 +121,13 @@ struct MatrixInfo< Benchmarks::SpMV::ReferenceFormats::Legacy::
    getDensity()
    {
       return "sparse";
-   };
+   }
 
    static String
    getFormat()
    {
       return "CSR Legacy Light4";
-   };
+   }
 };
 
 template< typename Real, typename Device, typename Index >
@@ -138,13 +138,13 @@ struct MatrixInfo< Benchmarks::SpMV::ReferenceFormats::Legacy::
    getDensity()
    {
       return "sparse";
-   };
+   }
 
    static String
    getFormat()
    {
       return "CSR Legacy Light5";
-   };
+   }
 };
 
 template< typename Real, typename Device, typename Index >
@@ -155,13 +155,13 @@ struct MatrixInfo< Benchmarks::SpMV::ReferenceFormats::Legacy::
    getDensity()
    {
       return "sparse";
-   };
+   }
 
    static String
    getFormat()
    {
       return "CSR Legacy Light6";
-   };
+   }
 };
 
 template< typename Real, typename Device, typename Index >
@@ -172,13 +172,13 @@ struct MatrixInfo< Benchmarks::SpMV::ReferenceFormats::Legacy::
    getDensity()
    {
       return "sparse";
-   };
+   }
 
    static String
    getFormat()
    {
       return "CSR Legacy Adaptive";
-   };
+   }
 };
 
 template< typename Real, typename Device, typename Index >
@@ -189,13 +189,13 @@ struct MatrixInfo< Benchmarks::SpMV::ReferenceFormats::Legacy::
    getDensity()
    {
       return "sparse";
-   };
+   }
 
    static String
    getFormat()
    {
       return "CSR Legacy MultiVector";
-   };
+   }
 };
 
 template< typename Real, typename Device, typename Index >
@@ -206,13 +206,13 @@ struct MatrixInfo< Benchmarks::SpMV::ReferenceFormats::Legacy::
    getDensity()
    {
       return "sparse";
-   };
+   }
 
    static String
    getFormat()
    {
       return "CSR Legacy LightWithoutAtomic";
-   };
+   }
 };
 
 template< typename Real, typename Device, typename Index >
@@ -222,13 +222,13 @@ struct MatrixInfo< Benchmarks::SpMV::ReferenceFormats::Legacy::ChunkedEllpack< R
    getDensity()
    {
       return "sparse";
-   };
+   }
 
    static String
    getFormat()
    {
       return "ChunkedEllpack Legacy";
-   };
+   }
 };
 
 template< typename Real, typename Device, typename Index >
@@ -238,13 +238,13 @@ struct MatrixInfo< Benchmarks::SpMV::ReferenceFormats::Legacy::Ellpack< Real, De
    getDensity()
    {
       return "sparse";
-   };
+   }
 
    static String
    getFormat()
    {
       return "Ellpack Legacy";
-   };
+   }
 };
 
 template< typename Real, typename Device, typename Index, int SliceSize >
@@ -254,13 +254,13 @@ struct MatrixInfo< Benchmarks::SpMV::ReferenceFormats::Legacy::SlicedEllpack< Re
    getDensity()
    {
       return "sparse";
-   };
+   }
 
    static String
    getFormat()
    {
       return "SlicedEllpack Legacy";
-   };
+   }
 };
 
 }  // namespace Matrices

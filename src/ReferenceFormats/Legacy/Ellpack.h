@@ -42,7 +42,7 @@ public:
              typename _Index = Index >
    using Self = Ellpack< _Real, _Device, _Index >;
 
-   static constexpr bool isSymmetric() { return false; };
+   static constexpr bool isSymmetric() { return false; }
 
    Ellpack();
 

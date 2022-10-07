@@ -72,7 +72,7 @@ public:
              int _SliceSize = SliceSize >
    using Self = SlicedEllpack< _Real, _Device, _Index, _SliceSize >;
 
-   static constexpr bool isSymmetric() { return false; };
+   static constexpr bool isSymmetric() { return false; }
 
    SlicedEllpack();
 

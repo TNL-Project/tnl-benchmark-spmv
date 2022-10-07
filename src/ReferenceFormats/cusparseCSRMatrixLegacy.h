@@ -18,7 +18,7 @@ class CusparseCSRBaseLegacy
       CusparseCSRBaseLegacy()
       : matrix( 0 )
       {
-      };
+      }
 
 #ifdef HAVE_CUDA
       void init( const MatrixType& matrix,

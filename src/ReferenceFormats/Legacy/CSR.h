@@ -104,9 +104,9 @@ public:
              typename _Index = Index >
    using Self = CSR< _Real, _Device, _Index >;
 
-   constexpr CSRKernel getSpMVKernelType() { return KernelType; };
+   constexpr CSRKernel getSpMVKernelType() { return KernelType; }
 
-   static constexpr bool isSymmetric() { return false; };
+   static constexpr bool isSymmetric() { return false; }
 
    Containers::Vector< Block<Index>, Device, Index > blocks;
 

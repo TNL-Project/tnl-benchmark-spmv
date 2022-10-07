@@ -16,7 +16,7 @@ template< typename Real1, typename Real2 >
 struct LightSpMVVectorsBinder
 {
    template< typename Index >
-   static void bind( TNL::Containers::VectorView< Real1, TNL::Devices::Cuda, Index >& vectorView, Real2* data, Index size ){};
+   static void bind( TNL::Containers::VectorView< Real1, TNL::Devices::Cuda, Index >& vectorView, Real2* data, Index size ){}
 };
 
 template< typename Real >
