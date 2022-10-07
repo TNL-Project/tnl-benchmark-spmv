@@ -37,7 +37,7 @@ CSR< Real, Device, Index, KernelType >::CSR()
   cudaWarpSize( 32 ), //Cuda::getWarpSize() )
   hybridModeSplit( 4 )
 {
-};
+}
 
 template< typename Real,
           typename Device,

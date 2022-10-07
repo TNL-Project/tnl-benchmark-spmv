@@ -17,7 +17,7 @@ template< typename Real,
 Ellpack< Real, Device, Index > :: Ellpack()
 : rowLengths( 0 ), alignedRows( 0 )
 {
-};
+}
 
 template< typename Real,
           typename Device,
