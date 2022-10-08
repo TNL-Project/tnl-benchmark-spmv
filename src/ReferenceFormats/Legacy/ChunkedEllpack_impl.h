@@ -28,7 +28,7 @@ ChunkedEllpack< Real, Device, Index >::ChunkedEllpack()
   desiredChunkSize( 16 ),
   numberOfSlices( 0 )
 {
-};
+}
 
 template< typename Real,
           typename Device,

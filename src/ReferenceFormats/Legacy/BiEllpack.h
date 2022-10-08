@@ -49,7 +49,7 @@ public:
              typename _Index = Index >
    using Self = BiEllpack< _Real, _Device, _Index >;
 
-   static constexpr bool isSymmetric() { return false; };
+   static constexpr bool isSymmetric() { return false; }
 
 	BiEllpack();
 

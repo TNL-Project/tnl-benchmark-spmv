@@ -83,7 +83,7 @@ public:
              typename _Index = Index >
    using Self = ChunkedEllpack< _Real, _Device, _Index >;
 
-   static constexpr bool isSymmetric() { return false; };
+   static constexpr bool isSymmetric() { return false; }
 
    ChunkedEllpack();
 
