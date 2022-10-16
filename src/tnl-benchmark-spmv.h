@@ -20,12 +20,7 @@ using namespace TNL::Matrices;
 
 #include <exception>
 #include <ctime> // Used for file naming, so logs don't get overwritten.
-
-#if defined(__APPLE__)
 #include <filesystem> // check file existence
-#else
-#include <experimental/filesystem> // check file existence
-#endif
 
 using namespace TNL;
 using namespace TNL::Benchmarks;
@@ -127,11 +122,7 @@ main( int argc, char* argv[] )
       std::cerr << "ERROR: Input file name is required." << std::endl;
       return EXIT_FAILURE;
    }
-#ifdef __APPLE__
-   if( std::__fs::filesystem::exists(logFileName.getString()) )
-#else
-   if( std::experimental::filesystem::exists(logFileName.getString()) )
-#endif
+   if( std::filesystem::exists(logFileName.getString()) )
    {
       std::cout << "Log file " << logFileName << " exists and ";
       if( outputMode == "append" )
