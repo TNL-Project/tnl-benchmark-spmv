@@ -105,7 +105,8 @@ getLength() const
    return length;
 }
 
-#ifdef HAVE_CUDA
+//#ifdef HAVE_CUDA
+#if 0
 template< typename MatrixRow, typename Index >
 __global__
 void getNonZeroRowLengthCudaKernel( const MatrixRow row, Index* result )
