@@ -1420,7 +1420,7 @@ __global__ void ChunkedEllpackVectorProductCudaKernel( const ChunkedEllpack< Rea
                                                                 OutVector* outVector,
                                                                 int gridIdx )
 {
-   const Index sliceIdx = gridIdx * Cuda::getMaxGridSize() + blockIdx.x;
+   const Index sliceIdx = gridIdx * Cuda::getMaxGridXSize() + blockIdx.x;
    if( sliceIdx < matrix->getNumberOfSlices() )
       matrix->computeSliceVectorProduct( inVector, outVector, sliceIdx );
 
@@ -1477,15 +1477,15 @@ class ChunkedEllpackDeviceDependentCode< Devices::Cuda >
             InVector* kernel_inVector = Cuda::passToDevice( inVector );
             OutVector* kernel_outVector = Cuda::passToDevice( outVector );
             dim3 cudaBlockSize( matrix.getNumberOfChunksInSlice() ),
-                 cudaGridSize( Cuda::getMaxGridSize() );
+                 cudaGridSize( Cuda::getMaxGridXSize() );
             const IndexType cudaBlocks = matrix.getNumberOfSlices();
-            const IndexType cudaGrids = roundUpDivision( cudaBlocks, Cuda::getMaxGridSize() );
+            const IndexType cudaGrids = roundUpDivision( cudaBlocks, Cuda::getMaxGridXSize() );
             const IndexType sharedMemory = cudaBlockSize.x * sizeof( RealType ) +
                                            sizeof( tnlChunkedEllpackSliceInfo< IndexType > );
             for( IndexType gridIdx = 0; gridIdx < cudaGrids; gridIdx++ )
             {
                if( gridIdx == cudaGrids - 1 )
-                  cudaGridSize.x = cudaBlocks % Cuda::getMaxGridSize();
+                  cudaGridSize.x = cudaBlocks % Cuda::getMaxGridXSize();
                ChunkedEllpackVectorProductCudaKernel< Real, Index, InVector, OutVector >
                                                              <<< cudaGridSize, cudaBlockSize, sharedMemory  >>>
                                                              ( kernel_this,

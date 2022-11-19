@@ -1181,7 +1181,7 @@ void BiEllpackVectorProductCuda( const BiEllpack< Real, Devices::Cuda, Index >* 
 				 int gridIdx,
 				 const int warpSize )
 {
-	Index globalIdx = ( gridIdx * Cuda::getMaxGridSize() + blockIdx.x ) * blockDim.x + threadIdx.x;
+	Index globalIdx = ( gridIdx * Cuda::getMaxGridXSize() + blockIdx.x ) * blockDim.x + threadIdx.x;
 	matrix->spmvCuda( *inVector, *outVector, globalIdx );
 }
 #endif
@@ -1300,7 +1300,7 @@ void performRowBubbleSortCuda( BiEllpack< Real, Devices::Cuda, Index >* matrix,
                                const typename BiEllpack< Real, Devices::Cuda, Index >::RowsCapacitiesType* rowLengths,
                                int gridIdx )
 {
-	const Index stripIdx = gridIdx * Cuda::getMaxGridSize() * blockDim.x + blockIdx.x * blockDim.x + threadIdx.x;
+	const Index stripIdx = gridIdx * Cuda::getMaxGridXSize() * blockDim.x + blockIdx.x * blockDim.x + threadIdx.x;
 	matrix->performRowBubbleSortCudaKernel( *rowLengths, stripIdx );
 }
 #endif
@@ -1314,7 +1314,7 @@ void computeColumnSizesCuda( BiEllpack< Real, Devices::Cuda, Index >* matrix,
                              const Index numberOfStrips,
                              int gridIdx )
 {
-	const Index stripIdx = gridIdx * Cuda::getMaxGridSize() * blockDim.x + blockIdx.x * blockDim.x + threadIdx.x;
+	const Index stripIdx = gridIdx * Cuda::getMaxGridXSize() * blockDim.x + blockIdx.x * blockDim.x + threadIdx.x;
 	matrix->computeColumnSizesCudaKernel( *rowLengths, numberOfStrips, stripIdx );
 }
 #endif
@@ -1421,13 +1421,13 @@ public:
 		typedef typename Matrix::RowsCapacitiesType RowsCapacitiesType;
 		Matrix* kernel_this = Cuda::passToDevice( matrix );
 		RowsCapacitiesType* kernel_rowLengths = Cuda::passToDevice( rowLengths );
-		dim3 cudaBlockSize( 256 ), cudaGridSize( Cuda::getMaxGridSize() );
+		dim3 cudaBlockSize( 256 ), cudaGridSize( Cuda::getMaxGridXSize() );
 		const Index cudaBlocks = roundUpDivision( numberOfStrips, cudaBlockSize.x );
-		const Index cudaGrids = roundUpDivision( cudaBlocks, Cuda::getMaxGridSize() );
+		const Index cudaGrids = roundUpDivision( cudaBlocks, Cuda::getMaxGridXSize() );
 		for( int gridIdx = 0; gridIdx < cudaGrids; gridIdx++ )
 		{
 		     if( gridIdx == cudaGrids - 1 )
-		         cudaGridSize.x = cudaBlocks % Cuda::getMaxGridSize();
+		         cudaGridSize.x = cudaBlocks % Cuda::getMaxGridXSize();
 		     performRowBubbleSortCuda< Real, Index >
 		     	 	 	 	 	 	 <<< cudaGridSize, cudaBlockSize >>>
 		                             ( kernel_this,
@@ -1451,13 +1451,13 @@ public:
 		typedef typename Matrix::RowsCapacitiesType RowsCapacitiesType;
 		Matrix* kernel_this = Cuda::passToDevice( matrix );
 		RowsCapacitiesType* kernel_rowLengths = Cuda::passToDevice( rowLengths );
-		dim3 cudaBlockSize( 256 ), cudaGridSize( Cuda::getMaxGridSize() );
+		dim3 cudaBlockSize( 256 ), cudaGridSize( Cuda::getMaxGridXSize() );
 		const Index cudaBlocks = roundUpDivision( numberOfStrips, cudaBlockSize.x );
-		const Index cudaGrids = roundUpDivision( cudaBlocks, Cuda::getMaxGridSize() );
+		const Index cudaGrids = roundUpDivision( cudaBlocks, Cuda::getMaxGridXSize() );
 		for( int gridIdx = 0; gridIdx < cudaGrids; gridIdx++ )
 		{
 		     if( gridIdx == cudaGrids - 1 )
-		         cudaGridSize.x = cudaBlocks % Cuda::getMaxGridSize();
+		         cudaGridSize.x = cudaBlocks % Cuda::getMaxGridXSize();
 		     computeColumnSizesCuda< Real, Index >
 		     	 	 	 	 	   <<< cudaGridSize, cudaBlockSize >>>
 		                           ( kernel_this,
@@ -1486,13 +1486,13 @@ public:
 		Matrix* kernel_this = Cuda::passToDevice( matrix );
 		InVector* kernel_inVector = Cuda::passToDevice( inVector );
 		OutVector* kernel_outVector = Cuda::passToDevice( outVector );
-		dim3 cudaBlockSize( 256 ), cudaGridSize( Cuda::getMaxGridSize() );
+		dim3 cudaBlockSize( 256 ), cudaGridSize( Cuda::getMaxGridXSize() );
 		const IndexType cudaBlocks = roundUpDivision( matrix.getRows(), cudaBlockSize.x );
-		const IndexType cudaGrids = roundUpDivision( cudaBlocks, Cuda::getMaxGridSize() );
+		const IndexType cudaGrids = roundUpDivision( cudaBlocks, Cuda::getMaxGridXSize() );
 		for( IndexType gridIdx = 0; gridIdx < cudaGrids; gridIdx++ )
 		{
 			if( gridIdx == cudaGrids - 1 )
-				cudaGridSize.x = cudaBlocks % Cuda::getMaxGridSize();
+				cudaGridSize.x = cudaBlocks % Cuda::getMaxGridXSize();
 			const int sharedMemory = cudaBlockSize.x * sizeof( Real );
 			BiEllpackVectorProductCuda< Real, Index, InVector, OutVector >
 			                                   <<< cudaGridSize, cudaBlockSize, sharedMemory >>>

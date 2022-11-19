@@ -866,7 +866,7 @@ __global__ void EllpackVectorProductCudaKernel(
    Real multiplicator,
    const Index gridIdx )
 {
-   const Index rowIdx = ( gridIdx * Cuda::getMaxGridSize() + blockIdx.x ) * blockDim.x + threadIdx.x;
+   const Index rowIdx = ( gridIdx * Cuda::getMaxGridXSize() + blockIdx.x ) * blockDim.x + threadIdx.x;
    if( rowIdx >= rows )
       return;
    Index i = rowIdx;
@@ -935,13 +935,13 @@ class EllpackDeviceDependentCode< Devices::Cuda >
             //Matrix* kernel_this = Cuda::passToDevice( matrix );
             //InVector* kernel_inVector = Cuda::passToDevice( inVector );
             //OutVector* kernel_outVector = Cuda::passToDevice( outVector );
-            dim3 cudaBlockSize( 256 ), cudaGridSize( Cuda::getMaxGridSize() );
+            dim3 cudaBlockSize( 256 ), cudaGridSize( Cuda::getMaxGridXSize() );
             const IndexType cudaBlocks = roundUpDivision( matrix.getRows(), cudaBlockSize.x );
-            const IndexType cudaGrids = roundUpDivision( cudaBlocks, Cuda::getMaxGridSize() );
+            const IndexType cudaGrids = roundUpDivision( cudaBlocks, Cuda::getMaxGridXSize() );
             for( IndexType gridIdx = 0; gridIdx < cudaGrids; gridIdx++ )
             {
                if( gridIdx == cudaGrids - 1 )
-                  cudaGridSize.x = cudaBlocks % Cuda::getMaxGridSize();
+                  cudaGridSize.x = cudaBlocks % Cuda::getMaxGridXSize();
                EllpackVectorProductCudaKernel
                < Real, Index >
                 <<< cudaGridSize, cudaBlockSize >>>
