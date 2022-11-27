@@ -86,6 +86,10 @@ main( int argc, char* argv[] )
 #ifdef HAVE_PETSC
    PetscInitialize( &argc, &argv, nullptr, nullptr );
 #endif
+//#ifdef HAVE_MPI
+//   TNL::MPI::ScopedInitializer mpi( argc, argv );
+//#endif
+
    Config::ParameterContainer parameters;
    Config::ConfigDescription conf_desc;
 

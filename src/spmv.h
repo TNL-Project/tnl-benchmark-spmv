@@ -35,6 +35,10 @@
 #include <petscmat.h>
 #endif
 
+#ifdef HAVE_HYPRE
+#include <TNL/Hypre.h>
+#endif
+
 // Uncomment the following line to enable benchmarking the sandbox sparse matrix.
 //#define WITH_TNL_BENCHMARK_SPMV_SANDBOX_MATRIX
 #ifdef WITH_TNL_BENCHMARK_SPMV_SANDBOX_MATRIX
@@ -714,7 +718,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
    // two instances of TNL::Matrices::SparseMatrix. The second one comes from calling of
    // `benchmarkSpMV< Real, SparseMatrix_CSR_Scalar >( benchmark, hostOutVector, inputFileName, verboseMR );`
    // and simillar later in this function.
-#define USE_LEGACY_FORMATS
+//#define USE_LEGACY_FORMATS
 #ifdef USE_LEGACY_FORMATS
    // Here we use 'int' instead of 'Index' because of compatibility with cusparse.
    using CSRHostMatrix = SpMV::ReferenceFormats::Legacy::CSR< Real, Devices::Host, int >;
@@ -822,6 +826,22 @@ benchmarkSpmv( BenchmarkType& benchmark,
    SpmvBenchmarkResult< Real, Devices::Host, int > petscBenchmarkResults( hostOutVector, hostOutVector );
    benchmark.setMetadataElement({ "format", "Petsc" });
    benchmark.time< Devices::Host >( resetPetscVectors, "CPU", petscSpmvCSRHost, petscBenchmarkResults );
+#endif
+
+#ifdef HAVE_HYPRE
+   // Initialize HYPRE and set some global options, notably HYPRE_SetSpGemmUseCusparse(0);
+   TNL::Hypre hypre;
+   using HypreCSR = TNL::Matrices::SparseMatrix< Real, TNL::HYPRE_Device, HYPRE_Int >;
+   HypreCSR hypreCSRMatrix;
+   hypreCSRMatrix = csrHostMatrix;
+
+   auto spmvHypreCSRHost = [&]() {
+       hypreCSRMatrix.vectorProduct( hostInVector, hostOutVector );
+   };
+
+   SpmvBenchmarkResult< Real, Devices::Host, int > hypreBenchmarkResults( hostOutVector, hostOutVector );
+   benchmark.setMetadataElement({ "format", "CSR" });
+   benchmark.time< Devices::Host >( resetHostVectors, "Hypre CPU", spmvHypreCSRHost, hypreBenchmarkResults );
 #endif
 
 
