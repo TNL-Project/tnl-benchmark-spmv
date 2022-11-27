@@ -32,8 +32,25 @@ else()
    add_executable( tnl-benchmark-spmv tnl-benchmark-spmv.cpp ${EXPLICIT_TEMPLATES} )
    target_link_libraries( tnl-benchmark-spmv PUBLIC TNL::TNL_CXX )
 endif()
-target_compile_options( tnl-benchmark-spmv PRIVATE ${PETSC_CXX_FLAGS} )
-target_include_directories( tnl-benchmark-spmv PRIVATE ${PETSC_INCLUDES} )
-target_link_libraries( tnl-benchmark-spmv ${PETSC_LIBRARIES} )
+
+#target_compile_options( tnl-benchmark-spmv PRIVATE ${PETSC_CXX_FLAGS} )
+#target_include_directories( tnl-benchmark-spmv PRIVATE ${PETSC_INCLUDES} )
+#target_link_libraries( tnl-benchmark-spmv ${PETSC_LIBRARIES} )
+
+if( TNL_BUILD_MPI )
+   find_package(Hypre)
+   if( HYPRE_FOUND )
+      # enable MPI support in TNL
+      target_compile_definitions( tnl-benchmark-spmv PUBLIC "-DHAVE_MPI" )
+      # add MPI to the target: https://cliutils.gitlab.io/modern-cmake/chapters/packages/MPI.html
+      target_link_libraries( tnl-benchmark-spmv PUBLIC MPI::MPI_CXX )
+
+      # enable Hypre support in TNL
+      target_compile_definitions( tnl-benchmark-spmv PUBLIC "-DHAVE_HYPRE" )
+      # add Hypre to the target
+      target_include_directories( tnl-benchmark-spmv SYSTEM PUBLIC ${HYPRE_INCLUDE_DIRS} )
+      target_link_libraries( tnl-benchmark-spmv PUBLIC ${HYPRE_LIBRARIES} -lm )
+   endif()
+endif()
 
 install( TARGETS tnl-benchmark-spmv RUNTIME DESTINATION bin )
