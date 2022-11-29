@@ -781,6 +781,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
    benchmark.setMetadataWidths({
       { "matrix name", 32 },
       { "format", 46 },
+      { "threads", 5 },
    });
 
    HostVector hostInVector( csrHostMatrix.getRows() ), hostOutVector( csrHostMatrix.getRows() );
@@ -795,8 +796,17 @@ benchmarkSpmv( BenchmarkType& benchmark,
    };
 
    SpmvBenchmarkResult< Real, Devices::Host, int > csrBenchmarkResults( hostOutVector, hostOutVector );
-   benchmark.setMetadataElement({ "format", "CSR" });
-   benchmark.time< Devices::Host >( resetHostVectors, "CPU", spmvCSRHost, csrBenchmarkResults );
+   const int maxThreadsCount = Devices::Host::getMaxThreadsCount();
+   int threads = 1;
+   while( true ) {
+      benchmark.setMetadataElement({ "format", "CSR" });
+      benchmark.setMetadataElement({ "threads", convertToString( threads ).getString() });
+      Devices::Host::setMaxThreadsCount( threads );
+      benchmark.time< Devices::Host >( resetHostVectors, "CPU", spmvCSRHost, csrBenchmarkResults );
+      if( threads == maxThreadsCount )
+         break;
+      threads = min( 2 * threads, maxThreadsCount );
+   }
 
 #ifdef HAVE_PETSC
    Mat petscMatrix;
@@ -840,8 +850,16 @@ benchmarkSpmv( BenchmarkType& benchmark,
    };
 
    SpmvBenchmarkResult< Real, Devices::Host, int > hypreBenchmarkResults( hostOutVector, hostOutVector );
-   benchmark.setMetadataElement({ "format", "CSR" });
-   benchmark.time< Devices::Host >( resetHostVectors, "Hypre CPU", spmvHypreCSRHost, hypreBenchmarkResults );
+   threads = 1;
+   while( true ) {
+      benchmark.setMetadataElement({ "format", "Hypre" });
+      benchmark.setMetadataElement({ "threads", convertToString( threads ).getString() });
+      Devices::Host::setMaxThreadsCount( threads );
+      benchmark.time< Devices::Host >( resetHostVectors, "CPU", spmvHypreCSRHost, hypreBenchmarkResults );
+      if( threads == maxThreadsCount )
+         break;
+      threads = min( 2 * threads, maxThreadsCount );
+   }
 #endif
 
 
