@@ -749,7 +749,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
    benchmark.setDatasetSize( datasetSize );
 
    ////
-   // Nonzero elements per row statiistics
+   // Nonzero elements per row statistics
    //
    TNL::Containers::Vector< int > nonzerosPerRow( csrHostMatrix.getRows() );
    TNL::Containers::Vector< double > aux;
