@@ -108,9 +108,8 @@ main( int argc, char* argv[] )
    if( ! parseCommandLine( argc, argv, conf_desc, parameters ) )
       return EXIT_FAILURE;
 
-   if( ! Devices::Host::setup( parameters ) ||
-       ! Devices::Cuda::setup( parameters ) )
-      return EXIT_FAILURE;
+   Devices::Host::setup( parameters );
+   Devices::Cuda::setup( parameters );
 
    const String & inputFileName = parameters.getParameter< String >( "input-file" );
    const String & logFileName = parameters.getParameter< String >( "log-file" );
