@@ -7,12 +7,35 @@ set -e
 shopt -s globstar
 
 DEBUG="no"
-
-BENCHMARK="tnl-benchmark-spmv --with-legacy-matrices yes --precision double --openmp-enabled no"
-BENCHMARK_DBG="tnl-benchmark-spmv-dbg --with-legacy-matrices no"
+#MAX_OMP_THREADS="1"
+OMP_ENABLED="yes"
 
 matrices_base_path="./mtx_matrices"
 log_file="./log-files/sparse-matrix-benchmark.log"
+
+# set the default number of OpenMP threads to the number of CPU cores
+if [[ -z $MAX_OMP_THREADS ]]; then
+   if [[ $(command -v lscpu) ]]; then
+      # get the number of physical cores present on the system, even with multiple NUMA nodes
+      # see https://unix.stackexchange.com/a/279354
+      MAX_OMP_THREADS=$(lscpu --all --parse=CORE,SOCKET | grep -Ev "^#" | sort -u | wc -l)
+   elif [[ $(command -v sysctl) && $OSTYPE == 'darwin'* ]]; then
+      # get the number of physical cores present on the system for MacOS
+      MAX_OMP_THREADS=$(sysctl -n hw.ncpu)
+   fi
+fi
+
+BENCHMARK="tnl-benchmark-spmv --with-legacy-matrices yes --precision double"
+BENCHMARK_DBG="tnl-benchmark-spmv-dbg --with-legacy-matrices no"
+
+if [[ "$OMP_ENABLED" == "yes" ]]; then
+   BENCHMARK="$BENCHMARK --openmp-enabled yes"
+   if [[ $MAX_OMP_THREADS != "" ]]; then
+      BENCHMARK="$BENCHMARK --openmp-max-threads $MAX_OMP_THREADS"
+   fi
+else
+   BENCHMARK="$BENCHMARK --openmp-enabled no"
+fi
 
 if [[ ! -d "$matrices_base_path" ]]; then
    echo "The path '$matrices_base_path' does not exist." >&2
