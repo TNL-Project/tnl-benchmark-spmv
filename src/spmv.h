@@ -711,30 +711,12 @@ benchmarkSpmv( BenchmarkType& benchmark,
                const Config::ParameterContainer& parameters,
                bool verboseMR )
 {
-   // The following is another workaround because of a bug in nvcc versions 10 and 11.
-   // If we use the current matrix formats, not the legacy ones, we get
-   // ' error: redefinition of ‘void TNL::Algorithms::__wrapper__device_stub_CudaReductionKernel...'
-   // It seems that there is a problem with lambda functions identification when we create
-   // two instances of TNL::Matrices::SparseMatrix. The second one comes from calling of
-   // `benchmarkSpMV< Real, SparseMatrix_CSR_Scalar >( benchmark, hostOutVector, inputFileName, verboseMR );`
-   // and simillar later in this function.
-//#define USE_LEGACY_FORMATS
-#ifdef USE_LEGACY_FORMATS
-   // Here we use 'int' instead of 'Index' because of compatibility with cusparse.
-   using CSRHostMatrix = SpMV::ReferenceFormats::Legacy::CSR< Real, Devices::Host, int >;
-#  ifdef __CUDACC__
-   using CSRCudaMatrix = SpMV::ReferenceFormats::Legacy::CSR< Real, Devices::Cuda, int >;
-   using CusparseMatrix = TNL::CusparseCSRLegacy< Real >;
-   using LightSpMVCSRHostMatrix = SpMV::ReferenceFormats::Legacy::CSR< Real, Devices::Host, uint32_t >;
-   #endif
-#else
    // Here we use 'int' instead of 'Index' because of compatibility with cusparse.
    using CSRHostMatrix = TNL::Matrices::SparseMatrix< Real, TNL::Devices::Host, int >;
    #ifdef __CUDACC__
    using CSRCudaMatrix = TNL::Matrices::SparseMatrix< Real, TNL::Devices::Cuda, int >;
    using CusparseMatrix = TNL::CusparseCSR< Real >;
    #endif
-#endif
 
    using HostVector = Containers::Vector< Real, Devices::Host, int >;
 
@@ -912,8 +894,12 @@ benchmarkSpmv( BenchmarkType& benchmark,
    ////
    // Perform benchmark on CUDA device with LightSpMV as a reference GPU format
    //
+   using LightSpMVCSRHostMatrix = SpMV::ReferenceFormats::Legacy::CSR< Real, Devices::Host, uint32_t >;
    LightSpMVCSRHostMatrix lightSpMVCSRHostMatrix;
-   lightSpMVCSRHostMatrix = csrHostMatrix;
+   lightSpMVCSRHostMatrix.setDimensions( csrHostMatrix.getRows(), csrHostMatrix.getColumns() );
+   lightSpMVCSRHostMatrix.getValues() = csrHostMatrix.getValues();
+   lightSpMVCSRHostMatrix.getColumnIndexes() = csrHostMatrix.getColumnIndexes();
+   lightSpMVCSRHostMatrix.getRowPointers() = csrHostMatrix.getSegments().getOffsets();
    LightSpMVBenchmark< Real > lightSpMVBenchmark( lightSpMVCSRHostMatrix, LightSpMVBenchmarkKernelVector );
    auto resetLightSpMVVectors = [&]() {
       lightSpMVBenchmark.resetVectors();
