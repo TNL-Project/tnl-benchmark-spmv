@@ -622,44 +622,6 @@ void CSR< Real, Device, Index, KernelType >::getTransposition( const CSR< Real2,
    // TODO: implement
 }
 
-template< typename Real,
-          typename Device,
-          typename Index,
-          CSRKernel KernelType >
-   template< typename Vector1, typename Vector2 >
-bool CSR< Real, Device, Index, KernelType >::performSORIteration( const Vector1& b,
-                                                      const IndexType row,
-                                                      Vector2& x,
-                                                      const RealType& omega ) const
-{
-   TNL_ASSERT( row >=0 && row < this->getRows(),
-              std::cerr << "row = " << row
-                   << " this->getRows() = " << this->getRows() << std::endl );
-
-   RealType diagonalValue( 0.0 );
-   RealType sum( 0.0 );
-
-   IndexType elementPtr = this->rowPointers[ row ];
-   const IndexType rowEnd = this->rowPointers[ row + 1 ];
-   IndexType column;
-   while( elementPtr < rowEnd && ( column = this->columnIndexes[ elementPtr ] ) != this->getPaddingIndex() )
-   {
-      if( column == row )
-         diagonalValue = this->values[ elementPtr ];
-      else
-         sum += this->values[ elementPtr ] * x[ column ];
-      elementPtr++;
-   }
-   if( diagonalValue == ( Real ) 0.0 )
-   {
-      std::cerr << "There is zero on the diagonal in " << row << "-th row of the matrix. I cannot perform SOR iteration." << std::endl;
-      return false;
-   }
-   x[ row ] = ( 1.0 - omega ) * x[ row ] + omega / diagonalValue * ( b[ row ] - sum );
-   return true;
-}
-
-
 // copy assignment
 template< typename Real,
           typename Device,

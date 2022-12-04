@@ -561,47 +561,6 @@ void Multidiagonal< Real, Device, Index >::getTransposition( const Multidiagonal
       }
 }
 
-template< typename Real,
-          typename Device,
-          typename Index >
-   template< typename Vector1, typename Vector2 >
-bool Multidiagonal< Real, Device, Index > :: performSORIteration( const Vector1& b,
-                                                                  const IndexType row,
-                                                                  Vector2& x,
-                                                                  const RealType& omega ) const
-{
-   TNL_ASSERT( row >=0 && row < this->getRows(),
-              std::cerr << "row = " << row
-                   << " this->getRows() = " << this->getRows() << std::endl );
-
-   RealType diagonalValue( 0.0 );
-   RealType sum( 0.0 );
-
-   const IndexType maxRowLength = this->getMaxRowLength();
-
-   for( IndexType i = 0; i < maxRowLength; i++ )
-   {
-      const IndexType column = row + this->diagonalsShift[ i ];
-      if( column >= 0 && column < this->getColumns() )
-      {
-         IndexType elementIndex;
-         this->getElementIndex( row, column, elementIndex );
-         if( column == row )
-            diagonalValue = this->values[ elementIndex ];
-         else
-            sum += this->values[ elementIndex ] * x[ column ];
-      }
-   }
-   if( diagonalValue == ( Real ) 0.0 )
-   {
-      std::cerr << "There is zero on the diagonal in " << row << "-th row of thge matrix. I cannot perform SOR iteration." << std::endl;
-      return false;
-   }
-   x[ row ] = ( 1.0 - omega ) * x[ row ] + omega / diagonalValue * ( b[ row ] - sum );
-   return true;
-}
-
-
 // copy assignment
 template< typename Real,
           typename Device,

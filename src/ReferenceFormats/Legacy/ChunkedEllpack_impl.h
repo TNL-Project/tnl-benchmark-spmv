@@ -1148,46 +1148,6 @@ void ChunkedEllpack< Real, Device, Index >::getTransposition( const ChunkedEllpa
    // TODO: implement
 }
 
-template< typename Real,
-          typename Device,
-          typename Index >
-   template< typename Vector1, typename Vector2 >
-bool ChunkedEllpack< Real, Device, Index >::performSORIteration( const Vector1& b,
-                                                                 const IndexType row,
-                                                                 Vector2& x,
-                                                                 const RealType& omega ) const
-{
-   TNL_ASSERT( row >=0 && row < this->getRows(),
-              std::cerr << "row = " << row
-                   << " this->getRows() = " << this->getRows() << std::endl );
-
-   RealType diagonalValue( 0.0 );
-   RealType sum( 0.0 );
-
-   const IndexType& sliceIndex = rowToSliceMapping[ row ];
-   TNL_ASSERT( sliceIndex < this->rows, );
-   const IndexType& chunkSize = slices.getElement( sliceIndex ).chunkSize;
-   IndexType elementPtr = rowPointers[ row ];
-   const IndexType rowEnd = rowPointers[ row + 1 ];
-   IndexType column;
-   while( elementPtr < rowEnd && ( column = this->columnIndexes[ elementPtr ] ) < this->columns )
-   {
-      if( column == row )
-         diagonalValue = this->values.getElement( elementPtr );
-      else
-         sum += this->values.getElement( row * this->diagonalsShift.getSize() + elementPtr ) * x. getElement( column );
-      elementPtr++;
-   }
-   if( diagonalValue == ( Real ) 0.0 )
-   {
-      std::cerr << "There is zero on the diagonal in " << row << "-th row of a matrix. I cannot perform SOR iteration." << std::endl;
-      return false;
-   }
-   x. setElement( row, x[ row ] + omega / diagonalValue * ( b[ row ] - sum ) );
-   return true;
-}
-
-
 // copy assignment
 template< typename Real,
           typename Device,

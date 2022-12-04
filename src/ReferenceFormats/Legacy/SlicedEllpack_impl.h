@@ -566,49 +566,6 @@ void SlicedEllpack< Real, Device, Index, SliceSize >::getTransposition( const Sl
    // TODO: implement
 }
 
-template< typename Real,
-          typename Device,
-          typename Index,
-          int SliceSize >
-   template< typename Vector1, typename Vector2 >
-bool SlicedEllpack< Real, Device, Index, SliceSize >::performSORIteration( const Vector1& b,
-                                                                           const IndexType row,
-                                                                           Vector2& x,
-                                                                           const RealType& omega ) const
-{
-   TNL_ASSERT( row >=0 && row < this->getRows(),
-              std::cerr << "row = " << row
-                   << " this->getRows() = " << this->getRows() << std::endl );
-
-   RealType diagonalValue( 0.0 );
-   RealType sum( 0.0 );
-
-   /*const IndexType sliceIdx = row / SliceSize;
-   const IndexType rowLength = this->sliceCompressedRowLengths[ sliceIdx ];
-   IndexType elementPtr = this->slicePointers[ sliceIdx ] +
-                          rowLength * ( row - sliceIdx * SliceSize );
-   const IndexType rowEnd( elementPtr + rowLength );*/
-   IndexType elementPtr, rowEnd, step;
-   DeviceDependentCode::initRowTraverseFast( *this, row, elementPtr, rowEnd, step );
-   IndexType column;
-   while( elementPtr < rowEnd && ( column = this->columnIndexes[ elementPtr ] ) < this->columns )
-   {
-      if( column == row )
-         diagonalValue = this->values[  elementPtr ];
-      else
-         sum += this->values[ elementPtr ] * x[ column ];
-      elementPtr += step;
-   }
-   if( diagonalValue == ( Real ) 0.0 )
-   {
-      std::cerr << "There is zero on the diagonal in " << row << "-th row of a matrix. I cannot perform SOR iteration." << std::endl;
-      return false;
-   }
-   x[ row ] = ( 1.0 - omega ) * x[ row ] + omega / diagonalValue * ( b[ row ] - sum );
-   return true;
-}
-
-
 // copy assignment
 template< typename Real,
           typename Device,

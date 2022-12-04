@@ -189,12 +189,6 @@ public:
    void getTransposition( const SlicedEllpack< Real2, Device, Index2 >& matrix,
                           const RealType& matrixMultiplicator = 1.0 );
 
-   template< typename Vector1, typename Vector2 >
-   bool performSORIteration( const Vector1& b,
-                             const IndexType row,
-                             Vector2& x,
-                             const RealType& omega = 1.0 ) const;
-
    // copy assignment
    SlicedEllpack& operator=( const SlicedEllpack& matrix );
 
