@@ -926,7 +926,12 @@ benchmarkSpmv( BenchmarkType& benchmark,
    /////
    // Benchmarking TNL formats
    //
+#if ! defined ( HAVE_CUDA )
+   if(  parameters.getParameter< bool >( "with-all-cpu-tests" ) )
+      dispatchSpMV< Real >( benchmark, hostOutVector, inputFileName, parameters, verboseMR );
+#else
    dispatchSpMV< Real >( benchmark, hostOutVector, inputFileName, parameters, verboseMR );
+#endif
 
    /////
    // Benchmarking symmetric sparse matrices
