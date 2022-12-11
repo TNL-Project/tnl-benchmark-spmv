@@ -207,6 +207,8 @@ def convert_data_frame( input_df, multicolumns, df_data, begin_idx = 0, end_idx 
             best_csr_light_format = current_format
          if current_format == 'cusparse':
             cusparse_bw = bw
+         else:
+            cusparse_bw = 0
          #aux_df.iloc[0][(current_format,current_device,'time')]        = row['time']
          #aux_df.iloc[0][(current_format,current_device,'speed-up')]    = row['speedup']
          #aux_df.iloc[0][(current_format,current_device,'non-zeros')]   = row['non-zeros']
@@ -312,7 +314,8 @@ def compute_symmetric_speedup( df, formats ):
          df[(format,'GPU','speed-up','non-symmetric')] = symmetric_speedup_list
 
 def compute_speedup( df, formats ):
-   compute_cusparse_speedup( df, formats )
+   if 'cusparse' in formats:
+      compute_cusparse_speedup( df, formats )
    compute_csr_light_speedup( df, formats )
    compute_binary_speedup( df, formats )
    compute_symmetric_speedup( df, formats )
@@ -909,12 +912,13 @@ def analyze_light_csr( df, formats ):
    profiles = {}
    sort_df = df.sort_values(by=[('nonzeros per row','','','')],inplace=False,ascending=True)
    formats_list = ['CSR< Light > 1', 'CSR< Light > 2', 'CSR< Light > 4', 'CSR< Light > 8', 'CSR< Light > 16', 'CSR< Light > 32']
-   for format in formats_list:
-      sort_df.drop( labels=format, axis='columns', level=0, inplace=True )
-      print( f'{format}')
-      profiles[format] = df[(format,'GPU','bandwidth','')].copy()
-   sort_df.to_html( f"LightSpMV-Threads-per-row.html" )
-   draw_profiles( formats_list, profiles, 'non-zeros per row', 'BW', "nonzeros-bw.pdf", 'lower right', "none" )
+   if formats_list in formats:
+      for format in formats_list:
+         sort_df.drop( labels=format, axis='columns', level=0, inplace=True )
+         print( f'{format}')
+         profiles[format] = df[(format,'GPU','bandwidth','')].copy()
+      sort_df.to_html( f"LightSpMV-Threads-per-row.html" )
+      draw_profiles( formats_list, profiles, 'non-zeros per row', 'BW', "nonzeros-bw.pdf", 'lower right', "none" )
 
 
 def write_colormap( file, max_bw, size, x_position, y_position, standalone = False ):
