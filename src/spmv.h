@@ -820,7 +820,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
    benchmark.time< Devices::Host >( resetPetscVectors, "CPU", petscSpmvCSRHost, petscBenchmarkResults );
 #endif
 
-#ifdef HAVE_HYPRE
+#if defined HAVE_HYPRE && ! defined __CUDACC__
    // Initialize HYPRE and set some global options, notably HYPRE_SetSpGemmUseCusparse(0);
    TNL::Hypre hypre;
    using HypreCSR = TNL::Matrices::SparseMatrix< Real, TNL::HYPRE_Device, HYPRE_Int >;
@@ -861,7 +861,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
 
    CudaVector cudaInVector( csrCudaMatrix.getColumns() ), cudaOutVector( csrCudaMatrix.getRows() );
 
-   auto resetCusparseVectors = [&]() {
+   auto resetCudaVectors = [&]() {
       cudaInVector = 1.0;
       cudaOutVector = 0.0;
    };
@@ -872,7 +872,23 @@ benchmarkSpmv( BenchmarkType& benchmark,
 
    SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( hostOutVector, cudaOutVector );
    benchmark.setMetadataElement({ "format", "cusparse" });
-   benchmark.time< Devices::Cuda >( resetCusparseVectors, "GPU", spmvCusparse, cudaBenchmarkResults );
+   benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvCusparse, cudaBenchmarkResults );
+
+#ifdef HAVE_HYPRE
+   // Initialize HYPRE and set some global options, notably HYPRE_SetSpGemmUseCusparse(0);
+   TNL::Hypre hypre;
+   using HypreCSR = TNL::Matrices::SparseMatrix< Real, TNL::HYPRE_Device, HYPRE_Int >;
+   HypreCSR hypreCSRMatrix;
+   hypreCSRMatrix = csrCudaMatrix;
+
+   auto spmvHypreCSRCuda = [&]() {
+       hypreCSRMatrix.vectorProduct( cudaInVector, cudaOutVector );
+   };
+
+   SpmvBenchmarkResult< Real, Devices::Cuda, int > hypreCudaBenchmarkResults( hostOutVector, cudaOutVector );
+   benchmark.setMetadataElement({ "format", "Hypre" });
+   benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvHypreCSRCuda, hypreCudaBenchmarkResults );
+#endif
 
 #ifdef HAVE_CSR5
    ////
@@ -926,7 +942,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
    /////
    // Benchmarking TNL formats
    //
-#if ! defined ( HAVE_CUDA )
+#if ! defined ( __CUDACC__ )
    if(  parameters.getParameter< bool >( "with-all-cpu-tests" ) )
       dispatchSpMV< Real >( benchmark, hostOutVector, inputFileName, parameters, verboseMR );
 #else
