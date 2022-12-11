@@ -92,7 +92,7 @@ matplotlib_fixed_colors = [ 'blue', 'green', 'red', 'cyan', 'magenta', '#663300'
 
 ####
 # Create multiindex for columns
-def get_multiindex( input_df, formats ):
+def get_multiindex( input_df, formats, threads_num_list ):
    level1 = [ 'Matrix name', 'rows', 'columns', 'nonzeros per row' ]
    level2 = [ '',            '',     '',        '' ]
    level3 = [ '',            '',     '',        '' ]
@@ -100,12 +100,28 @@ def get_multiindex( input_df, formats ):
    df_data = [[ ' ',' ',' ',' ']]
    for format in formats:
       for device in ['CPU','GPU']:
-         for data in ['bandwidth', 'time', 'diff.max' ]: #,'time','speed-up','non-zeros','stddev','stddev/time','diff.max','diff.l2']:
-            level1.append( format )
-            level2.append( device )
-            level3.append( data )
-            level4.append( '' )
-            df_data[ 0 ].append( ' ' )
+        if ( format == "CSR" or format == "Hypre" ) and device == "CPU":
+           for threads in threads_num_list:
+                if threads == 1:
+                    bm_data = ['bandwidth', 'time', ]
+                else:
+                    bm_data =  ['bandwidth', 'time', 'speed-up', 'eff.' ]
+                if format == "Hypre":
+                    bm_data.append('TNL speed-up')
+                for data in bm_data: #,'time','speed-up','non-zeros','stddev','stddev/time','diff.max','diff.l2']:
+                    level1.append( format )
+                    level2.append( "CPU" )# + str( threads ) )
+                    level3.append( str( threads ) + " threads" )
+                    level4.append( data )
+                    #level4.append( '' )
+                    df_data[ 0 ].append( ' ' )
+        else:
+           for data in ['bandwidth', 'time', 'diff.max' ]: #,'time','speed-up','non-zeros','stddev','stddev/time','diff.max','diff.l2']:
+              level1.append( format )
+              level2.append( device )
+              level3.append( data )
+              level4.append( '' )
+              df_data[ 0 ].append( ' ' )
       if not format in [ 'cusparse', 'CSR' ]:
          for speedup in [ 'cusparse', 'CSR CPU']:
             level1.append( format )
@@ -179,9 +195,14 @@ def convert_data_frame( input_df, multicolumns, df_data, begin_idx = 0, end_idx 
          bw = pd.to_numeric(row['bandwidth'], errors='coerce')
          time = pd.to_numeric(row['time'], errors='coerce')
          diff_max = pd.to_numeric(row['CSR Diff.Max'], errors='coerce')
-         aux_df.iloc[0][(current_format,current_device,'bandwidth','')] = bw
-         aux_df.iloc[0][(current_format,current_device,'time','')] = time
-         aux_df.iloc[0][(current_format,current_device,'diff.max','')] = diff_max
+         if current_device == 'CPU' and ( current_format == 'CSR' or current_format == 'Hypre' ):
+            threads = row[ 'threads']
+            aux_df.iloc[0][(current_format,current_device,str(threads)+' threads','bandwidth')] = bw
+            aux_df.iloc[0][(current_format,current_device,str(threads)+' threads','time')] = time
+         else:
+            aux_df.iloc[0][(current_format,current_device,'bandwidth','')] = bw
+            aux_df.iloc[0][(current_format,current_device,'time','')] = time
+            aux_df.iloc[0][(current_format,current_device,'diff.max','')] = diff_max
          if( current_device == 'GPU' and
              not 'Binary' in current_format and
              not 'Symmetric' in current_format and
@@ -313,12 +334,53 @@ def compute_symmetric_speedup( df, formats ):
                symmetric_speedup_list.append(float('nan'))
          df[(format,'GPU','speed-up','non-symmetric')] = symmetric_speedup_list
 
-def compute_speedup( df, formats ):
+####
+# Compute speed-up on CPU with various number of threads
+def compute_cpu_speedup( df, formats, threads_num_list ):
+    for format in [ 'CSR', 'Hypre']:
+        if format in formats:
+            sequential_times_list = df[(format,'CPU', '1 threads', 'time')]
+            speedup_list = []
+            efficiency_list = []
+            for threads in threads_num_list:
+                if threads == 1:
+                    continue
+                parallel_times_list = df[(format,'CPU', str( threads) + ' threads', 'time')]
+                #print( sequential_times_list)
+                #print( parallel_times_list)
+                for ( sequential_time, parallel_time ) in zip( sequential_times_list, parallel_times_list ):
+                    #print( sequential_time )
+                    #print( parallel_time )
+                    speedup = float( sequential_time ) / float( parallel_time )
+                    efficiency = speedup / threads
+                    speedup_list.append( speedup )
+                    efficiency_list.append( efficiency )
+                df[(format,'CPU', str( threads ) + ' threads', 'speed-up')] = speedup_list
+                df[(format,'CPU', str( threads ) + ' threads', 'eff.')] = efficiency_list
+                speedup_list.clear()
+                efficiency_list.clear()
+
+####
+# Compute speedup of TNL compared to Hypre
+def compute_hypre_cpu_speedup( df, formats, threads_num_list ):
+    for threads in threads_num_list:
+        tnl_times_list = df[('CSR','CPU', str( threads) + ' threads', 'time')]
+        hypre_times_list = df[('Hypre','CPU', str( threads) + ' threads', 'time')]
+        speedup_list = []
+        for ( tnl_time, hypre_time ) in zip( tnl_times_list, hypre_times_list ):
+            speedup = float( hypre_time ) / float( tnl_time )
+            speedup_list.append( speedup )
+        df[('Hypre','CPU', str( threads ) + ' threads', 'TNL speed-up')] = speedup_list
+        speedup_list.clear()
+
+def compute_speedup( df, formats, threads_num_list ):
    if 'cusparse' in formats:
       compute_cusparse_speedup( df, formats )
    compute_csr_light_speedup( df, formats )
    compute_binary_speedup( df, formats )
    compute_symmetric_speedup( df, formats )
+   compute_cpu_speedup( df, formats, threads_num_list )
+   compute_hypre_cpu_speedup( df, formats, threads_num_list )
 
 ###
 # Draw several profiles into one figure
@@ -1077,7 +1139,7 @@ def processDf( df, formats, head_size = 10 ):
    #symmetric_matrices_comparison( df, formats, head_size )
    #csr_light_speedup_comparison( df, head_size )
 
-   best = df[('TNL Best','GPU','format')].tolist()
+   best = df[('TNL Best','GPU','format','')].tolist()
    best_formats = list(set(best))
    sum = 0
    for format in formats:
@@ -1144,13 +1206,19 @@ if 'Symmetric Binary CSR< Light > Automatic' in formats:
    formats.remove('Symmetric Binary CSR< Light > Automatic')
 formats.append('TNL Best')
 formats.append('CSR Light Best')
-multicolumns, df_data = get_multiindex( input_df, formats )
+threads_num_list = list(set( input_df['threads'].values.tolist() ))
+multicolumns, df_data = get_multiindex( input_df, formats, threads_num_list )
 
 print( "Converting data..." )
 result = convert_data_frame( input_df, multicolumns, df_data, 0, 2000 )
-compute_speedup( result, formats )
-
+compute_speedup( result, formats, threads_num_list )
 result.replace( to_replace=' ',value=np.nan,inplace=True)
+
+print( "Writting to file sparse-matrix-benchmark-test-processed.html ... ")
+result.to_html( "sparse-matrix-benchmark-test-processed.html")
+
+
+
 
 head_size = 25
 if not os.path.exists( 'general' ):
