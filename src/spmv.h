@@ -856,10 +856,10 @@ benchmarkSpmv( BenchmarkType& benchmark,
    CSRCudaMatrix csrCudaMatrix;
    csrCudaMatrix = csrHostMatrix;
 
-   CusparseMatrix cusparseMatrix;
-   cusparseMatrix.init( csrCudaMatrix, &cusparseHandle );
-
    CudaVector cudaInVector( csrCudaMatrix.getColumns() ), cudaOutVector( csrCudaMatrix.getRows() );
+
+   CusparseMatrix cusparseMatrix;
+   cusparseMatrix.init( csrCudaMatrix, cudaInVector, cudaOutVector, &cusparseHandle );
 
    auto resetCudaVectors = [&]() {
       cudaInVector = 1.0;
