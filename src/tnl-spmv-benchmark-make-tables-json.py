@@ -313,7 +313,7 @@ def compute_csr_light_speedup( df, formats ):
 # Compute speed-up of binary formats
 def compute_binary_speedup( df, formats ):
    for format in formats:
-      if 'Binary' in format:
+      if 'Binary' in format and (format,'GPU') in formats_devices:
          non_binary_format = format.replace( 'Binary ', '' )
          print( f'Adding speed-up of {format} vs {non_binary_format}' )
          format_time_list = df[(format,'GPU','time')]
