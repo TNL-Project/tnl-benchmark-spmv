@@ -942,7 +942,6 @@ class SlicedEllpackDeviceDependentCode< Devices::Cuda >
       {
 #ifdef __CUDACC__
          typedef SlicedEllpack< Real, Device, Index, SliceSize > Matrix;
-         typedef typename Matrix::RowsCapacitiesType RowsCapacitiesType;
          Matrix* kernel_matrix = Cuda::passToDevice( matrix );
          const Index numberOfSlices = roundUpDivision( matrix.getRows(), SliceSize );
          dim3 cudaBlockSize( 256 ), cudaGridSize( Cuda::getMaxGridXSize() );

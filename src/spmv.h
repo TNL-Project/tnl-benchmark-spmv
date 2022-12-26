@@ -729,7 +729,6 @@ benchmarkSpmv( BenchmarkType& benchmark,
 
    using HostVector = Containers::Vector< Real, Devices::Host, int >;
    using CudaVector = Containers::Vector< Real, Devices::Cuda, int >;
-   using BinaryHostVector = Containers::Vector< int, Devices::Host, int >;
 
    CSRHostMatrix csrHostMatrix;
 
