@@ -4,6 +4,7 @@
 #include <TNL/Containers/Vector.h>
 #include <TNL/Math.h>
 #include <TNL/TypeInfo.h>
+#include "MemoryHelpers.h"
 
 namespace TNL {
     namespace Benchmarks {

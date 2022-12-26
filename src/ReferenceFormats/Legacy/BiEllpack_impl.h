@@ -1,11 +1,12 @@
 #pragma once
 
+#include <cstdio>
 
 #include "BiEllpack.h"
 #include <TNL/Containers/Vector.h>
 #include <TNL/Algorithms/scan.h>
 #include <TNL/Math.h>
-#include <cstdio>
+#include "MemoryHelpers.h"
 
 namespace TNL {
     namespace Benchmarks {

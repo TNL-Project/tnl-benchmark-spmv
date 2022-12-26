@@ -5,6 +5,7 @@
 #include <TNL/Algorithms/scan.h>
 #include <TNL/Math.h>
 #include <TNL/Exceptions/NotImplementedError.h>
+#include "MemoryHelpers.h"
 
 namespace TNL {
     namespace Benchmarks {
