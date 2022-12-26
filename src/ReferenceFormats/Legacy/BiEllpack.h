@@ -170,7 +170,7 @@ public:
 
 	template< typename InVector,
 			  typename OutVector >
-#ifdef HAVE_CUDA
+#ifdef __CUDACC__
    __device__
 #endif
 	void spmvCuda( const InVector& inVector,

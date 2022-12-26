@@ -221,7 +221,7 @@ public:
 
     IndexType getTotalLoad() const;
 
-#ifdef HAVE_CUDA
+#ifdef __CUDACC__
     template< typename InVector,
               typename OutVector >
     __device__

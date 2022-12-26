@@ -717,7 +717,7 @@ void SlicedEllpack< Real, Device, Index, SliceSize >::print( std::ostream& str )
    }
 }
 
-#ifdef HAVE_CUDA
+#ifdef __CUDACC__
 template< typename Real,
           typename Device,
           typename Index,
@@ -835,7 +835,7 @@ class SlicedEllpackDeviceDependentCode
 
 };
 
-#ifdef HAVE_CUDA
+#ifdef __CUDACC__
 template< typename Real,
           typename Index,
           int SliceSize >
@@ -848,7 +848,7 @@ __global__ void SlicedEllpack_computeMaximalRowLengthInSlices_CudaKernel( Sliced
 }
 #endif
 
-#ifdef HAVE_CUDA
+#ifdef __CUDACC__
 template<
    typename Real,
    typename Index,
@@ -939,7 +939,7 @@ class SlicedEllpackDeviceDependentCode< Devices::Cuda >
       static bool computeMaximalRowLengthInSlices( SlicedEllpack< Real, Device, Index, SliceSize >& matrix,
                                                    typename SlicedEllpack< Real, Device, Index >::ConstRowsCapacitiesTypeView rowLengths )
       {
-#ifdef HAVE_CUDA
+#ifdef __CUDACC__
          typedef SlicedEllpack< Real, Device, Index, SliceSize > Matrix;
          typedef typename Matrix::RowsCapacitiesType RowsCapacitiesType;
          Matrix* kernel_matrix = Cuda::passToDevice( matrix );
@@ -973,7 +973,7 @@ class SlicedEllpackDeviceDependentCode< Devices::Cuda >
                                  Real multiplicator )
       {
          //MatrixVectorProductCuda( matrix, inVector, outVector );
-         #ifdef HAVE_CUDA
+         #ifdef __CUDACC__
             typedef SlicedEllpack< Real, Device, Index, SliceSize > Matrix;
             typedef typename Matrix::IndexType IndexType;
             //Matrix* kernel_this = Cuda::passToDevice( matrix );

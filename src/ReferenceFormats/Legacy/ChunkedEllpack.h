@@ -27,7 +27,7 @@ class ChunkedEllpackDeviceDependentCode;
 template< typename Real, typename Device = Devices::Host, typename Index = int >
 class ChunkedEllpack;
 
-#ifdef HAVE_CUDA
+#ifdef __CUDACC__
 #endif
 
 template< typename IndexType >
@@ -39,7 +39,7 @@ struct tnlChunkedEllpackSliceInfo
    IndexType pointer;
 };
 
-#ifdef HAVE_CUDA
+#ifdef __CUDACC__
 template< typename Real,
           typename Index,
           typename Vector >
@@ -202,7 +202,7 @@ public:
    typename Vector::RealType rowVectorProduct( const IndexType row,
                                                const Vector& vector ) const;
 
-#ifdef HAVE_CUDA
+#ifdef __CUDACC__
    template< typename InVector,
              typename OutVector >
    __device__ void computeSliceVectorProduct( const InVector* inVector,
@@ -332,7 +332,7 @@ protected:
    friend class ChunkedEllpack< RealType, Devices::Host, IndexType >;
    friend class ChunkedEllpack< RealType, Devices::Cuda, IndexType >;
 
-#ifdef HAVE_CUDA
+#ifdef __CUDACC__
    template< typename Vector >
    friend void ChunkedEllpackVectorProductCudaKernel( const ChunkedEllpack< Real, Devices::Cuda, Index >* matrix,
                                                                const Vector* inVector,

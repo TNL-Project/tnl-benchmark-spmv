@@ -239,7 +239,7 @@ benchmarkSpMVLegacy( BenchmarkType& benchmark,
    /////
    // Benchmark SpMV on CUDA
    //
-#ifdef HAVE_CUDA
+#ifdef __CUDACC__
    try
    {
       cudaMatrix = hostMatrix;
@@ -322,7 +322,7 @@ benchmarkSpMV( BenchmarkType& benchmark,
    /////
    // Benchmark SpMV on CUDA
    //
-#ifdef HAVE_CUDA
+#ifdef __CUDACC__
    CudaMatrix cudaMatrix;
    try
    {
@@ -407,7 +407,7 @@ benchmarkSpMVCSRLight( BenchmarkType& benchmark,
    /////
    // Benchmark SpMV on CUDA
    //
-#ifdef HAVE_CUDA
+#ifdef __CUDACC__
    CudaMatrix cudaMatrix;
    try
    {
@@ -518,7 +518,7 @@ benchmarkBinarySpMV( BenchmarkType& benchmark,
    /////
    // Benchmark SpMV on CUDA
    //
-#ifdef HAVE_CUDA
+#ifdef __CUDACC__
    CudaMatrix cudaMatrix;
    try
    {
@@ -822,7 +822,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
 #endif
 
 
-#ifdef HAVE_CUDA
+#ifdef __CUDACC__
    ////
    // Perform benchmark on CUDA device with cuSparse as a reference GPU format
    //

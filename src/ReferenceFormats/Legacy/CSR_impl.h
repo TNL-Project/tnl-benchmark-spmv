@@ -786,7 +786,7 @@ Index CSR< Real, Device, Index, KernelType >::getHybridModeSplit() const
    return this->hybridModeSplit;
 }
 
-#ifdef HAVE_CUDA
+#ifdef __CUDACC__
 
 
 template< typename Real,
@@ -1929,7 +1929,7 @@ class CSRDeviceDependentCode< Devices::Cuda >
                                  const InVector& inVector,
                                  OutVector& outVector )
       {
-#ifdef HAVE_CUDA
+#ifdef __CUDACC__
 #ifdef HAVE_CUSPARSE
          tnlCusparseCSRWrapper< Real, Index >::vectorProduct( matrix.getRows(),
                                                               matrix.getColumns(),
@@ -1978,7 +1978,7 @@ class CSRDeviceDependentCode< Devices::Cuda >
                );
                break;
          }
-#endif /* HAVE_CUDA */
+#endif /* __CUDACC__ */
 #endif
       }
 };

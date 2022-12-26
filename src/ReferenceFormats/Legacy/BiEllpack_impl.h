@@ -1109,7 +1109,7 @@ public:
 	}
 };
 
-#ifdef HAVE_CUDA
+#ifdef __CUDACC__
 template< typename Real,
           typename Device,
           typename Index >
@@ -1170,7 +1170,7 @@ void BiEllpack< Real, Device, Index >::spmvCuda( const InVector& inVector,
 }
 #endif
 
-#ifdef HAVE_CUDA
+#ifdef __CUDACC__
 template< typename Real,
           typename Index,
           typename InVector,
@@ -1187,7 +1187,7 @@ void BiEllpackVectorProductCuda( const BiEllpack< Real, Devices::Cuda, Index >* 
 }
 #endif
 
-#ifdef HAVE_CUDA
+#ifdef __CUDACC__
 template< typename Real,
           typename Device,
           typename Index >
@@ -1245,7 +1245,7 @@ void BiEllpack< Real, Device, Index >::performRowBubbleSortCudaKernel( const typ
 }
 #endif
 
-#ifdef HAVE_CUDA
+#ifdef __CUDACC__
 template< typename Real,
           typename Device,
           typename Index >
@@ -1293,7 +1293,7 @@ void BiEllpack< Real, Device, Index >::computeColumnSizesCudaKernel( const typen
 }
 #endif
 
-#ifdef HAVE_CUDA
+#ifdef __CUDACC__
 template< typename Real,
           typename Index >
 __global__
@@ -1306,7 +1306,7 @@ void performRowBubbleSortCuda( BiEllpack< Real, Devices::Cuda, Index >* matrix,
 }
 #endif
 
-#ifdef HAVE_CUDA
+#ifdef __CUDACC__
 template< typename Real,
           typename Index >
 __global__
@@ -1416,7 +1416,7 @@ public:
 	static void performRowBubbleSort( BiEllpack< Real, Device, Index >& matrix,
                                           const typename BiEllpack< Real, Device, Index >::RowsCapacitiesType& rowLengths )
 	{
-#ifdef HAVE_CUDA
+#ifdef __CUDACC__
 		Index numberOfStrips = matrix.virtualRows / matrix.warpSize;
 		typedef BiEllpack< Real, Devices::Cuda, Index > Matrix;
 		typedef typename Matrix::RowsCapacitiesType RowsCapacitiesType;
@@ -1446,7 +1446,7 @@ public:
 	static void computeColumnSizes( BiEllpack< Real, Device, Index >& matrix,
 			 	 	const typename BiEllpack< Real, Device, Index >::RowsCapacitiesType& rowLengths )
 	{
-#ifdef HAVE_CUDA
+#ifdef __CUDACC__
 		const Index numberOfStrips = matrix.virtualRows / matrix.warpSize;
 		typedef BiEllpack< Real, Devices::Cuda, Index > Matrix;
 		typedef typename Matrix::RowsCapacitiesType RowsCapacitiesType;
@@ -1481,7 +1481,7 @@ public:
 			   	   	   	   	   const InVector& inVector,
 			   	   	   	   	   OutVector& outVector )
 	{
-#ifdef HAVE_CUDA
+#ifdef __CUDACC__
 		typedef BiEllpack< Real, Devices::Cuda, Index > Matrix;
 		typedef typename Matrix::IndexType IndexType;
 		Matrix* kernel_this = Cuda::passToDevice( matrix );

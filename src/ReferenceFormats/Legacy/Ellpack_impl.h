@@ -770,7 +770,7 @@ class EllpackDeviceDependentCode< Devices::Host >
       }
 };
 
-#ifdef HAVE_CUDA
+#ifdef __CUDACC__
 template<
    typename Real,
    typename Index >
@@ -850,7 +850,7 @@ class EllpackDeviceDependentCode< Devices::Cuda >
                                  Real multiplicator )
       {
          //MatrixVectorProductCuda( matrix, inVector, outVector );
-         #ifdef HAVE_CUDA
+         #ifdef __CUDACC__
             typedef Ellpack< Real, Device, Index > Matrix;
             typedef typename Matrix::IndexType IndexType;
             //Matrix* kernel_this = Cuda::passToDevice( matrix );

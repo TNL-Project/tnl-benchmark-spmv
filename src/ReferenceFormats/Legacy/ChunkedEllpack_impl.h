@@ -1073,7 +1073,7 @@ typename Vector::RealType ChunkedEllpack< Real, Device, Index >::chunkVectorProd
 }
 
 
-#ifdef HAVE_CUDA
+#ifdef __CUDACC__
 template< typename Real,
           typename Device,
           typename Index >
@@ -1370,7 +1370,7 @@ class ChunkedEllpackDeviceDependentCode< Devices::Host >
       }
 };
 
-#ifdef HAVE_CUDA
+#ifdef __CUDACC__
 template< typename Real,
           typename Index,
           typename InVector,
@@ -1429,7 +1429,7 @@ class ChunkedEllpackDeviceDependentCode< Devices::Cuda >
                                  const InVector& inVector,
                                  OutVector& outVector )
       {
-         #ifdef HAVE_CUDA
+         #ifdef __CUDACC__
             typedef ChunkedEllpack< Real, Devices::Cuda, Index > Matrix;
             typedef Index IndexType;
             typedef Real RealType;

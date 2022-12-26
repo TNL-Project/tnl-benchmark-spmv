@@ -29,7 +29,7 @@ template< typename Real = double,
           int SliceSize = 32 >
 class SlicedEllpack;
 
-#ifdef HAVE_CUDA
+#ifdef __CUDACC__
 template< typename Real,
           typename Index,
           int SliceSize >
@@ -213,7 +213,7 @@ protected:
 
    typedef SlicedEllpackDeviceDependentCode< DeviceType > DeviceDependentCode;
    friend class SlicedEllpackDeviceDependentCode< DeviceType >;
-#ifdef HAVE_CUDA
+#ifdef __CUDACC__
    /*friend __global__ void SlicedEllpack_computeMaximalRowLengthInSlices_CudaKernel< Real, Index, SliceSize >( SlicedEllpack< Real, Devices::Cuda, Index, SliceSize >* matrix,
                                                                                       const typename SlicedEllpack< Real, Devices::Cuda, Index, SliceSize >::RowsCapacitiesType* rowLengths,
                                                                                       int gridIdx );

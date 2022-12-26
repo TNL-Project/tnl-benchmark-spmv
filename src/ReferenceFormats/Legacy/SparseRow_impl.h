@@ -105,7 +105,7 @@ getLength() const
    return length;
 }
 
-//#ifdef HAVE_CUDA
+//#ifdef __CUDACC__
 #if 0
 template< typename MatrixRow, typename Index >
 __global__
