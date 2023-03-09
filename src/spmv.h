@@ -766,7 +766,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
       { "threads", 5 },
    });
 
-   HostVector hostInVector( csrHostMatrix.getRows() ), hostOutVector( csrHostMatrix.getRows() );
+   HostVector hostInVector( csrHostMatrix.getColumns() ), hostOutVector( csrHostMatrix.getRows() );
 
    auto resetHostVectors = [&]() {
       hostInVector = 1.0;
