@@ -37,6 +37,7 @@
 
 #ifdef HAVE_HYPRE
 #include <TNL/Hypre.h>
+#include <TNL/Matrices/HypreCSRMatrix.h>
 #endif
 
 // Uncomment the following line to enable benchmarking the sandbox sparse matrix.
@@ -822,25 +823,36 @@ benchmarkSpmv( BenchmarkType& benchmark,
 
 #if defined HAVE_HYPRE && ! defined __CUDACC__
    // Initialize HYPRE and set some global options, notably HYPRE_SetSpGemmUseCusparse(0);
-   TNL::Hypre hypre;
-   using HypreCSR = TNL::Matrices::SparseMatrix< Real, TNL::HYPRE_Device, HYPRE_Int >;
-   HypreCSR hypreCSRMatrix;
-   hypreCSRMatrix = csrHostMatrix;
+   if constexpr( std::is_same< HYPRE_Real, Real >::value &&
+                 std::is_same< HYPRE_Int, int >::value ) {
+      TNL::Hypre hypre;
+      using HypreCSR = TNL::Matrices::HypreCSRMatrix;//TNL::Matrices::SparseMatrix< Real, TNL::HYPRE_Device, HYPRE_Int >;
+      HypreCSR hypreCSRMatrix( csrHostMatrix.getRows(),
+                              csrHostMatrix.getColumns(),
+                              csrHostMatrix.getValues().getView(),
+                              csrHostMatrix.getColumnIndexes().getView(),
+                              csrHostMatrix.getSegments().getOffsets().getView());
+      //hypreCSRMatrix = csrHostMatrix;
+      auto hostInVectorView = hostInVector.getView();
+      auto hostOutVectorView = hostOutVector.getView();
+      auto spmvHypreCSRHost = [&]() {
+         hypreCSRMatrix.vectorProduct( hostInVectorView, hostOutVectorView );
+      };
 
-   auto spmvHypreCSRHost = [&]() {
-       hypreCSRMatrix.vectorProduct( hostInVector, hostOutVector );
-   };
-
-   SpmvBenchmarkResult< Real, Devices::Host, int > hypreBenchmarkResults( hostOutVector, hostOutVector );
-   threads = 1;
-   while( true ) {
-      benchmark.setMetadataElement({ "format", "Hypre" });
-      benchmark.setMetadataElement({ "threads", convertToString( threads ).getString() });
-      Devices::Host::setMaxThreadsCount( threads );
-      benchmark.time< Devices::Host >( resetHostVectors, "CPU", spmvHypreCSRHost, hypreBenchmarkResults );
-      if( threads == maxThreadsCount )
-         break;
-      threads = min( 2 * threads, maxThreadsCount );
+      SpmvBenchmarkResult< Real, Devices::Host, int > hypreBenchmarkResults( hostOutVector, hostOutVector );
+      threads = 1;
+      while( true ) {
+         benchmark.setMetadataElement({ "format", "Hypre" });
+         benchmark.setMetadataElement({ "threads", convertToString( threads ).getString() });
+         Devices::Host::setMaxThreadsCount( threads );
+         benchmark.time< Devices::Host >( resetHostVectors, "CPU", spmvHypreCSRHost, hypreBenchmarkResults );
+         if( threads == maxThreadsCount )
+            break;
+         threads = min( 2 * threads, maxThreadsCount );
+      }
+   }
+   else {
+      std::cerr << "Current Real type or Index does not agree with HYPRE_Real or HYPRE_Index." << std::endl;
    }
 #endif
 
