@@ -12,8 +12,7 @@
 #include <TNL/Exceptions/CudaSupportMissing.h>
 #include <TNL/Exceptions/CudaBadAlloc.h>
 
-namespace TNL {
-namespace Cuda {
+namespace TNL::Cuda {
 
 template< typename ObjectType >
 //[[deprecated( "Allocators::Cuda and MultiDeviceMemoryOperations should be used instead." )]]
@@ -49,5 +48,4 @@ freeFromDevice( ObjectType* deviceObject )
 #endif
 }
 
-}  // namespace Cuda
-}  // namespace TNL
+}  // namespace TNL::Cuda

@@ -7,8 +7,7 @@
 #include "ChunkedEllpack.h"
 #include "BiEllpack.h"
 
-namespace TNL {
-namespace Matrices {
+namespace TNL::Matrices {
 
 /////
 // Legacy matrices
@@ -263,5 +262,4 @@ struct MatrixInfo< Benchmarks::SpMV::ReferenceFormats::Legacy::SlicedEllpack< Re
    }
 };
 
-}  // namespace Matrices
-}  // namespace TNL
+}  // namespace TNL::Matrices

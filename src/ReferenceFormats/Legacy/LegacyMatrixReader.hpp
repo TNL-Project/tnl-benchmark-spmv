@@ -7,11 +7,7 @@
 #include <TNL/Timer.h>
 #include <TNL/Matrices/MatrixReader.h>
 
-namespace TNL {
-   namespace Benchmarks {
-      namespace SpMV {
-         namespace ReferenceFormats {
-            namespace Legacy {
+namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy {
 
 
 template< typename Matrix >
@@ -390,8 +386,4 @@ class MatrixReaderDeviceDependentCode< Devices::Cuda >
 };
 /// \endcond
 
-            }// namespace Legacy
-         }// namespace ReferenceFormats
-      }// namespace SpMV
-   } // namespace Benchmarks
-} // namespace TNL
+} // namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy

@@ -8,11 +8,7 @@
 #include <TNL/Math.h>
 #include "MemoryHelpers.h"
 
-namespace TNL {
-    namespace Benchmarks {
-        namespace SpMV {
-            namespace ReferenceFormats {
-      			namespace Legacy {
+namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy {
 
 
 template< typename Real,
@@ -1512,9 +1508,6 @@ public:
     }
 
 };
-      			} //namespace Legacy
-            } //namespace ReferenceFormats
-        } //namespace SpMV
-    } //namespace Benchmarks
-} // namespace TNL
+
+} // namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy
 

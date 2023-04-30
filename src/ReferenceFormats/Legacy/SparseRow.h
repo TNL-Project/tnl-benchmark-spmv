@@ -5,11 +5,7 @@
 
 #include <TNL/Cuda/CudaCallable.h>
 
-namespace TNL {
-    namespace Benchmarks {
-        namespace SpMV {
-            namespace ReferenceFormats {
-               namespace Legacy {
+namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy {
 
 template< typename Real, typename Index >
 class SparseRow
@@ -87,10 +83,6 @@ std::ostream& operator<<( std::ostream& str, const SparseRow< Real, Index >& row
    return str;
 }
 
-               } //namespace Legacy
-            } //namespace ReferenceFormats
-        } //namespace SpMV
-    } //namespace Benchmarks
-} // namespace TNL
+} // namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy
 
 #include "SparseRow_impl.h"

@@ -14,11 +14,7 @@
 #include "Sparse.h"
 #include <TNL/Containers/Vector.h>
 
-namespace TNL {
-    namespace Benchmarks {
-        namespace SpMV {
-            namespace ReferenceFormats {
-               namespace Legacy {
+namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy {
 
 template< typename Device >
 class SlicedEllpackDeviceDependentCode;
@@ -226,10 +222,6 @@ public:
 #endif
 };
 
-               } //namespace Legacy
-            } //namespace ReferenceFormats
-        } //namespace SpMV
-    } //namespace Benchmarks
-} // namespace TNL
+} // namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy
 
 #include "SlicedEllpack_impl.h"

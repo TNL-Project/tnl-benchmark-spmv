@@ -3,11 +3,7 @@
 #include "Sparse.h"
 #include <TNL/Exceptions/NotImplementedError.h>
 
-namespace TNL {
-    namespace Benchmarks {
-        namespace SpMV {
-            namespace ReferenceFormats {
-               namespace Legacy {
+namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy {
 
 template< typename Real,
           typename Device,
@@ -115,8 +111,4 @@ void Sparse< Real, Device, Index >::printStructure( std::ostream& str ) const
    throw Exceptions::NotImplementedError("Sparse::printStructure is not implemented yet.");
 }
 
-               } //namespace Legacy
-            } //namespace ReferenceFormats
-        } //namespace SpMV
-    } //namespace Benchmarks
-} // namespace TNL
+} // namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy

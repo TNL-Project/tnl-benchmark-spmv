@@ -7,11 +7,7 @@
 #include <iostream>
 #include <vector>
 
-namespace TNL {
-    namespace Benchmarks {
-        namespace SpMV {
-            namespace ReferenceFormats {
-               namespace Legacy {
+namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy {
 
 template< typename Real, typename Index >
 __cuda_callable__
@@ -159,8 +155,4 @@ print( std::ostream& str ) const
    }
 }
 
-               } //namespace Legacy
-            } //namespace ReferenceFormats
-        } //namespace SpMV
-    } //namespace Benchmarks
-} // namespace TNL
+} // namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy

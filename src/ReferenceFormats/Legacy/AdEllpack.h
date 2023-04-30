@@ -11,11 +11,7 @@
 #include "Sparse.h"
 #include <TNL/Containers/Vector.h>
 
-namespace TNL {
-    namespace Benchmarks {
-        namespace SpMV {
-            namespace ReferenceFormats {
-                namespace Legacy {
+namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy {
 
 template< typename Device >
 class AdEllpackDeviceDependentCode;
@@ -290,10 +286,6 @@ protected:
 
 };
 
-                } //namespace Legacy
-            } //namespace ReferenceFormats
-        } //namespace SpMV
-    } //namespace Benchmarks
-} // namespace TNL
+} // namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy
 
 #include "AdEllpack_impl.h"

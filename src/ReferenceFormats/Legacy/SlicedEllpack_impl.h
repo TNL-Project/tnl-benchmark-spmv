@@ -7,11 +7,7 @@
 #include <TNL/Exceptions/NotImplementedError.h>
 #include "MemoryHelpers.h"
 
-namespace TNL {
-    namespace Benchmarks {
-        namespace SpMV {
-            namespace ReferenceFormats {
-               namespace Legacy {
+namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy {
 
 template< typename Real,
           typename Device,
@@ -1011,8 +1007,4 @@ class SlicedEllpackDeviceDependentCode< Devices::Cuda >
       }
 };
 
-               } //namespace Legacy
-            } //namespace ReferenceFormats
-        } //namespace SpMV
-    } //namespace Benchmarks
-} // namespace TNL
+} // namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy

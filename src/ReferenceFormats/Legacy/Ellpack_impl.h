@@ -5,11 +5,7 @@
 #include <TNL/Math.h>
 #include <TNL/Exceptions/NotImplementedError.h>
 
-namespace TNL {
-    namespace Benchmarks {
-        namespace SpMV {
-            namespace ReferenceFormats {
-               namespace Legacy {
+namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy {
 
 template< typename Real,
           typename Device,
@@ -888,8 +884,4 @@ class EllpackDeviceDependentCode< Devices::Cuda >
       }
 };
 
-               } //namespace Legacy
-            } //namespace ReferenceFormats
-        } //namespace SpMV
-    } //namespace Benchmarks
-} // namespace TNL
+} // namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy

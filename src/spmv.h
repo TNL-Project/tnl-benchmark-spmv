@@ -48,9 +48,7 @@ using namespace TNL::Matrices;
 #include <Benchmarks/SpMV/ReferenceFormats/LightSpMVBenchmark.h>
 #include <Benchmarks/SpMV/ReferenceFormats/CSR5Benchmark.h>
 
-namespace TNL {
-   namespace Benchmarks {
-      namespace SpMV {
+namespace TNL::Benchmarks::SpMV {
 
 using BenchmarkType = TNL::Benchmarks::Benchmark< JsonLogging >;
 
@@ -949,6 +947,4 @@ extern template void dispatchSymmetric< double >( BenchmarkType&, const Containe
 extern template void dispatchSymmetricBinary< float >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host >&, const Containers::Vector< float, Devices::Host, int >&, const String&, const Config::ParameterContainer&, bool );
 extern template void dispatchSymmetricBinary< double >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host >&, const Containers::Vector< double, Devices::Host, int >&, const String&, const Config::ParameterContainer&, bool );
 
-      } // namespace SpMV
-   } // namespace Benchmarks
-} // namespace TNL
+} // namespace TNL::Benchmarks::SpMV

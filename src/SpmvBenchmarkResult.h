@@ -2,8 +2,7 @@
 
 #include <TNL/Benchmarks/Benchmarks.h>
 
-namespace TNL {
-namespace Benchmarks {
+namespace TNL::Benchmarks {
 
 template< typename Real,
           typename Device,
@@ -62,5 +61,4 @@ struct SpmvBenchmarkResult
    const BenchmarkVector& benchmarkResult;
 };
 
-} //namespace Benchmarks
-} //namespace TNL
+} // namespace TNL::Benchmarks

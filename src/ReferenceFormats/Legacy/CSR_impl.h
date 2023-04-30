@@ -16,11 +16,7 @@
 
 constexpr size_t MAX_X_DIM = 2147483647;
 
-namespace TNL {
-    namespace Benchmarks {
-        namespace SpMV {
-            namespace ReferenceFormats {
-               namespace Legacy {
+namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy {
 
 #ifdef HAVE_CUSPARSE
 template< typename Real, typename Index >
@@ -1983,8 +1979,4 @@ class CSRDeviceDependentCode< Devices::Cuda >
       }
 };
 
-               } //namespace Legacy
-            } //namespace ReferenceFormats
-        } //namespace SpMV
-    } //namespace Benchmarks
-} // namespace TNL
+} // namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy

@@ -6,11 +6,7 @@
 #include <TNL/TypeInfo.h>
 #include "MemoryHelpers.h"
 
-namespace TNL {
-    namespace Benchmarks {
-        namespace SpMV {
-            namespace ReferenceFormats {
-                namespace Legacy {
+namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy {
 
 /*
  * Auxiliary list implementation
@@ -1579,9 +1575,4 @@ public:
    }
 };
 
-
-                } //namespace Legacy
-            } //namespace ReferenceFormats
-        } //namespace SpMV
-    } //namespace Benchmarks
-} // namespace TNL
+} // namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy
