@@ -29,6 +29,15 @@
 #include <TNL/Algorithms/Segments/SlicedEllpack.h>
 #include <TNL/Algorithms/Segments/ChunkedEllpack.h>
 #include <TNL/Algorithms/Segments/BiEllpack.h>
+#include <TNL/Algorithms/SegmentsReductionKernels/CSRScalarKernel.h>
+#include <TNL/Algorithms/SegmentsReductionKernels/CSRVectorKernel.h>
+#include <TNL/Algorithms/SegmentsReductionKernels/CSRHybridKernel.h>
+#include <TNL/Algorithms/SegmentsReductionKernels/CSRLightKernel.h>
+#include <TNL/Algorithms/SegmentsReductionKernels/CSRAdaptiveKernel.h>
+#include <TNL/Algorithms/SegmentsReductionKernels/EllpackKernel.h>
+#include <TNL/Algorithms/SegmentsReductionKernels/SlicedEllpackKernel.h>
+#include <TNL/Algorithms/SegmentsReductionKernels/ChunkedEllpackKernel.h>
+#include <TNL/Algorithms/SegmentsReductionKernels/BiEllpackKernel.h>
 #include <TNL/Algorithms/sort.h>
 
 #ifdef HAVE_PETSC
@@ -58,43 +67,37 @@ namespace TNL::Benchmarks::SpMV {
 using BenchmarkType = TNL::Benchmarks::Benchmark< JsonLogging >;
 
 /////
-// General sparse matrix aliases
+// Segments aliases
 //
-template< typename Real, typename Device, typename Index >
-using SparseMatrix_CSR_Scalar = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, Algorithms::Segments::CSRScalar >;
-
-template< typename Real, typename Device, typename Index >
-using SparseMatrix_CSR_Vector = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, Algorithms::Segments::CSRVector >;
-
-template< typename Real, typename Device, typename Index >
-using SparseMatrix_CSR_Hybrid = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, Algorithms::Segments::CSRHybrid >;
-
-template< typename Real, typename Device, typename Index >
-using SparseMatrix_CSR_Light = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, Algorithms::Segments::CSRLight >;
-
-template< typename Real, typename Device, typename Index >
-using SparseMatrix_CSR_Adaptive = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, Algorithms::Segments::CSRAdaptive >;
+template< typename Device, typename Index, typename IndexAllocator >
+using CSRSegments = Algorithms::Segments::CSR< Device, Index, IndexAllocator >;
 
 template< typename Device, typename Index, typename IndexAllocator >
 using EllpackSegments = Algorithms::Segments::Ellpack< Device, Index, IndexAllocator >;
 
-template< typename Real, typename Device, typename Index >
-using SparseMatrix_Ellpack = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, EllpackSegments >;
-
 template< typename Device, typename Index, typename IndexAllocator >
 using SlicedEllpackSegments = Algorithms::Segments::SlicedEllpack< Device, Index, IndexAllocator >;
-
-template< typename Real, typename Device, typename Index >
-using SparseMatrix_SlicedEllpack = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, SlicedEllpackSegments >;
 
 template< typename Device, typename Index, typename IndexAllocator >
 using ChunkedEllpackSegments = Algorithms::Segments::ChunkedEllpack< Device, Index, IndexAllocator >;
 
-template< typename Real, typename Device, typename Index >
-using SparseMatrix_ChunkedEllpack = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, ChunkedEllpackSegments >;
-
 template< typename Device, typename Index, typename IndexAllocator >
 using BiEllpackSegments = Algorithms::Segments::BiEllpack< Device, Index, IndexAllocator >;
+
+/////
+// General sparse matrix aliases
+//
+template< typename Real, typename Device, typename Index >
+using SparseMatrix_CSR = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, CSRSegments >;
+
+template< typename Real, typename Device, typename Index >
+using SparseMatrix_Ellpack = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, EllpackSegments >;
+
+template< typename Real, typename Device, typename Index >
+using SparseMatrix_SlicedEllpack = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, SlicedEllpackSegments >;
+
+template< typename Real, typename Device, typename Index >
+using SparseMatrix_ChunkedEllpack = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, ChunkedEllpackSegments >;
 
 template< typename Real, typename Device, typename Index >
 using SparseMatrix_BiEllpack = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, BiEllpackSegments >;
@@ -103,40 +106,16 @@ using SparseMatrix_BiEllpack = Matrices::SparseMatrix< Real, Device, Index, Matr
 // Symmetric sparse matrix aliases
 //
 template< typename Real, typename Device, typename Index >
-using SymmetricSparseMatrix_CSR_Scalar = Matrices::SparseMatrix< Real, Device, Index, Matrices::SymmetricMatrix, Algorithms::Segments::CSRScalar >;
-
-template< typename Real, typename Device, typename Index >
-using SymmetricSparseMatrix_CSR_Vector = Matrices::SparseMatrix< Real, Device, Index, Matrices::SymmetricMatrix, Algorithms::Segments::CSRVector >;
-
-template< typename Real, typename Device, typename Index >
-using SymmetricSparseMatrix_CSR_Hybrid = Matrices::SparseMatrix< Real, Device, Index, Matrices::SymmetricMatrix, Algorithms::Segments::CSRHybrid >;
-
-template< typename Real, typename Device, typename Index >
-using SymmetricSparseMatrix_CSR_Light = Matrices::SparseMatrix< Real, Device, Index, Matrices::SymmetricMatrix, Algorithms::Segments::CSRLight >;
-
-template< typename Real, typename Device, typename Index >
-using SymmetricSparseMatrix_CSR_Adaptive = Matrices::SparseMatrix< Real, Device, Index, Matrices::SymmetricMatrix, Algorithms::Segments::CSRAdaptive >;
-
-template< typename Device, typename Index, typename IndexAllocator >
-using EllpackSegments = Algorithms::Segments::Ellpack< Device, Index, IndexAllocator >;
+using SymmetricSparseMatrix_CSR = Matrices::SparseMatrix< Real, Device, Index, Matrices::SymmetricMatrix, CSRSegments >;
 
 template< typename Real, typename Device, typename Index >
 using SymmetricSparseMatrix_Ellpack = Matrices::SparseMatrix< Real, Device, Index, Matrices::SymmetricMatrix, EllpackSegments >;
 
-template< typename Device, typename Index, typename IndexAllocator >
-using SlicedEllpackSegments = Algorithms::Segments::SlicedEllpack< Device, Index, IndexAllocator >;
-
 template< typename Real, typename Device, typename Index >
 using SymmetricSparseMatrix_SlicedEllpack = Matrices::SparseMatrix< Real, Device, Index, Matrices::SymmetricMatrix, SlicedEllpackSegments >;
 
-template< typename Device, typename Index, typename IndexAllocator >
-using ChunkedEllpackSegments = Algorithms::Segments::ChunkedEllpack< Device, Index, IndexAllocator >;
-
 template< typename Real, typename Device, typename Index >
 using SymmetricSparseMatrix_ChunkedEllpack = Matrices::SparseMatrix< Real, Device, Index, Matrices::SymmetricMatrix, ChunkedEllpackSegments >;
-
-template< typename Device, typename Index, typename IndexAllocator >
-using BiEllpackSegments = Algorithms::Segments::BiEllpack< Device, Index, IndexAllocator >;
 
 template< typename Real, typename Device, typename Index >
 using SymmetricSparseMatrix_BiEllpack = Matrices::SparseMatrix< Real, Device, Index, Matrices::SymmetricMatrix, BiEllpackSegments >;
@@ -145,6 +124,35 @@ using SymmetricSparseMatrix_BiEllpack = Matrices::SparseMatrix< Real, Device, In
 template< typename Real, typename Device, typename Index >
 using SparseSandboxMatrix = Matrices::Sandbox::SparseSandboxMatrix< Real, Device, Index, Matrices::GeneralMatrix >;
 #endif
+
+/////
+// SpMV kernels
+template< typename Device, typename Index >
+using CSRScalarKernel = Algorithms::SegmentsReductionKernels::CSRScalarKernel< Index, Device >;
+
+template< typename Device, typename Index >
+using CSRVectorKernel = Algorithms::SegmentsReductionKernels::CSRVectorKernel< Index, Device >;
+
+template< typename Device, typename Index >
+using CSRHybridKernel = Algorithms::SegmentsReductionKernels::CSRHybridKernel< Index, Device >;
+
+template< typename Device, typename Index >
+using CSRLightKernel = Algorithms::SegmentsReductionKernels::CSRLightKernel< Index, Device >;
+
+template< typename Device, typename Index >
+using CSRAdaptiveKernel = Algorithms::SegmentsReductionKernels::CSRAdaptiveKernel< Index, Device >;
+
+template< typename Device, typename Index >
+using EllpackKernel = Algorithms::SegmentsReductionKernels::EllpackKernel< Index, Device >;
+
+template< typename Device, typename Index >
+using SlicedEllpackKernel = Algorithms::SegmentsReductionKernels::SlicedEllpackKernel< Index, Device >;
+
+template< typename Device, typename Index >
+using ChunkedEllpackKernel = Algorithms::SegmentsReductionKernels::ChunkedEllpackKernel< Index, Device >;
+
+template< typename Device, typename Index >
+using BiEllpackKernel = Algorithms::SegmentsReductionKernels::BiEllpackKernel< Index, Device >;
 
 /////
 // Legacy formats
@@ -270,7 +278,8 @@ benchmarkSpMVLegacy( BenchmarkType& benchmark,
 
 template< typename Real,
           typename InputMatrix,
-          template< typename, typename, typename > class Matrix >
+          template< typename, typename, typename > class Matrix,
+          template< typename, typename > class Kernel >
 void
 benchmarkSpMV( BenchmarkType& benchmark,
                const InputMatrix& inputMatrix,
@@ -280,10 +289,11 @@ benchmarkSpMV( BenchmarkType& benchmark,
                bool verboseMR )
 {
    using HostMatrix = Matrix< Real, TNL::Devices::Host, int >;
+   using HostKernel = Kernel< TNL::Devices::Host, int >;
    using HostVector = Containers::Vector< Real, Devices::Host, int >;
 
    bool allCpuTests = parameters.getParameter< bool >( "with-all-cpu-tests" );
-   benchmark.setMetadataElement({ "format", MatrixInfo< HostMatrix >::getFormat() });
+   benchmark.setMetadataElement({ "format", MatrixInfo< HostMatrix >::getFormat() + " " + HostKernel::getKernelType() });
 
    HostMatrix hostMatrix;
    try
@@ -305,6 +315,9 @@ benchmarkSpMV( BenchmarkType& benchmark,
    //
    if( allCpuTests )
    {
+      HostKernel kernel;
+      kernel.init( hostMatrix.getSegments() );
+
       HostVector hostInVector( hostMatrix.getColumns() ), hostOutVector( hostMatrix.getRows() );
 
       auto resetHostVectors = [&]() {
@@ -313,7 +326,7 @@ benchmarkSpMV( BenchmarkType& benchmark,
       };
 
       auto spmvHost = [&]() {
-         hostMatrix.vectorProduct( hostInVector, hostOutVector );
+         hostMatrix.vectorProduct( hostInVector, hostOutVector, kernel );
 
       };
       SpmvBenchmarkResult< Real, Devices::Host, int > hostBenchmarkResults( csrResultVector, hostOutVector );
@@ -325,6 +338,7 @@ benchmarkSpMV( BenchmarkType& benchmark,
    //
 #ifdef __CUDACC__
    using CudaMatrix = Matrix< Real, TNL::Devices::Cuda, int >;
+   using CudaKernel = Kernel< TNL::Devices::Cuda, int >;
    using CudaVector = Containers::Vector< Real, Devices::Cuda, int >;
 
    CudaMatrix cudaMatrix;
@@ -338,6 +352,9 @@ benchmarkSpMV( BenchmarkType& benchmark,
       return;
    }
 
+   CudaKernel kernel;
+   kernel.init( cudaMatrix.getSegments() );
+
    CudaVector cudaInVector( hostMatrix.getColumns() ), cudaOutVector( hostMatrix.getRows() );
 
    auto resetCudaVectors = [&]() {
@@ -346,7 +363,7 @@ benchmarkSpMV( BenchmarkType& benchmark,
    };
 
    auto spmvCuda = [&]() {
-      cudaMatrix.vectorProduct( cudaInVector, cudaOutVector );
+      cudaMatrix.vectorProduct( cudaInVector, cudaOutVector, kernel );
    };
    SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( csrResultVector, cudaOutVector );
    benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvCuda, cudaBenchmarkResults );
@@ -356,6 +373,7 @@ benchmarkSpMV( BenchmarkType& benchmark,
 template< typename Real,
           typename InputMatrix,
           template< typename, typename, typename > class Matrix,
+          template< typename, typename > class Kernel,
           typename TestReal = Real >
 void
 benchmarkSpMVCSRLight( BenchmarkType& benchmark,
@@ -366,10 +384,11 @@ benchmarkSpMVCSRLight( BenchmarkType& benchmark,
                        bool verboseMR )
 {
    using HostMatrix = Matrix< TestReal, TNL::Devices::Host, int >;
+   using HostKernel = Kernel< TNL::Devices::Host, int >;
    using HostVector = Containers::Vector< Real, Devices::Host, int >;
 
    bool allCpuTests = parameters.getParameter< bool >( "with-all-cpu-tests" );
-   benchmark.setMetadataElement({ "format", MatrixInfo< HostMatrix >::getFormat() });
+   benchmark.setMetadataElement({ "format", MatrixInfo< HostMatrix >::getFormat() + " " + HostKernel::getKernelType() });
 
    HostMatrix hostMatrix;
    try
@@ -391,6 +410,9 @@ benchmarkSpMVCSRLight( BenchmarkType& benchmark,
    //
    if( allCpuTests )
    {
+      HostKernel kernel;
+      kernel.init( hostMatrix.getSegments() );
+
       HostVector hostInVector( hostMatrix.getColumns() ), hostOutVector( hostMatrix.getRows() );
 
       auto resetHostVectors = [&]() {
@@ -399,8 +421,7 @@ benchmarkSpMVCSRLight( BenchmarkType& benchmark,
       };
 
       auto spmvHost = [&]() {
-         hostMatrix.vectorProduct( hostInVector, hostOutVector );
-
+         hostMatrix.vectorProduct( hostInVector, hostOutVector, kernel );
       };
       SpmvBenchmarkResult< Real, Devices::Host, int > hostBenchmarkResults( csrResultVector, hostOutVector );
       benchmark.time< Devices::Host >( resetHostVectors, "CPU", spmvHost, hostBenchmarkResults );
@@ -411,6 +432,7 @@ benchmarkSpMVCSRLight( BenchmarkType& benchmark,
    //
 #ifdef __CUDACC__
    using CudaMatrix = Matrix< TestReal, TNL::Devices::Cuda, int >;
+   using CudaKernel = Kernel< TNL::Devices::Cuda, int >;
    using CudaVector = Containers::Vector< Real, Devices::Cuda, int >;
 
    CudaMatrix cudaMatrix;
@@ -424,6 +446,9 @@ benchmarkSpMVCSRLight( BenchmarkType& benchmark,
       return;
    }
 
+   CudaKernel kernel;
+   kernel.init( cudaMatrix.getSegments() );
+
    CudaVector cudaInVector( hostMatrix.getColumns() ), cudaOutVector( hostMatrix.getRows() );
 
    auto resetCudaVectors = [&]() {
@@ -432,12 +457,12 @@ benchmarkSpMVCSRLight( BenchmarkType& benchmark,
    };
 
    auto spmvCuda = [&]() {
-      cudaMatrix.vectorProduct( cudaInVector, cudaOutVector );
+      cudaMatrix.vectorProduct( cudaInVector, cudaOutVector, kernel );
    };
 
    {
-      cudaMatrix.getSegments().getKernel().setThreadsMapping( Algorithms::Segments::CSRLightAutomaticThreads );
-      String format = MatrixInfo< HostMatrix >::getFormat() + " Automatic";
+      kernel.setThreadsMapping( Algorithms::SegmentsReductionKernels::CSRLightAutomaticThreads );
+      String format = MatrixInfo< HostMatrix >::getFormat() + " " + HostKernel::getKernelType() + " Automatic";
       benchmark.setMetadataElement({ "format", format });
 
       SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( csrResultVector, cudaOutVector );
@@ -445,8 +470,8 @@ benchmarkSpMVCSRLight( BenchmarkType& benchmark,
    };
 
    {
-      cudaMatrix.getSegments().getKernel().setThreadsMapping( Algorithms::Segments::CSRLightAutomaticThreadsLightSpMV );
-      String format = MatrixInfo< HostMatrix >::getFormat() + " Automatic Light";
+      kernel.setThreadsMapping( Algorithms::SegmentsReductionKernels::CSRLightAutomaticThreadsLightSpMV );
+      String format = MatrixInfo< HostMatrix >::getFormat() + " " + HostKernel::getKernelType() + " Automatic Light";
       benchmark.setMetadataElement({ "format", format });
 
       SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( csrResultVector, cudaOutVector );
@@ -455,8 +480,8 @@ benchmarkSpMVCSRLight( BenchmarkType& benchmark,
 
    for( auto threadsPerRow : std::vector< int >{ 1, 2, 4, 8, 16, 32, 64, 128 } )
    {
-      cudaMatrix.getSegments().getKernel().setThreadsPerSegment( threadsPerRow );
-      String format = MatrixInfo< HostMatrix >::getFormat() + " " + convertToString( threadsPerRow );
+      kernel.setThreadsPerSegment( threadsPerRow );
+      String format = MatrixInfo< HostMatrix >::getFormat() + " " + HostKernel::getKernelType() + " " + convertToString( threadsPerRow );
       benchmark.setMetadataElement({ "format", format });
 
       SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( csrResultVector, cudaOutVector );
@@ -468,7 +493,8 @@ benchmarkSpMVCSRLight( BenchmarkType& benchmark,
 
 template< typename Real,
           typename InputMatrix,
-          template< typename, typename, typename > class Matrix >
+          template< typename, typename, typename > class Matrix,
+          template< typename, typename > class Kernel >
 void
 benchmarkBinarySpMV( BenchmarkType& benchmark,
                      const InputMatrix& inputMatrix,
@@ -478,10 +504,11 @@ benchmarkBinarySpMV( BenchmarkType& benchmark,
                      bool verboseMR )
 {
    using HostMatrix = Matrix< bool, TNL::Devices::Host, int >;
+   using HostKernel = Kernel< TNL::Devices::Host, int >;
    using HostVector = Containers::Vector< Real, Devices::Host, int >;
 
    bool allCpuTests = parameters.getParameter< bool >( "with-all-cpu-tests" );
-   benchmark.setMetadataElement({ "format", MatrixInfo< HostMatrix >::getFormat() });
+   benchmark.setMetadataElement({ "format", MatrixInfo< HostMatrix >::getFormat() + " " + HostKernel::getKernelType() });
 
    HostMatrix hostMatrix;
    try
@@ -503,6 +530,9 @@ benchmarkBinarySpMV( BenchmarkType& benchmark,
    //
    if( allCpuTests )
    {
+      HostKernel kernel;
+      kernel.init( hostMatrix.getSegments() );
+
       HostVector hostInVector( hostMatrix.getColumns() ), hostOutVector( hostMatrix.getRows() );
 
       auto resetHostVectors = [&]() {
@@ -511,7 +541,7 @@ benchmarkBinarySpMV( BenchmarkType& benchmark,
       };
 
       auto spmvHost = [&]() {
-         hostMatrix.vectorProduct( hostInVector, hostOutVector );
+         hostMatrix.vectorProduct( hostInVector, hostOutVector, kernel );
 
       };
       SpmvBenchmarkResult< Real, Devices::Host, int > hostBenchmarkResults( csrResultVector, hostOutVector );
@@ -523,6 +553,7 @@ benchmarkBinarySpMV( BenchmarkType& benchmark,
    //
 #ifdef __CUDACC__
    using CudaMatrix = Matrix< bool, TNL::Devices::Cuda, int >;
+   using CudaKernel = Kernel< TNL::Devices::Cuda, int >;
    using CudaVector = Containers::Vector< Real, Devices::Cuda, int >;
 
    CudaMatrix cudaMatrix;
@@ -536,6 +567,9 @@ benchmarkBinarySpMV( BenchmarkType& benchmark,
       return;
    }
 
+   CudaKernel kernel;
+   kernel.init( cudaMatrix.getSegments() );
+
    CudaVector cudaInVector( hostMatrix.getColumns() ), cudaOutVector( hostMatrix.getRows() );
 
    auto resetCudaVectors = [&]() {
@@ -544,7 +578,7 @@ benchmarkBinarySpMV( BenchmarkType& benchmark,
    };
 
    auto spmvCuda = [&]() {
-      cudaMatrix.vectorProduct( cudaInVector, cudaOutVector );
+      cudaMatrix.vectorProduct( cudaInVector, cudaOutVector, kernel );
    };
    SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( csrResultVector, cudaOutVector );
    benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvCuda, cudaBenchmarkResults );
@@ -593,16 +627,16 @@ dispatchBinary( BenchmarkType& benchmark,
                 bool verboseMR )
 {
    bool withEllpack = parameters.getParameter< bool >( "with-ellpack-formats" );
-   benchmarkBinarySpMV< Real, HostMatrix, SparseMatrix_CSR_Scalar              >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-   benchmarkBinarySpMV< Real, HostMatrix, SparseMatrix_CSR_Vector              >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-   benchmarkSpMVCSRLight< Real, HostMatrix, SparseMatrix_CSR_Light, bool       >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-   benchmarkBinarySpMV< Real, HostMatrix, SparseMatrix_CSR_Adaptive            >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+   benchmarkBinarySpMV< Real, HostMatrix, SparseMatrix_CSR, CSRScalarKernel              >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+   benchmarkBinarySpMV< Real, HostMatrix, SparseMatrix_CSR, CSRVectorKernel              >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+   benchmarkSpMVCSRLight< Real, HostMatrix, SparseMatrix_CSR, CSRLightKernel, bool       >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+   benchmarkBinarySpMV< Real, HostMatrix, SparseMatrix_CSR, CSRAdaptiveKernel            >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
    if( withEllpack )
    {
-      benchmarkBinarySpMV< Real, HostMatrix, SparseMatrix_Ellpack                 >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-      benchmarkBinarySpMV< Real, HostMatrix, SparseMatrix_SlicedEllpack           >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-      benchmarkBinarySpMV< Real, HostMatrix, SparseMatrix_ChunkedEllpack          >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-      benchmarkBinarySpMV< Real, HostMatrix, SparseMatrix_BiEllpack               >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+      benchmarkBinarySpMV< Real, HostMatrix, SparseMatrix_Ellpack, EllpackKernel               >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+      benchmarkBinarySpMV< Real, HostMatrix, SparseMatrix_SlicedEllpack, SlicedEllpackKernel   >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+      benchmarkBinarySpMV< Real, HostMatrix, SparseMatrix_ChunkedEllpack, ChunkedEllpackKernel >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+      benchmarkBinarySpMV< Real, HostMatrix, SparseMatrix_BiEllpack, BiEllpackKernel           >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
    }
 }
 
@@ -618,17 +652,17 @@ dispatchSpMV( BenchmarkType& benchmark,
    bool withEllpack = parameters.getParameter< bool >( "with-ellpack-formats" );
    HostMatrixType hostMatrix;
    TNL::Matrices::MatrixReader< HostMatrixType >::readMtx( inputFileName, hostMatrix, verboseMR );
-   benchmarkSpMV< Real, HostMatrixType, SparseMatrix_CSR_Scalar                   >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-   benchmarkSpMV< Real, HostMatrixType, SparseMatrix_CSR_Vector                   >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-   //benchmarkSpMV< Real, HostMatrixType, SparseMatrix_CSR_Hybrid                   >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-   benchmarkSpMVCSRLight< Real, HostMatrixType, SparseMatrix_CSR_Light            >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-   benchmarkSpMV< Real, HostMatrixType, SparseMatrix_CSR_Adaptive                 >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+   benchmarkSpMV< Real, HostMatrixType, SparseMatrix_CSR, CSRScalarKernel                   >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+   benchmarkSpMV< Real, HostMatrixType, SparseMatrix_CSR, CSRVectorKernel                   >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+   //benchmarkSpMV< Real, HostMatrixType, SparseMatrix_CSR, CSRHybridKernel                   >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+   benchmarkSpMVCSRLight< Real, HostMatrixType, SparseMatrix_CSR, CSRLightKernel            >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+   benchmarkSpMV< Real, HostMatrixType, SparseMatrix_CSR, CSRAdaptiveKernel                 >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
    if( withEllpack )
    {
-      benchmarkSpMV< Real, HostMatrixType, SparseMatrix_Ellpack                      >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-      benchmarkSpMV< Real, HostMatrixType, SparseMatrix_SlicedEllpack                >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-      benchmarkSpMV< Real, HostMatrixType, SparseMatrix_ChunkedEllpack               >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-      benchmarkSpMV< Real, HostMatrixType, SparseMatrix_BiEllpack                    >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+      benchmarkSpMV< Real, HostMatrixType, SparseMatrix_Ellpack, EllpackKernel               >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+      benchmarkSpMV< Real, HostMatrixType, SparseMatrix_SlicedEllpack, SlicedEllpackKernel   >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+      benchmarkSpMV< Real, HostMatrixType, SparseMatrix_ChunkedEllpack, ChunkedEllpackKernel >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+      benchmarkSpMV< Real, HostMatrixType, SparseMatrix_BiEllpack, BiEllpackKernel           >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
    }
    dispatchBinary< Real >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
 #ifdef WITH_TNL_BENCHMARK_SPMV_SANDBOX_MATRIX
@@ -646,17 +680,17 @@ dispatchSymmetricBinary( BenchmarkType& benchmark,
                          bool verboseMR )
 {
    bool withEllpack = parameters.getParameter< bool >( "with-ellpack-formats" );
-   benchmarkBinarySpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR_Scalar              >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-   benchmarkBinarySpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR_Vector              >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-   //benchmarkBinarySpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR_Hybrid            >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-   benchmarkSpMVCSRLight< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR_Light, bool       >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-   benchmarkBinarySpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR_Adaptive            >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+   benchmarkBinarySpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR, CSRScalarKernel              >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+   benchmarkBinarySpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR, CSRVectorKernel              >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+   //benchmarkBinarySpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR, CSRHybridKernel            >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+   benchmarkSpMVCSRLight< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR, CSRLightKernel, bool       >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+   benchmarkBinarySpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR, CSRAdaptiveKernel            >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
    if( withEllpack )
    {
-      benchmarkBinarySpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_Ellpack                 >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-      benchmarkBinarySpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_SlicedEllpack           >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-      benchmarkBinarySpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_ChunkedEllpack          >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-      benchmarkBinarySpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_BiEllpack               >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+      benchmarkBinarySpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_Ellpack, EllpackKernel               >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+      benchmarkBinarySpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_SlicedEllpack, SlicedEllpackKernel   >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+      benchmarkBinarySpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_ChunkedEllpack, ChunkedEllpackKernel >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+      benchmarkBinarySpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_BiEllpack, BiEllpackKernel           >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
    }
 }
 
@@ -689,17 +723,17 @@ dispatchSymmetric( BenchmarkType& benchmark,
    //{
    //   std::cerr << "ERROR: Symmetric matrices do not match !!!" << std::endl;
    //}
-   benchmarkSpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR_Scalar                    >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-   benchmarkSpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR_Vector                    >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-   //benchmarkSpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR_Hybrid                   >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-   benchmarkSpMVCSRLight< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR_Light             >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-   benchmarkSpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR_Adaptive                  >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+   benchmarkSpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR, CSRScalarKernel                    >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+   benchmarkSpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR, CSRVectorKernel                    >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+   //benchmarkSpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR, CSRHybridKernel                   >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+   benchmarkSpMVCSRLight< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR, CSRLightKernel             >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+   benchmarkSpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR, CSRAdaptiveKernel                  >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
    if( withEllpack )
    {
-      benchmarkSpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_Ellpack                       >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-      benchmarkSpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_SlicedEllpack                 >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-      benchmarkSpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_ChunkedEllpack                >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-      benchmarkSpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_BiEllpack                     >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+      benchmarkSpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_Ellpack, EllpackKernel               >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+      benchmarkSpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_SlicedEllpack, SlicedEllpackKernel   >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+      benchmarkSpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_ChunkedEllpack, ChunkedEllpackKernel >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+      benchmarkSpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_BiEllpack, BiEllpackKernel           >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
    }
    dispatchSymmetricBinary< Real >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
 }
