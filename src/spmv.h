@@ -919,6 +919,8 @@ benchmarkSpmv( BenchmarkType& benchmark,
    csrCudaMatrix.reset();
 #endif
 
+// FIXME: LightSpMV fails with CUDA 12
+#if __CUDACC_VER_MAJOR__ < 12
    ////
    // Perform benchmark on CUDA device with LightSpMV as a reference GPU format
    //
@@ -942,6 +944,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
    lightSpMVBenchmark.setKernelType( LightSpMVBenchmarkKernelWarp );
    benchmark.setMetadataElement({ "format", "LightSpMV Warp" });
    benchmark.time< Devices::Cuda >( resetLightSpMVVectors, "GPU", spmvLightSpMV, cudaBenchmarkResults );
+#endif
 #endif
    csrHostMatrix.reset();
 
