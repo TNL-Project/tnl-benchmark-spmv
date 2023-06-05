@@ -1016,40 +1016,4 @@ benchmarkSpmv( BenchmarkType& benchmark,
       dispatchSymmetric< Real >( benchmark, hostOutVector, inputFileName, parameters, verboseMR );
 }
 
-// =============== EXPLICIT TEMPLATE INSTANTIATIONS ===============
-// The explicit template declarations (extern ...) are converted to definitions
-// in separate source files using the eti.py script. The developer should call
-// this script whenever the declarations are changed and commit the generated
-// definitions in the git repository.
-//
-// IMPORTANT:
-// - Each template instantiation must be written on exactly one line (the code
-//   generator script (spmv.py) does not support parsing multiple lines).
-// - Make sure that all "dispatch*" functions that are called above are
-//   instantiated below.
-// - Also make sure that all functions that are explicitly instantiated below
-//   are actually used.
-// - Explicit template instantiations cannot be guarded by #ifdef (the code
-//   generator script (spmv.py) does not support parsing macros).
-// - For optimum compilation performance, the explicitly instantiated functions
-//   should be as independent as possible. The compilation of each explicit
-//   instantiation should take about the same time so that the work load in a
-//   parallel build is balanced. Functions that are not instantiated explicitly
-//   will be compiled in the main unit that is compiled serially.
-
-extern template void dispatchLegacy< float >( BenchmarkType&, const Containers::Vector< float, Devices::Host, int >&, const String&, const Config::ParameterContainer&, bool );
-extern template void dispatchLegacy< double >( BenchmarkType&, const Containers::Vector< double, Devices::Host, int >&, const String&, const Config::ParameterContainer&, bool );
-
-extern template void dispatchBinary< float >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host >&, const Containers::Vector< float, Devices::Host, int >&, const String&, const Config::ParameterContainer&, bool );
-extern template void dispatchBinary< double >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host >&, const Containers::Vector< double, Devices::Host, int >&, const String&, const Config::ParameterContainer&, bool );
-
-extern template void dispatchSpMV< float >( BenchmarkType&, const Containers::Vector< float, Devices::Host, int >&, const String&, const Config::ParameterContainer&, bool );
-extern template void dispatchSpMV< double >( BenchmarkType&, const Containers::Vector< double, Devices::Host, int >&, const String&, const Config::ParameterContainer&, bool );
-
-extern template void dispatchSymmetric< float >( BenchmarkType&, const Containers::Vector< float, Devices::Host, int >&, const String&, const Config::ParameterContainer&, bool );
-extern template void dispatchSymmetric< double >( BenchmarkType&, const Containers::Vector< double, Devices::Host, int >&, const String&, const Config::ParameterContainer&, bool );
-
-extern template void dispatchSymmetricBinary< float >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host >&, const Containers::Vector< float, Devices::Host, int >&, const String&, const Config::ParameterContainer&, bool );
-extern template void dispatchSymmetricBinary< double >( BenchmarkType&, const Matrices::SparseMatrix< float, Devices::Host >&, const Containers::Vector< double, Devices::Host, int >&, const String&, const Config::ParameterContainer&, bool );
-
 } // namespace TNL::Benchmarks::SpMV

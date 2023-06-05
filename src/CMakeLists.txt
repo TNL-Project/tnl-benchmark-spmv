@@ -22,14 +22,12 @@
 #endif()
 
 if( TNL_BUILD_CUDA )
-   file( GLOB EXPLICIT_TEMPLATES spmv.templates/*.cu )
-   add_executable( tnl-benchmark-spmv tnl-benchmark-spmv.cu ${EXPLICIT_TEMPLATES} ReferenceFormats/LightSpMV-1.0/SpMV.cu ReferenceFormats/LightSpMV-1.0/SpMVCSR.cu )
+   add_executable( tnl-benchmark-spmv tnl-benchmark-spmv.cu ReferenceFormats/LightSpMV-1.0/SpMV.cu ReferenceFormats/LightSpMV-1.0/SpMVCSR.cu )
    target_link_libraries( tnl-benchmark-spmv PUBLIC TNL::TNL_CUDA )
    find_package( CUDAToolkit REQUIRED )
    target_link_libraries( tnl-benchmark-spmv PUBLIC CUDA::cusparse )
 else()
-   file( GLOB EXPLICIT_TEMPLATES spmv.templates/*.cpp )
-   add_executable( tnl-benchmark-spmv tnl-benchmark-spmv.cpp ${EXPLICIT_TEMPLATES} )
+   add_executable( tnl-benchmark-spmv tnl-benchmark-spmv.cpp )
    target_link_libraries( tnl-benchmark-spmv PUBLIC TNL::TNL_CXX )
 endif()
 
