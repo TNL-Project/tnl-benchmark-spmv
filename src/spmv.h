@@ -481,7 +481,7 @@ benchmarkSpMVCSRLight( BenchmarkType& benchmark,
    for( auto threadsPerRow : std::vector< int >{ 1, 2, 4, 8, 16, 32, 64, 128 } )
    {
       kernel.setThreadsPerSegment( threadsPerRow );
-      String format = MatrixInfo< HostMatrix >::getFormat() + " " + HostKernel::getKernelType() + " " + convertToString( threadsPerRow );
+      String format = MatrixInfo< HostMatrix >::getFormat() + " " + HostKernel::getKernelType() + " " + std::to_string( threadsPerRow );
       benchmark.setMetadataElement({ "format", format });
 
       SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( csrResultVector, cudaOutVector );
