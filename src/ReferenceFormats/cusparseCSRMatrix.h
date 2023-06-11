@@ -1,6 +1,6 @@
 #include <TNL/Assert.h>
 #include <TNL/Devices/Cuda.h>
-#include <TNL/Matrices/SparseMatrix.h>
+#include <TNL/Matrices/SparseMatrixBase.h>
 #ifdef __CUDACC__
 #include <cusparse.h>
 #endif
@@ -29,12 +29,14 @@ class CusparseCSRBase
    public:
       using RealType = Real;
       using DeviceType = TNL::Devices::Cuda;
-      using MatrixType = TNL::Matrices::SparseMatrix< Real, TNL::Devices::Cuda, int >;
+      using MatrixType = TNL::Matrices::SparseMatrixBase< Real,
+                                                          TNL::Devices::Cuda,
+                                                          int,
+                                                          Matrices::GeneralMatrix,
+                                                          Algorithms::Segments::CSRView< TNL::Devices::Cuda, int >,
+                                                          Real >;
 
-      CusparseCSRBase()
-      : matrix( 0 )
-      {
-      }
+      CusparseCSRBase() = default;
 
 #ifdef __CUDACC__
       void init( const MatrixType& matrix,
@@ -74,7 +76,7 @@ class CusparseCSRBase
 
    protected:
 
-      const MatrixType* matrix;
+      const MatrixType* matrix = nullptr;
 #ifdef __CUDACC__
       cusparseHandle_t* cusparseHandle;
 #if CUDART_VERSION < 11000
@@ -105,7 +107,6 @@ class CusparseCSR< double > : public CusparseCSRBase< double >
                  cusparseHandle_t* cusparseHandle )
       {
          CusparseCSRBase< double >::init( matrix, cusparseHandle );
-         this->cusparseHandle = cusparseHandle;
 #if defined __CUDACC__  && CUDART_VERSION >= 11000
          double alpha = 1.0;
          CHECK_CUSPARSE(
@@ -138,7 +139,6 @@ class CusparseCSR< double > : public CusparseCSRBase< double >
                                        &buffer_size ));                  // size_t*              bufferSize)
          this->buffer.setSize( buffer_size );
 #else
-         this->matrix = &matrix;
          cusparseCreateMatDescr( & this->matrixDescriptor );
 #endif
 
@@ -209,7 +209,6 @@ class CusparseCSR< float > : public CusparseCSRBase< float >
                  cusparseHandle_t* cusparseHandle )
       {
          CusparseCSRBase< float >::init( matrix, cusparseHandle );
-         this->cusparseHandle = cusparseHandle;
 #if defined __CUDACC__  && CUDART_VERSION >= 11000
          float alpha = 1.0;
          CHECK_CUSPARSE(
@@ -242,7 +241,6 @@ class CusparseCSR< float > : public CusparseCSRBase< float >
                                      &buffer_size ));                  // size_t*              bufferSize
          this->buffer.setSize( buffer_size );
 #else
-         this->matrix = &matrix;
          cusparseCreateMatDescr( & this->matrixDescriptor );
 #endif
 

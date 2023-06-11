@@ -648,7 +648,7 @@ dispatchSpMV( BenchmarkType& benchmark,
               const Config::ParameterContainer& parameters,
               bool verboseMR )
 {
-   using HostMatrixType = TNL::Matrices::SparseMatrix< Real, TNL::Devices::Host >;
+   using HostMatrixType = SparseMatrix_CSR< Real, TNL::Devices::Host, int >;
    bool withEllpack = parameters.getParameter< bool >( "with-ellpack-formats" );
    HostMatrixType hostMatrix;
    TNL::Matrices::MatrixReader< HostMatrixType >::readMtx( inputFileName, hostMatrix, verboseMR );
@@ -703,7 +703,7 @@ dispatchSymmetric( BenchmarkType& benchmark,
                    bool verboseMR )
 {
    using SymmetricInputMatrix = TNL::Matrices::SparseMatrix< Real, TNL::Devices::Host, int, TNL::Matrices::SymmetricMatrix >;
-   using InputMatrix = TNL::Matrices::SparseMatrix< Real, TNL::Devices::Host, int >;
+   //using InputMatrix = TNL::Matrices::SparseMatrix< Real, TNL::Devices::Host, int >;
    //bool allCpuTests = parameters.getParameter< bool >( "with-all-cpu-tests" );
    bool withEllpack = parameters.getParameter< bool >( "with-ellpack-formats" );
    SymmetricInputMatrix symmetricHostMatrix;
@@ -716,8 +716,8 @@ dispatchSymmetric( BenchmarkType& benchmark,
       benchmark.addErrorMessage( "Unable to read the symmetric matrix: " + String(e.what()) );
       return;
    }
-   InputMatrix hostMatrix;
-   TNL::Matrices::MatrixReader< InputMatrix >::readMtx( inputFileName, hostMatrix, verboseMR );
+   //InputMatrix hostMatrix;
+   //TNL::Matrices::MatrixReader< InputMatrix >::readMtx( inputFileName, hostMatrix, verboseMR );
    // TODO: Comparison of symmetric and general matrix does not work yet.
    //if( hostMatrix != symmetricHostMatrix )
    //{
@@ -747,9 +747,9 @@ benchmarkSpmv( BenchmarkType& benchmark,
                bool verboseMR )
 {
    // Here we use 'int' instead of 'Index' because of compatibility with cusparse.
-   using CSRHostMatrix = TNL::Matrices::SparseMatrix< Real, TNL::Devices::Host, int >;
+   using CSRHostMatrix = SparseMatrix_CSR< Real, TNL::Devices::Host, int >;
    #ifdef __CUDACC__
-   using CSRCudaMatrix = TNL::Matrices::SparseMatrix< Real, TNL::Devices::Cuda, int >;
+   using CSRCudaMatrix = SparseMatrix_CSR< Real, TNL::Devices::Cuda, int >;
    using CusparseMatrix = TNL::CusparseCSR< Real >;
    #endif
 
