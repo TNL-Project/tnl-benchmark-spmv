@@ -821,20 +821,20 @@ benchmarkSpmv( BenchmarkType& benchmark,
    benchmark.time< Devices::Host >( resetPetscVectors, "CPU", petscSpmvCSRHost, petscBenchmarkResults );
 #endif
 
-#if defined HAVE_HYPRE && ! defined __CUDACC__
+#if defined( HAVE_HYPRE ) && ! defined( HYPRE_USING_CUDA )
    // Initialize HYPRE and set some global options, notably HYPRE_SetSpGemmUseCusparse(0);
    if constexpr( std::is_same< HYPRE_Real, Real >::value &&
                  std::is_same< HYPRE_Int, int >::value ) {
       TNL::Hypre hypre;
-      using HypreCSR = TNL::Matrices::HypreCSRMatrix;//TNL::Matrices::SparseMatrix< Real, TNL::HYPRE_Device, HYPRE_Int >;
+      using HypreCSR = TNL::Matrices::HypreCSRMatrix;
       HypreCSR hypreCSRMatrix( csrHostMatrix.getRows(),
-                              csrHostMatrix.getColumns(),
-                              csrHostMatrix.getValues().getView(),
-                              csrHostMatrix.getColumnIndexes().getView(),
-                              csrHostMatrix.getSegments().getOffsets().getView());
-      //hypreCSRMatrix = csrHostMatrix;
+                               csrHostMatrix.getColumns(),
+                               csrHostMatrix.getValues().getView(),
+                               csrHostMatrix.getColumnIndexes().getView(),
+                               csrHostMatrix.getSegments().getOffsets().getView());
       auto hostInVectorView = hostInVector.getView();
       auto hostOutVectorView = hostOutVector.getView();
+
       auto spmvHypreCSRHost = [&]() {
          hypreCSRMatrix.vectorProduct( hostInVectorView, hostOutVectorView );
       };
@@ -852,7 +852,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
       }
    }
    else {
-      std::cerr << "Current Real type or Index does not agree with HYPRE_Real or HYPRE_Index." << std::endl;
+      std::cerr << "Current Real or Index type does not agree with HYPRE_Real or HYPRE_Index." << std::endl;
    }
 #endif
 
@@ -886,20 +886,31 @@ benchmarkSpmv( BenchmarkType& benchmark,
    benchmark.setMetadataElement({ "format", "cusparse" });
    benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvCusparse, cudaBenchmarkResults );
 
-#ifdef HAVE_HYPRE
+#if defined( HAVE_HYPRE ) && defined( HYPRE_USING_CUDA )
    // Initialize HYPRE and set some global options, notably HYPRE_SetSpGemmUseCusparse(0);
-   TNL::Hypre hypre;
-   using HypreCSR = TNL::Matrices::SparseMatrix< Real, TNL::HYPRE_Device, HYPRE_Int >;
-   HypreCSR hypreCSRMatrix;
-   hypreCSRMatrix = csrCudaMatrix;
+   if constexpr( std::is_same< HYPRE_Real, Real >::value &&
+                 std::is_same< HYPRE_Int, int >::value ) {
+      TNL::Hypre hypre;
+      using HypreCSR = TNL::Matrices::HypreCSRMatrix;
+      HypreCSR hypreCSRMatrix( csrCudaMatrix.getRows(),
+                               csrCudaMatrix.getColumns(),
+                               csrCudaMatrix.getValues().getView(),
+                               csrCudaMatrix.getColumnIndexes().getView(),
+                               csrCudaMatrix.getSegments().getOffsets().getView());
+      auto cudaInVectorView = cudaInVector.getView();
+      auto cudaOutVectorView = cudaOutVector.getView();
 
-   auto spmvHypreCSRCuda = [&]() {
-       hypreCSRMatrix.vectorProduct( cudaInVector, cudaOutVector );
-   };
+      auto spmvHypreCSRCuda = [&]() {
+         hypreCSRMatrix.vectorProduct( cudaInVectorView, cudaOutVectorView );
+      };
 
-   SpmvBenchmarkResult< Real, Devices::Cuda, int > hypreCudaBenchmarkResults( hostOutVector, cudaOutVector );
-   benchmark.setMetadataElement({ "format", "Hypre" });
-   benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvHypreCSRCuda, hypreCudaBenchmarkResults );
+      SpmvBenchmarkResult< Real, Devices::Cuda, int > hypreCudaBenchmarkResults( hostOutVector, cudaOutVector );
+      benchmark.setMetadataElement({ "format", "Hypre" });
+      benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvHypreCSRCuda, hypreCudaBenchmarkResults );
+   }
+   else {
+      std::cerr << "Current Real or Index type does not agree with HYPRE_Real or HYPRE_Index." << std::endl;
+   }
 #endif
 
 #ifdef HAVE_CSR5
