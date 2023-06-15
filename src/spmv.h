@@ -10,18 +10,8 @@
 #include <TNL/Benchmarks/JsonLogging.h>
 #include "SpmvBenchmarkResult.h"
 
-#include <TNL/Pointers/DevicePointer.h>
-#include "ReferenceFormats/Legacy/CSR.h"
-#include "ReferenceFormats/Legacy/Ellpack.h"
-#include "ReferenceFormats/Legacy/SlicedEllpack.h"
-#include "ReferenceFormats/Legacy/ChunkedEllpack.h"
-#include "ReferenceFormats/Legacy/AdEllpack.h"
-#include "ReferenceFormats/Legacy/BiEllpack.h"
-#include "ReferenceFormats/Legacy/LegacyMatrixReader.h"
-
+#include <TNL/Matrices/MatrixReader.h>
 #include <TNL/Matrices/MatrixInfo.h>
-#include "ReferenceFormats/Legacy/MatrixInfo.h"
-
 #include <TNL/Matrices/SparseMatrix.h>
 #include <TNL/Matrices/MatrixType.h>
 #include <TNL/Algorithms/Segments/CSR.h>
@@ -40,15 +30,6 @@
 #include <TNL/Algorithms/SegmentsReductionKernels/BiEllpackKernel.h>
 #include <TNL/Algorithms/sort.h>
 
-#ifdef HAVE_PETSC
-#include <petscmat.h>
-#endif
-
-#ifdef HAVE_HYPRE
-#include <TNL/Hypre.h>
-#include <TNL/Matrices/HypreCSRMatrix.h>
-#endif
-
 // Uncomment the following line to enable benchmarking the sandbox sparse matrix.
 //#define WITH_TNL_BENCHMARK_SPMV_SANDBOX_MATRIX
 #ifdef WITH_TNL_BENCHMARK_SPMV_SANDBOX_MATRIX
@@ -56,11 +37,6 @@
 #endif
 
 using namespace TNL::Matrices;
-
-#include <Benchmarks/SpMV/ReferenceFormats/cusparseCSRMatrix.h>
-#include <Benchmarks/SpMV/ReferenceFormats/cusparseCSRMatrixLegacy.h>
-#include <Benchmarks/SpMV/ReferenceFormats/LightSpMVBenchmark.h>
-#include <Benchmarks/SpMV/ReferenceFormats/CSR5Benchmark.h>
 
 namespace TNL::Benchmarks::SpMV {
 
@@ -153,128 +129,6 @@ using ChunkedEllpackKernel = Algorithms::SegmentsReductionKernels::ChunkedEllpac
 
 template< typename Device, typename Index >
 using BiEllpackKernel = Algorithms::SegmentsReductionKernels::BiEllpackKernel< Index, Device >;
-
-/////
-// Legacy formats
-//
-template< typename Real, typename Device, typename Index >
-using SparseMatrixLegacy_CSR_Scalar = Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRScalar >;
-
-template< typename Real, typename Device, typename Index >
-using SparseMatrixLegacy_CSR_Vector = Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRVector >;
-
-template< typename Real, typename Device, typename Index >
-using SparseMatrixLegacy_CSR_Light = Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRLight >;
-
-template< typename Real, typename Device, typename Index >
-using SparseMatrixLegacy_CSR_Light2 = Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRLight2 >;
-
-template< typename Real, typename Device, typename Index >
-using SparseMatrixLegacy_CSR_Light3 = Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRLight3 >;
-
-template< typename Real, typename Device, typename Index >
-using SparseMatrixLegacy_CSR_Light4 = Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRLight4 >;
-
-template< typename Real, typename Device, typename Index >
-using SparseMatrixLegacy_CSR_Light5 = Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRLight5 >;
-
-template< typename Real, typename Device, typename Index >
-using SparseMatrixLegacy_CSR_Light6 = Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRLight6 >;
-
-template< typename Real, typename Device, typename Index >
-using SparseMatrixLegacy_CSR_Adaptive = Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRAdaptive >;
-
-template< typename Real, typename Device, typename Index >
-using SparseMatrixLegacy_CSR_MultiVector = Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRMultiVector >;
-
-template< typename Real, typename Device, typename Index >
-using SparseMatrixLegacy_CSR_LightWithoutAtomic = Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRLightWithoutAtomic >;
-
-template< typename Real, typename Device, typename Index >
-using SlicedEllpackAlias = Benchmarks::SpMV::ReferenceFormats::Legacy::SlicedEllpack< Real, Device, Index >;
-
-template< typename Real,
-          template< typename, typename, typename > class Matrix >
-void
-benchmarkSpMVLegacy( BenchmarkType& benchmark,
-                     const TNL::Containers::Vector< Real, Devices::Host, int >& csrResultVector,
-                     const String& inputFileName,
-                     const Config::ParameterContainer& parameters,
-                     bool verboseMR )
-{
-   using HostMatrix = Matrix< Real, TNL::Devices::Host, int >;
-   using CudaMatrix = Matrix< Real, TNL::Devices::Cuda, int >;
-   using HostVector = Containers::Vector< Real, Devices::Host, int >;
-
-   bool allCpuTests = parameters.getParameter< bool >( "with-all-cpu-tests" );
-   benchmark.setMetadataElement({ "format", MatrixInfo< HostMatrix >::getFormat() });
-
-   HostMatrix hostMatrix;
-   CudaMatrix cudaMatrix;
-
-   try
-   {
-      SpMV::ReferenceFormats::Legacy::LegacyMatrixReader< HostMatrix >::readMtxFile( inputFileName, hostMatrix, verboseMR );
-   }
-   catch(const std::exception& e)
-   {
-      benchmark.addErrorMessage( "Unable to read the matrix:" + String(e.what()) );
-      return;
-   }
-
-   const int nonzeros = hostMatrix.getNonzeroElementsCount();
-   const double datasetSize = (double) nonzeros * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
-   benchmark.setDatasetSize( datasetSize );
-
-   /////
-   // Benchmark SpMV on host
-   //
-   if( allCpuTests )
-   {
-      HostVector hostInVector( hostMatrix.getColumns() ), hostOutVector( hostMatrix.getRows() );
-
-      auto resetHostVectors = [&]() {
-         hostInVector = 1.0;
-         hostOutVector = 0.0;
-      };
-
-      auto spmvHost = [&]() {
-         hostMatrix.vectorProduct( hostInVector, hostOutVector );
-
-      };
-      SpmvBenchmarkResult< Real, Devices::Host, int > hostBenchmarkResults( csrResultVector, hostOutVector );
-      benchmark.time< Devices::Host >( resetHostVectors, "CPU", spmvHost, hostBenchmarkResults );
-   }
-
-   /////
-   // Benchmark SpMV on CUDA
-   //
-#ifdef __CUDACC__
-   try
-   {
-      cudaMatrix = hostMatrix;
-   }
-   catch(const std::exception& e)
-   {
-      benchmark.addErrorMessage( "Unable to copy the matrix on GPU: " + String(e.what()) );
-      return;
-   }
-
-   using CudaVector = Containers::Vector< Real, Devices::Cuda, int >;
-   CudaVector cudaInVector( hostMatrix.getColumns() ), cudaOutVector( hostMatrix.getRows() );
-
-   auto resetCudaVectors = [&]() {
-      cudaInVector = 1.0;
-      cudaOutVector = 0.0;
-   };
-
-   auto spmvCuda = [&]() {
-      cudaMatrix.vectorProduct( cudaInVector, cudaOutVector );
-   };
-   SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( csrResultVector, cudaOutVector );
-   benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvCuda, cudaBenchmarkResults );
- #endif
-}
 
 template< typename Real,
           typename InputMatrix,
@@ -585,38 +439,6 @@ benchmarkBinarySpMV( BenchmarkType& benchmark,
  #endif
 }
 
-template< typename Real >
-void
-dispatchLegacy( BenchmarkType& benchmark,
-                const TNL::Containers::Vector< Real, Devices::Host, int >& hostOutVector,
-                const String& inputFileName,
-                const Config::ParameterContainer& parameters,
-                bool verboseMR )
-{
-   using namespace Benchmarks::SpMV::ReferenceFormats;
-   bool withEllpack = parameters.getParameter< bool >( "with-ellpack-formats" );
-   benchmarkSpMVLegacy< Real, SparseMatrixLegacy_CSR_Scalar             >( benchmark, hostOutVector, inputFileName, parameters, verboseMR );
-   benchmarkSpMVLegacy< Real, SparseMatrixLegacy_CSR_Vector             >( benchmark, hostOutVector, inputFileName, parameters, verboseMR );
-   //benchmarkSpMVLegacy< Real, SparseMatrixLegacy_CSR_Light              >( benchmark, hostOutVector, inputFileName, verboseMR );
-   //benchmarkSpMVLegacy< Real, SparseMatrixLegacy_CSR_Light2             >( benchmark, hostOutVector, inputFileName, verboseMR );
-   //benchmarkSpMVLegacy< Real, SparseMatrixLegacy_CSR_Light3             >( benchmark, hostOutVector, inputFileName, verboseMR );
-   //benchmarkSpMVLegacy< Real, SparseMatrixLegacy_CSR_Light4             >( benchmark, hostOutVector, inputFileName, verboseMR );
-   //benchmarkSpMVLegacy< Real, SparseMatrixLegacy_CSR_Light5             >( benchmark, hostOutVector, inputFileName, verboseMR );
-   //benchmarkSpMVLegacy< Real, SparseMatrixLegacy_CSR_Light6             >( benchmark, hostOutVector, inputFileName, verboseMR );
-   benchmarkSpMVLegacy< Real, SparseMatrixLegacy_CSR_Adaptive           >( benchmark, hostOutVector, inputFileName, parameters, verboseMR );
-   benchmarkSpMVLegacy< Real, SparseMatrixLegacy_CSR_MultiVector        >( benchmark, hostOutVector, inputFileName, parameters, verboseMR );
-   benchmarkSpMVLegacy< Real, SparseMatrixLegacy_CSR_LightWithoutAtomic >( benchmark, hostOutVector, inputFileName, parameters, verboseMR );
-   if( withEllpack )
-   {
-      benchmarkSpMVLegacy< Real, Legacy::Ellpack                           >( benchmark, hostOutVector, inputFileName, parameters, verboseMR );
-      benchmarkSpMVLegacy< Real, SlicedEllpackAlias                        >( benchmark, hostOutVector, inputFileName, parameters, verboseMR );
-      benchmarkSpMVLegacy< Real, Legacy::ChunkedEllpack                    >( benchmark, hostOutVector, inputFileName, parameters, verboseMR );
-      benchmarkSpMVLegacy< Real, Legacy::BiEllpack                         >( benchmark, hostOutVector, inputFileName, parameters, verboseMR );
-      // AdEllpack is broken
-      //benchmarkSpMV< Real, Matrices::AdEllpack              >( benchmark, hostOutVector, inputFileName, verboseMR );
-   }
-}
-
 template< typename Real, typename HostMatrix >
 void
 dispatchBinary( BenchmarkType& benchmark,
@@ -746,13 +568,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
                const Config::ParameterContainer& parameters,
                bool verboseMR )
 {
-   // Here we use 'int' instead of 'Index' because of compatibility with cusparse.
-   using CSRHostMatrix = SparseMatrix_CSR< Real, TNL::Devices::Host, int >;
-   #ifdef __CUDACC__
-   using CSRCudaMatrix = SparseMatrix_CSR< Real, TNL::Devices::Cuda, int >;
-   using CusparseMatrix = TNL::CusparseCSR< Real >;
-   #endif
-
+   using CSRHostMatrix = SparseMatrix_CSR< Real, TNL::Devices::Host, Index >;
    using HostVector = Containers::Vector< Real, Devices::Host, int >;
 
    CSRHostMatrix csrHostMatrix;
@@ -824,180 +640,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
          break;
       threads = min( 2 * threads, maxThreadsCount );
    }
-
-#ifdef HAVE_PETSC
-   Mat petscMatrix;
-   Containers::Vector< PetscInt, Devices::Host, PetscInt > petscRowPointers( csrHostMatrix.getRowPointers() );
-   Containers::Vector< PetscInt, Devices::Host, PetscInt > petscColumns( csrHostMatrix.getColumnIndexes() );
-   Containers::Vector< PetscScalar, Devices::Host, PetscInt > petscValues( csrHostMatrix.getValues() );
-   MatCreateSeqAIJWithArrays( PETSC_COMM_WORLD, //PETSC_COMM_SELF,
-                              csrHostMatrix.getRows(),
-                              csrHostMatrix.getColumns(),
-                              petscRowPointers.getData(),
-                              petscColumns.getData(),
-                              petscValues.getData(),
-                              &petscMatrix );
-   Vec inVector, outVector;
-   VecCreateSeq( PETSC_COMM_WORLD, csrHostMatrix.getColumns(), &inVector );
-   VecCreateSeq( PETSC_COMM_WORLD, csrHostMatrix.getRows(), &outVector );
-
-   auto resetPetscVectors = [&]() {
-      VecSet( inVector, 1.0 );
-      VecSet( outVector, 0.0 );
-   };
-
-   auto petscSpmvCSRHost = [&]() {
-      MatMult( petscMatrix, inVector, outVector );
-   };
-
-   SpmvBenchmarkResult< Real, Devices::Host, int > petscBenchmarkResults( hostOutVector, hostOutVector );
-   benchmark.setMetadataElement({ "format", "Petsc" });
-   benchmark.time< Devices::Host >( resetPetscVectors, "CPU", petscSpmvCSRHost, petscBenchmarkResults );
-#endif
-
-#if defined( HAVE_HYPRE ) && ! defined( HYPRE_USING_CUDA )
-   // Initialize HYPRE and set some global options, notably HYPRE_SetSpGemmUseCusparse(0);
-   if constexpr( std::is_same< HYPRE_Real, Real >::value &&
-                 std::is_same< HYPRE_Int, int >::value ) {
-      TNL::Hypre hypre;
-      using HypreCSR = TNL::Matrices::HypreCSRMatrix;
-      HypreCSR hypreCSRMatrix( csrHostMatrix.getRows(),
-                               csrHostMatrix.getColumns(),
-                               csrHostMatrix.getValues().getView(),
-                               csrHostMatrix.getColumnIndexes().getView(),
-                               csrHostMatrix.getSegments().getOffsets().getView());
-      auto hostInVectorView = hostInVector.getView();
-      auto hostOutVectorView = hostOutVector.getView();
-
-      auto spmvHypreCSRHost = [&]() {
-         hypreCSRMatrix.vectorProduct( hostInVectorView, hostOutVectorView );
-      };
-
-      SpmvBenchmarkResult< Real, Devices::Host, int > hypreBenchmarkResults( hostOutVector, hostOutVector );
-      threads = 1;
-      while( true ) {
-         benchmark.setMetadataElement({ "format", "Hypre" });
-         benchmark.setMetadataElement({ "threads", convertToString( threads ).getString() });
-         Devices::Host::setMaxThreadsCount( threads );
-         benchmark.time< Devices::Host >( resetHostVectors, "CPU", spmvHypreCSRHost, hypreBenchmarkResults );
-         if( threads == maxThreadsCount )
-            break;
-         threads = min( 2 * threads, maxThreadsCount );
-      }
-   }
-   else {
-      std::cerr << "Current Real or Index type does not agree with HYPRE_Real or HYPRE_Index." << std::endl;
-   }
-#endif
-
-
-#ifdef __CUDACC__
-   using CudaVector = Containers::Vector< Real, Devices::Cuda, int >;
-   ////
-   // Perform benchmark on CUDA device with cuSparse as a reference GPU format
-   //
-   cusparseHandle_t cusparseHandle;
-   cusparseCreate( &cusparseHandle );
-
-   CSRCudaMatrix csrCudaMatrix;
-   csrCudaMatrix = csrHostMatrix;
-
-   CudaVector cudaInVector( csrCudaMatrix.getColumns() ), cudaOutVector( csrCudaMatrix.getRows() );
-
-   CusparseMatrix cusparseMatrix;
-   cusparseMatrix.init( csrCudaMatrix, cudaInVector, cudaOutVector, &cusparseHandle );
-
-   auto resetCudaVectors = [&]() {
-      cudaInVector = 1.0;
-      cudaOutVector = 0.0;
-   };
-
-   auto spmvCusparse = [&]() {
-       cusparseMatrix.vectorProduct( cudaInVector, cudaOutVector );
-   };
-
-   SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( hostOutVector, cudaOutVector );
-   benchmark.setMetadataElement({ "format", "cusparse" });
-   benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvCusparse, cudaBenchmarkResults );
-
-#if defined( HAVE_HYPRE ) && defined( HYPRE_USING_CUDA )
-   // Initialize HYPRE and set some global options, notably HYPRE_SetSpGemmUseCusparse(0);
-   if constexpr( std::is_same< HYPRE_Real, Real >::value &&
-                 std::is_same< HYPRE_Int, int >::value ) {
-      TNL::Hypre hypre;
-      using HypreCSR = TNL::Matrices::HypreCSRMatrix;
-      HypreCSR hypreCSRMatrix( csrCudaMatrix.getRows(),
-                               csrCudaMatrix.getColumns(),
-                               csrCudaMatrix.getValues().getView(),
-                               csrCudaMatrix.getColumnIndexes().getView(),
-                               csrCudaMatrix.getSegments().getOffsets().getView());
-      auto cudaInVectorView = cudaInVector.getView();
-      auto cudaOutVectorView = cudaOutVector.getView();
-
-      auto spmvHypreCSRCuda = [&]() {
-         hypreCSRMatrix.vectorProduct( cudaInVectorView, cudaOutVectorView );
-      };
-
-      SpmvBenchmarkResult< Real, Devices::Cuda, int > hypreCudaBenchmarkResults( hostOutVector, cudaOutVector );
-      benchmark.setMetadataElement({ "format", "Hypre" });
-      benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvHypreCSRCuda, hypreCudaBenchmarkResults );
-   }
-   else {
-      std::cerr << "Current Real or Index type does not agree with HYPRE_Real or HYPRE_Index." << std::endl;
-   }
-#endif
-
-#ifdef HAVE_CSR5
-   ////
-   // Perform benchmark on CUDA device with CSR5 as a reference GPU format
-   //
-   CudaVector cudaOutVector2( cudaOutVector );
-   CSR5Benchmark::CSR5Benchmark< CSRCudaMatrix > csr5Benchmark( csrCudaMatrix, cudaInVector, cudaOutVector );
-
-   auto csr5SpMV = [&]() {
-       csr5Benchmark.vectorProduct();
-   };
-
-   benchmark.setMetadataElement({ "format", "CSR5" });
-   benchmark.time< Devices::Cuda >( resetCusparseVectors, "GPU", csr5SpMV, cudaBenchmarkResults );
-   std::cerr << "CSR5 error = " << max( abs( cudaOutVector - cudaOutVector2 ) ) << std::endl;
-   csrCudaMatrix.reset();
-#endif
-
-// FIXME: LightSpMV fails with CUDA 12
-#if __CUDACC_VER_MAJOR__ < 12
-   ////
-   // Perform benchmark on CUDA device with LightSpMV as a reference GPU format
-   //
-   using LightSpMVCSRHostMatrix = SpMV::ReferenceFormats::Legacy::CSR< Real, Devices::Host, uint32_t >;
-   LightSpMVCSRHostMatrix lightSpMVCSRHostMatrix;
-   lightSpMVCSRHostMatrix.setDimensions( csrHostMatrix.getRows(), csrHostMatrix.getColumns() );
-   lightSpMVCSRHostMatrix.getValues() = csrHostMatrix.getValues();
-   lightSpMVCSRHostMatrix.getColumnIndexes() = csrHostMatrix.getColumnIndexes();
-   lightSpMVCSRHostMatrix.getRowPointers() = csrHostMatrix.getSegments().getOffsets();
-   LightSpMVBenchmark< Real > lightSpMVBenchmark( lightSpMVCSRHostMatrix, LightSpMVBenchmarkKernelVector );
-   auto resetLightSpMVVectors = [&]() {
-      lightSpMVBenchmark.resetVectors();
-   };
-
-   auto spmvLightSpMV = [&]() {
-       lightSpMVBenchmark.vectorProduct();
-   };
-   benchmark.setMetadataElement({ "format", "LightSpMV Vector" });
-   benchmark.time< Devices::Cuda >( resetLightSpMVVectors, "GPU", spmvLightSpMV, cudaBenchmarkResults );
-
-   lightSpMVBenchmark.setKernelType( LightSpMVBenchmarkKernelWarp );
-   benchmark.setMetadataElement({ "format", "LightSpMV Warp" });
-   benchmark.time< Devices::Cuda >( resetLightSpMVVectors, "GPU", spmvLightSpMV, cudaBenchmarkResults );
-#endif
-#endif
    csrHostMatrix.reset();
-
-   /////
-   // Benchmarking of TNL legacy formats
-   //
-   if( parameters.getParameter< bool >("with-legacy-matrices") )
-      dispatchLegacy< Real >( benchmark, hostOutVector, inputFileName, parameters, verboseMR );
 
    /////
    // Benchmarking TNL formats

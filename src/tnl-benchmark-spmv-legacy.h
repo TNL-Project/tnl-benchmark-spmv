@@ -1,10 +1,14 @@
+// Implemented by: Lukas Cejka
+//      Original implemented by J. Klinkovsky in Benchmarks/BLAS
+//      This is an edited copy of Benchmarks/BLAS/spmv.h by: Lukas Cejka
+
 #pragma once
 
 #include <TNL/Devices/Host.h>
 #include <TNL/Devices/Cuda.h>
 #include <TNL/Config/parseCommandLine.h>
 
-#include "spmv.h"
+#include "spmv-legacy.h"
 
 using namespace TNL::Matrices;
 
@@ -49,10 +53,8 @@ setupConfig( Config::ConfigDescription & config )
 {
    config.addDelimiter( "Benchmark settings:" );
    config.addRequiredEntry< String >( "input-file", "Input file name." );
-   config.addEntry< bool >( "with-symmetric-matrices", "Perform benchmark even for symmetric matrix formats.", true );
-   config.addEntry< bool >( "with-ellpack-formats", "Perform benchmark for Ellpack based matrix formats.", true );
    config.addEntry< bool >( "with-all-cpu-tests", "All matrix formats are tested on both CPU and GPU. ", false );
-   config.addEntry< String >( "log-file", "Log file name.", "tnl-benchmark-spmv::" + getCurrDateTime() + ".log");
+   config.addEntry< String >( "log-file", "Log file name.", "tnl-benchmark-spmv-legacy::" + getCurrDateTime() + ".log");
    config.addEntry< String >( "output-mode", "Mode for opening the log file.", "append" );
    config.addEntryEnum( "append" );
    config.addEntryEnum( "overwrite" );
@@ -76,16 +78,6 @@ main( int argc, char* argv[] )
    Config::ConfigDescription conf_desc;
 
    setupConfig( conf_desc );
-
-   // FIXME: When ./tnl-benchmark-spmv-dbg is called without parameters:
-   //           * The guide on what parameters to use prints twice.
-   // FIXME: When ./tnl-benchmark-spmv-dbg is called with '--help':
-   //           * The guide on what parameter to use print once.
-   //              But then it CRASHES due to segfault:
-   //              The program attempts to get unknown parameter openmp-enabled
-   //              Aborting the program.
-   //              terminate called after throwing an instance of 'int'
-   //      [1]    17156 abort (core dumped)  ~/tnl-dev/Debug/bin/./tnl-benchmark-spmv-dbg --help
 
    if( ! parseCommandLine( argc, argv, conf_desc, parameters ) )
       return EXIT_FAILURE;

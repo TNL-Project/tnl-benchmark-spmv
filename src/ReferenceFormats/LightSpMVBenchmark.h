@@ -52,7 +52,7 @@ struct LightSpMVBenchmark
       opt._numGPUs = 1;
       opt._numRows = matrix.getRows();
       opt._numCols = matrix.getColumns();
-      opt._rowOffsets = matrix.getRowPointers().getData();
+      opt._rowOffsets = matrix.getSegments().getOffsets().getData();
       opt._numValues = matrix.getValues().getSize();
       opt._colIndexValues = matrix.getColumnIndexes().getData();
       opt._numericalValues = matrix.getValues().getData();
