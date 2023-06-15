@@ -1,6 +1,6 @@
 #pragma once
 
-#include <TNL/Matrices/Matrix.h>
+#include "Matrix.h"
 #include "SparseRow.h"
 
 namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy {
@@ -8,16 +8,16 @@ namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy {
 template< typename Real,
           typename Device,
           typename Index >
-class Sparse : public TNL::Matrices::Matrix< Real, Device, Index >
+class Sparse : public Matrix< Real, Device, Index >
 {
    public:
 
    typedef Real RealType;
    typedef Device DeviceType;
    typedef Index IndexType;
-   typedef typename TNL::Matrices::Matrix< RealType, DeviceType, IndexType >::ValuesType ValuesVector;
+   typedef typename Matrix< RealType, DeviceType, IndexType >::ValuesType ValuesVector;
    typedef Containers::Vector< IndexType, DeviceType, IndexType > ColumnIndexesVector;
-   typedef TNL::Matrices::Matrix< Real, Device, Index > BaseType;
+   typedef Matrix< Real, Device, Index > BaseType;
    typedef SparseRow< RealType, IndexType > MatrixRow;
    typedef SparseRow< const RealType, const IndexType > ConstMatrixRow;
 

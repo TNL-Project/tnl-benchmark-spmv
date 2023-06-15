@@ -21,7 +21,7 @@ template< typename Real,
              typename Index2 >
 void Sparse< Real, Device, Index >::setLike( const Sparse< Real2, Device2, Index2 >& matrix )
 {
-   TNL::Matrices::Matrix< Real, Device, Index >::setLike( matrix );
+   Matrix< Real, Device, Index >::setLike( matrix );
    this->allocateMatrixElements( matrix.getAllocatedElementsCount() );
 }
 
@@ -63,7 +63,7 @@ template< typename Real,
           typename Index >
 void Sparse< Real, Device, Index >::reset()
 {
-   TNL::Matrices::Matrix< Real, Device, Index >::reset();
+   Matrix< Real, Device, Index >::reset();
    this->columnIndexes.reset();
 }
 
@@ -72,7 +72,7 @@ template< typename Real,
           typename Index >
 void Sparse< Real, Device, Index >::save( File& file ) const
 {
-   TNL::Matrices::Matrix< Real, Device, Index >::save( file );
+   Matrix< Real, Device, Index >::save( file );
    file << this->values << this->columnIndexes;
 }
 
@@ -81,7 +81,7 @@ template< typename Real,
           typename Index >
 void Sparse< Real, Device, Index >::load( File& file )
 {
-   TNL::Matrices::Matrix< Real, Device, Index >::load( file );
+   Matrix< Real, Device, Index >::load( file );
    file >> this->values >> this->columnIndexes;
 }
 
