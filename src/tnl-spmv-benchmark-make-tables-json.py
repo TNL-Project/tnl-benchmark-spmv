@@ -476,6 +476,7 @@ def effective_bw_profile( df, formats, head_size=10 ):
       for f in formats:
          if not f in ['cusparse','CSR',format]:
             copy_df.drop( labels=f, axis='columns', level=0, inplace=True )
+      copy_df.sort_index( inplace=True )
       copy_df.to_html( f"BW-profile/{format}.html" )
 
    # Draw ellpack formats profiles
@@ -530,6 +531,7 @@ def cusparse_comparison( df, formats, head_size=10 ):
                 for f in formats:
                     if not f in ['cusparse','CSR',format]:
                         copy_df.drop( labels=f, axis='columns', level=0, inplace=True )
+                copy_df.sort_index( inplace=True )
                 copy_df.to_html( f"Cusparse-bw/{format}.html" )
 
 ####
@@ -567,6 +569,7 @@ def csr_comparison( df, formats, head_size=10 ):
             for f in formats:
                if not f in ['cusparse','CSR',format]:
                   copy_df.drop( labels=f, axis='columns', level=0, inplace=True )
+            copy_df.sort_index( inplace=True )
             copy_df.to_html( f"CSR-bw/{format}-{device}.html" )
 
 ####
@@ -608,6 +611,7 @@ def legacy_formats_comparison( df, formats, head_size=10 ):
          for f in formats:
             if not f in ['cusparse','CSR',format]:
                copy_df.drop( labels=f, axis='columns', level=0, inplace=True )
+         copy_df.sort_index( inplace=True )
          copy_df.to_html( f"Legacy-bw/{format}.html" )
 
 ####
@@ -656,6 +660,7 @@ def csr_speedup_comparison( df, formats, head_size=10 ):
             for f in formats:
                if not f in ['cusparse','CSR',format]:
                   copy_df.drop( labels=f, axis='columns', level=0, inplace=True )
+            copy_df.sort_index( inplace=True )
             copy_df.to_html( f"CSR-speed-up/{format}-{device}.html" )
 
 
@@ -702,6 +707,7 @@ def cusparse_and_hypre_speedup_comparison( df, formats, head_size=10 ):
                 for f in formats:
                     if not f in ['cusparse','CSR',format,'Hypre']:
                         copy_df.drop( labels=f, axis='columns', level=0, inplace=True )
+                copy_df.sort_index( inplace=True )
                 copy_df.to_html( f"{comparison}-speed-up/{format}.html" )
 
         # Draw Ellpack formats profiles
@@ -819,6 +825,7 @@ def binary_matrices_comparison( df, formats, head_size = 10 ):
                #print( f"Droping {f}..." )
                #head_df.drop( labels=f, axis='columns', level=0, inplace=True )
                copy_df.drop( labels=f, axis='columns', level=0, inplace=True )
+         copy_df.sort_index( inplace=True )
          #head_df.to_html( f"Binary-speed-up/{format}-head.html" )
          copy_df.to_html( f"Binary-speed-up/{format}.html" )
 
@@ -902,6 +909,7 @@ def symmetric_matrices_comparison( df, formats, head_size = 10 ):
                #print( f"Droping {f}..." )
                #head_df.drop( labels=f, axis='columns', level=0, inplace=True )
                copy_df.drop( labels=f, axis='columns', level=0, inplace=True )
+         copy_df.sort_index( inplace=True )
          #head_df.to_html( f"Symmetric-speed-up/{format}-head.html" )
          copy_df.sort_values(by=[(format,'GPU','speed-up','non-symmetric')],inplace=True,ascending=False)
          copy_df.to_html( f"Symmetric-speed-up/{format}.html" )
@@ -958,6 +966,7 @@ def csr_light_speedup_comparison( df, head_size=10 ):
                 #print( f"Droping {f}..." )
                 #head_df.drop( labels=f, axis='columns', level=0, inplace=True )
                 copy_df.drop( labels=f, axis='columns', level=0, inplace=True )
+        copy_df.sort_index( inplace=True )
         #head_df.to_html( f"LightSpMV-speed-up-head.html" )
         copy_df.to_html( f"LightSpMV-speed-up-bottom.html" )
 
@@ -1029,6 +1038,7 @@ def analyze_light_csr( df, formats ):
    for f in formats:
       if not f in ['CSR Light Best']:
          sort_df.drop( labels=f, axis='columns', level=0, inplace=True )
+   sort_df.sort_index( inplace=True )
    sort_df.to_html( f"LightSpMV-Threads-per-row-best.html" )
    size = len(sort_df[('nonzeros per row', '','','')].index)
    t = np.arange( size )
@@ -1053,6 +1063,7 @@ def analyze_light_csr( df, formats ):
       for format in formats_list:
          sort_df.drop( labels=format, axis='columns', level=0, inplace=True )
          profiles[format] = df[(format,'GPU','bandwidth','')].copy()
+      sort_df.sort_index( inplace=True )
       sort_df.to_html( f"LightSpMV-Threads-per-row.html" )
       draw_profiles( formats_list, profiles, 'non-zeros per row', 'BW', "nonzeros-bw.pdf", 'lower right', "none" )
 
@@ -1200,6 +1211,7 @@ def write_performance_circles( df, formats ):
 # Make data analysis
 def processDf( df, formats, head_size = 10 ):
    print( "Writting to HTML file..." )
+   df.sort_index( inplace=True )
    df.to_html( f'output.html' )
 
    # Generate tables and figures
@@ -1294,6 +1306,7 @@ compute_speedup( result, formats, threads_num_list )
 result.replace( to_replace=' ',value=np.nan,inplace=True)
 
 print( "Writting to file sparse-matrix-benchmark-test-processed.html ... ")
+result.sort_index( inplace=True )
 result.to_html( "sparse-matrix-benchmark-test-processed.html")
 
 
