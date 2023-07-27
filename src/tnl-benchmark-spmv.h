@@ -77,16 +77,6 @@ main( int argc, char* argv[] )
 
    setupConfig( conf_desc );
 
-   // FIXME: When ./tnl-benchmark-spmv-dbg is called without parameters:
-   //           * The guide on what parameters to use prints twice.
-   // FIXME: When ./tnl-benchmark-spmv-dbg is called with '--help':
-   //           * The guide on what parameter to use print once.
-   //              But then it CRASHES due to segfault:
-   //              The program attempts to get unknown parameter openmp-enabled
-   //              Aborting the program.
-   //              terminate called after throwing an instance of 'int'
-   //      [1]    17156 abort (core dumped)  ~/tnl-dev/Debug/bin/./tnl-benchmark-spmv-dbg --help
-
    if( ! parseCommandLine( argc, argv, conf_desc, parameters ) )
       return EXIT_FAILURE;
 
