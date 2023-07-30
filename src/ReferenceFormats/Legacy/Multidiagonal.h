@@ -29,9 +29,9 @@ public:
    typedef Real RealType;
    typedef Device DeviceType;
    typedef Index IndexType;
-   using RowsCapacitiesType = typename Sparse< RealType, DeviceType, IndexType >::RowsCapacitiesType;
-   using RowsCapacitiesTypeView = typename Sparse< RealType, DeviceType, IndexType >::RowsCapacitiesView;
-   using ConstRowsCapacitiesTypeView typename Sparse< RealType, DeviceType, IndexType >::ConstRowCapacitiesView;
+   using RowCapacitiesType = typename Sparse< RealType, DeviceType, IndexType >::RowCapacitiesType;
+   using RowCapacitiesTypeView = typename Sparse< RealType, DeviceType, IndexType >::RowCapacitiesView;
+   using ConstRowCapacitiesTypeView typename Sparse< RealType, DeviceType, IndexType >::ConstRowCapacitiesView;
    typedef Matrix< Real, Device, Index > BaseType;
    typedef MultidiagonalRow< Real, Index > MatrixRow;
 
@@ -51,9 +51,9 @@ public:
    void setDimensions( const IndexType rows,
                        const IndexType columns ) override;
 
-   void setCompressedRowLengths( ConstRowsCapacitiesTypeView rowLengths );
+   void setCompressedRowLengths( ConstRowCapacitiesTypeView rowLengths );
 
-   void setRowCapacities( ConstRowsCapacitiesTypeView rowLengths );
+   void setRowCapacities( ConstRowCapacitiesTypeView rowLengths );
 
    IndexType getRowLength( const IndexType row ) const;
 

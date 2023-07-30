@@ -109,9 +109,9 @@ public:
     typedef Real RealType;
     typedef Device DeviceType;
     typedef Index IndexType;
-    typedef typename Sparse< RealType, DeviceType, IndexType >::RowsCapacitiesType RowsCapacitiesType;
-    typedef typename Sparse< RealType, DeviceType, IndexType >::ConstRowsCapacitiesTypeView ConstRowsCapacitiesTypeView;
-    typedef typename Sparse< RealType, DeviceType, IndexType >::RowsCapacitiesTypeView RowsCapacitiesTypeView;
+    typedef typename Sparse< RealType, DeviceType, IndexType >::RowCapacitiesType RowCapacitiesType;
+    typedef typename Sparse< RealType, DeviceType, IndexType >::ConstRowCapacitiesTypeView ConstRowCapacitiesTypeView;
+    typedef typename Sparse< RealType, DeviceType, IndexType >::RowCapacitiesTypeView RowCapacitiesTypeView;
 
     template< typename _Real = Real,
               typename _Device = Device,
@@ -122,11 +122,11 @@ public:
 
     AdEllpack();
 
-    void setCompressedRowLengths( ConstRowsCapacitiesTypeView rowLengths );
+    void setCompressedRowLengths( ConstRowCapacitiesTypeView rowLengths );
 
-    void setRowCapacities( ConstRowsCapacitiesTypeView rowLengths );
+    void setRowCapacities( ConstRowCapacitiesTypeView rowLengths );
 
-    void getCompressedRowLengths( RowsCapacitiesTypeView rowLengths ) const;
+    void getCompressedRowLengths( RowCapacitiesTypeView rowLengths ) const;
 
     IndexType getWarp( const IndexType row ) const;
 
@@ -202,7 +202,7 @@ public:
     void print( std::ostream& str ) const override;
 
     bool balanceLoad( const RealType average,
-                      ConstRowsCapacitiesTypeView rowLengths,
+                      ConstRowCapacitiesTypeView rowLengths,
                       warpList< AdEllpack >* list );
 
     void computeWarps( const IndexType SMs,
@@ -213,7 +213,7 @@ public:
 
     void performRowTest();
 
-    void performRowLengthsTest( ConstRowsCapacitiesTypeView rowLengths );
+    void performRowLengthsTest( ConstRowCapacitiesTypeView rowLengths );
 
     IndexType getTotalLoad() const;
 

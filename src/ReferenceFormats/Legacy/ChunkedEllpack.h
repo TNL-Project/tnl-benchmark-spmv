@@ -62,9 +62,9 @@ public:
    typedef Device DeviceType;
    typedef Index IndexType;
    typedef tnlChunkedEllpackSliceInfo< IndexType > ChunkedEllpackSliceInfo;
-   using RowsCapacitiesType = typename Sparse< RealType, DeviceType, IndexType >::RowsCapacitiesType;
-   using RowsCapacitiesTypeView = typename Sparse< RealType, DeviceType, IndexType >::RowsCapacitiesView;
-   using ConstRowsCapacitiesTypeView = typename Sparse< RealType, DeviceType, IndexType >::ConstRowsCapacitiesView;
+   using RowCapacitiesType = typename Sparse< RealType, DeviceType, IndexType >::RowCapacitiesType;
+   using RowCapacitiesTypeView = typename Sparse< RealType, DeviceType, IndexType >::RowCapacitiesView;
+   using ConstRowCapacitiesTypeView = typename Sparse< RealType, DeviceType, IndexType >::ConstRowCapacitiesView;
    typedef typename Sparse< RealType, DeviceType, IndexType >::ValuesVector ValuesVector;
    typedef typename Sparse< RealType, DeviceType, IndexType >::ColumnIndexesVector ColumnIndexesVector;
    typedef ChunkedEllpack< Real, Device, Index > ThisType;
@@ -90,9 +90,9 @@ public:
    void setDimensions( const IndexType rows,
                        const IndexType columns ) override;
 
-   void setCompressedRowLengths( ConstRowsCapacitiesTypeView rowLengths );
+   void setCompressedRowLengths( ConstRowCapacitiesTypeView rowLengths );
 
-   void setRowCapacities( ConstRowsCapacitiesTypeView rowLengths );
+   void setRowCapacities( ConstRowCapacitiesTypeView rowLengths );
 
    IndexType getRowLength( const IndexType row ) const;
 
@@ -244,9 +244,9 @@ public:
 
 protected:
 
-   void resolveSliceSizes( ConstRowsCapacitiesTypeView rowLengths );
+   void resolveSliceSizes( ConstRowCapacitiesTypeView rowLengths );
 
-   bool setSlice( ConstRowsCapacitiesTypeView rowLengths,
+   bool setSlice( ConstRowCapacitiesTypeView rowLengths,
                   const IndexType sliceIdx,
                   IndexType& elementsToAllocation );
 

@@ -56,7 +56,7 @@ template< typename Real,
           typename Device,
           typename Index,
           int SliceSize >
-void SlicedEllpack< Real, Device, Index, SliceSize >::setCompressedRowLengths( ConstRowsCapacitiesTypeView rowLengths )
+void SlicedEllpack< Real, Device, Index, SliceSize >::setCompressedRowLengths( ConstRowCapacitiesTypeView rowLengths )
 {
    TNL_ASSERT_GT( this->getRows(), 0, "cannot set row lengths of an empty matrix" );
    TNL_ASSERT_GT( this->getColumns(), 0, "cannot set row lengths of an empty matrix" );
@@ -78,7 +78,7 @@ template< typename Real,
           typename Device,
           typename Index,
           int SliceSize >
-void SlicedEllpack< Real, Device, Index, SliceSize >::setRowCapacities( ConstRowsCapacitiesTypeView rowLengths )
+void SlicedEllpack< Real, Device, Index, SliceSize >::setRowCapacities( ConstRowCapacitiesTypeView rowLengths )
 {
    setCompressedRowLengths( rowLengths );
 }
@@ -87,7 +87,7 @@ template< typename Real,
           typename Device,
           typename Index,
           int SliceSize >
-void SlicedEllpack< Real, Device, Index, SliceSize >::getCompressedRowLengths( RowsCapacitiesTypeView rowLengths ) const
+void SlicedEllpack< Real, Device, Index, SliceSize >::getCompressedRowLengths( RowCapacitiesTypeView rowLengths ) const
 {
    TNL_ASSERT_EQ( rowLengths.getSize(), this->getRows(), "invalid size of the rowLengths vector" );
    for( IndexType row = 0; row < this->getRows(); row++ )
@@ -719,7 +719,7 @@ template< typename Real,
           typename Device,
           typename Index,
           int SliceSize >
-__device__ void SlicedEllpack< Real, Device, Index, SliceSize >::computeMaximalRowLengthInSlicesCuda( ConstRowsCapacitiesTypeView rowLengths,
+__device__ void SlicedEllpack< Real, Device, Index, SliceSize >::computeMaximalRowLengthInSlicesCuda( ConstRowCapacitiesTypeView rowLengths,
                                                                                                       const IndexType sliceIdx )
 {
    Index rowIdx = sliceIdx * SliceSize;
@@ -791,7 +791,7 @@ class SlicedEllpackDeviceDependentCode
                 typename Index,
                 int SliceSize >
       static bool computeMaximalRowLengthInSlices( SlicedEllpack< Real, Device, Index, SliceSize >& matrix,
-                                                   typename SlicedEllpack< Real, Device, Index >::ConstRowsCapacitiesTypeView rowLengths )
+                                                   typename SlicedEllpack< Real, Device, Index >::ConstRowCapacitiesTypeView rowLengths )
       {
          Index row( 0 ), slice( 0 ), sliceRowLength( 0 );
          while( row < matrix.getRows() )
@@ -837,7 +837,7 @@ template< typename Real,
           typename Index,
           int SliceSize >
 __global__ void SlicedEllpack_computeMaximalRowLengthInSlices_CudaKernel( SlicedEllpack< Real, Devices::Cuda, Index, SliceSize >* matrix,
-                                                                          typename SlicedEllpack< Real, Devices::Cuda, Index, SliceSize >::ConstRowsCapacitiesTypeView rowLengths,
+                                                                          typename SlicedEllpack< Real, Devices::Cuda, Index, SliceSize >::ConstRowCapacitiesTypeView rowLengths,
                                                                           int gridIdx )
 {
    const Index sliceIdx = gridIdx * Cuda::getMaxGridXSize() * blockDim.x + blockIdx.x * blockDim.x + threadIdx.x;
@@ -934,7 +934,7 @@ class SlicedEllpackDeviceDependentCode< Devices::Cuda >
                 typename Index,
                 int SliceSize >
       static bool computeMaximalRowLengthInSlices( SlicedEllpack< Real, Device, Index, SliceSize >& matrix,
-                                                   typename SlicedEllpack< Real, Device, Index >::ConstRowsCapacitiesTypeView rowLengths )
+                                                   typename SlicedEllpack< Real, Device, Index >::ConstRowCapacitiesTypeView rowLengths )
       {
 #ifdef __CUDACC__
          typedef SlicedEllpack< Real, Device, Index, SliceSize > Matrix;

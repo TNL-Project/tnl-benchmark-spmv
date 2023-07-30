@@ -63,7 +63,7 @@ void Multidiagonal< Real, Device, Index >::setDimensions( const IndexType rows,
 template< typename Real,
           typename Device,
           typename Index >
-void Multidiagonal< Real, Device, Index >::setCompressedRowLengths( ConstRowsCapacitiesTypeView rowLengths )
+void Multidiagonal< Real, Device, Index >::setCompressedRowLengths( ConstRowCapacitiesTypeView rowLengths )
 {
    /****
     * TODO: implement some check here similar to the one in the tridiagonal matrix
@@ -73,7 +73,7 @@ void Multidiagonal< Real, Device, Index >::setCompressedRowLengths( ConstRowsCap
 template< typename Real,
           typename Device,
           typename Index >
-void Multidiagonal< Real, Device, Index >::setRowCapacities( ConstRowsCapacitiesTypeView rowLengths )
+void Multidiagonal< Real, Device, Index >::setRowCapacities( ConstRowCapacitiesTypeView rowLengths )
 {
    setCompressedRowLengths( rowLengths );
 }

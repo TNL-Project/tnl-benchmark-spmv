@@ -30,7 +30,7 @@ template< typename Real,
           typename Index,
           int SliceSize >
 __global__ void SlicedEllpack_computeMaximalRowLengthInSlices_CudaKernel( SlicedEllpack< Real, Devices::Cuda, Index, SliceSize >* matrix,
-                                                                          typename SlicedEllpack< Real, Devices::Cuda, Index, SliceSize >::ConstRowsCapacitiesTypeView rowLengths,
+                                                                          typename SlicedEllpack< Real, Devices::Cuda, Index, SliceSize >::ConstRowCapacitiesTypeView rowLengths,
                                                                           int gridIdx );
 #endif
 
@@ -53,9 +53,9 @@ public:
    typedef Real RealType;
    typedef Device DeviceType;
    typedef Index IndexType;
-   using RowsCapacitiesType = typename Sparse< RealType, DeviceType, IndexType >::RowsCapacitiesType;
-   using RowsCapacitiesTypeView = typename Sparse< RealType, DeviceType, IndexType >::RowsCapacitiesView;
-   using ConstRowsCapacitiesTypeView = typename Sparse< RealType, DeviceType, IndexType >::ConstRowsCapacitiesView;
+   using RowCapacitiesType = typename Sparse< RealType, DeviceType, IndexType >::RowCapacitiesType;
+   using RowCapacitiesTypeView = typename Sparse< RealType, DeviceType, IndexType >::RowCapacitiesView;
+   using ConstRowCapacitiesTypeView = typename Sparse< RealType, DeviceType, IndexType >::ConstRowCapacitiesView;
    typedef typename Sparse< RealType, DeviceType, IndexType >::ValuesVector ValuesVector;
    typedef typename Sparse< RealType, DeviceType, IndexType >::ColumnIndexesVector ColumnIndexesVector;
    typedef Sparse< Real, Device, Index > BaseType;
@@ -79,11 +79,11 @@ public:
    void setDimensions( const IndexType rows,
                        const IndexType columns ) override;
 
-   void setCompressedRowLengths( ConstRowsCapacitiesTypeView rowLengths );
+   void setCompressedRowLengths( ConstRowCapacitiesTypeView rowLengths );
 
-   void setRowCapacities( ConstRowsCapacitiesTypeView rowLengths );
+   void setRowCapacities( ConstRowCapacitiesTypeView rowLengths );
 
-   void getCompressedRowLengths( RowsCapacitiesTypeView rowLengths ) const;
+   void getCompressedRowLengths( RowCapacitiesTypeView rowLengths ) const;
 
    IndexType getRowLength( const IndexType row ) const;
 
@@ -211,13 +211,13 @@ protected:
    friend class SlicedEllpackDeviceDependentCode< DeviceType >;
 #ifdef __CUDACC__
    /*friend __global__ void SlicedEllpack_computeMaximalRowLengthInSlices_CudaKernel< Real, Index, SliceSize >( SlicedEllpack< Real, Devices::Cuda, Index, SliceSize >* matrix,
-                                                                                      const typename SlicedEllpack< Real, Devices::Cuda, Index, SliceSize >::RowsCapacitiesType* rowLengths,
+                                                                                      const typename SlicedEllpack< Real, Devices::Cuda, Index, SliceSize >::RowCapacitiesType* rowLengths,
                                                                                       int gridIdx );
     */
    // TODO: The friend declaration above does not work because of __global__ storage specifier. Therefore we declare the following method as public. Fix this, when possible.
 
 public:
-   __device__ void computeMaximalRowLengthInSlicesCuda( ConstRowsCapacitiesTypeView rowLengths,
+   __device__ void computeMaximalRowLengthInSlicesCuda( ConstRowCapacitiesTypeView rowLengths,
                                                         const IndexType sliceIdx );
 #endif
 };

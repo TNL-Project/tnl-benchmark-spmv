@@ -30,9 +30,9 @@ class Matrix : public Object
 {
 public:
    using RealAllocatorType = RealAllocator;
-   using RowsCapacitiesType = Containers::Vector< Index, Device, Index >;
-   using RowsCapacitiesView = Containers::VectorView< Index, Device, Index >;
-   using ConstRowsCapacitiesView = typename RowsCapacitiesView::ConstViewType;
+   using RowCapacitiesType = Containers::Vector< Index, Device, Index >;
+   using RowCapacitiesView = Containers::VectorView< Index, Device, Index >;
+   using ConstRowCapacitiesView = typename RowCapacitiesView::ConstViewType;
 
    /**
     * \brief The type of matrix elements.

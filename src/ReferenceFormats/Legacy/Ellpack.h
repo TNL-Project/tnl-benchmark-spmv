@@ -24,9 +24,9 @@ public:
    typedef Real RealType;
    typedef Device DeviceType;
    typedef Index IndexType;
-   using RowsCapacitiesType = typename Sparse< RealType, DeviceType, IndexType >::RowsCapacitiesType;
-   using RowsCapacitiesTypeView = typename Sparse< RealType, DeviceType, IndexType >::RowsCapacitiesView;
-   using ConstRowsCapacitiesTypeView = typename Sparse< RealType, DeviceType, IndexType >::ConstRowsCapacitiesView;
+   using RowCapacitiesType = typename Sparse< RealType, DeviceType, IndexType >::RowCapacitiesType;
+   using RowCapacitiesTypeView = typename Sparse< RealType, DeviceType, IndexType >::RowCapacitiesView;
+   using ConstRowCapacitiesTypeView = typename Sparse< RealType, DeviceType, IndexType >::ConstRowCapacitiesView;
    typedef typename Sparse< RealType, DeviceType, IndexType >::ValuesVector ValuesVector;
    typedef typename Sparse< RealType, DeviceType, IndexType >::ColumnIndexesVector ColumnIndexesVector;
    typedef Sparse< Real, Device, Index > BaseType;
@@ -49,11 +49,11 @@ public:
    void setDimensions( const IndexType rows,
                        const IndexType columns ) override;
 
-   void setCompressedRowLengths( ConstRowsCapacitiesTypeView rowLengths );
+   void setCompressedRowLengths( ConstRowCapacitiesTypeView rowLengths );
 
-   void setRowCapacities( ConstRowsCapacitiesTypeView rowLengths );
+   void setRowCapacities( ConstRowCapacitiesTypeView rowLengths );
 
-   void getCompressedRowLengths( RowsCapacitiesTypeView rowLengths ) const;
+   void getCompressedRowLengths( RowCapacitiesTypeView rowLengths ) const;
 
    void setConstantCompressedRowLengths( const IndexType& rowLengths );
 

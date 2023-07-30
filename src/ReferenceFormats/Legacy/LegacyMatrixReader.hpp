@@ -35,7 +35,7 @@ void LegacyMatrixReader< Matrix >::readMtxFile( std::istream& file,
 template< typename Matrix >
 void LegacyMatrixReader< Matrix >::readMtxFileHostMatrix( std::istream& file,
                                                           Matrix& matrix,
-                                                          typename Matrix::RowsCapacitiesType& rowLengths,
+                                                          typename Matrix::RowCapacitiesType& rowLengths,
                                                           bool verbose,
                                                           bool symReader )
 {
@@ -360,7 +360,7 @@ class MatrixReaderDeviceDependentCode< Devices::Host >
                             bool verbose,
                             bool symReader )
    {
-      typename Matrix::RowsCapacitiesType rowLengths;
+      typename Matrix::RowCapacitiesType rowLengths;
       LegacyMatrixReader< Matrix >::readMtxFileHostMatrix( file, matrix, rowLengths, verbose, symReader );
    }
 };
@@ -377,10 +377,10 @@ class MatrixReaderDeviceDependentCode< Devices::Cuda >
                             bool symReader )
    {
       using HostMatrixType = typename Matrix::template Self< typename Matrix::RealType, Devices::Sequential >;
-      using RowsCapacitiesType = typename HostMatrixType::RowsCapacitiesType;
+      using RowCapacitiesType = typename HostMatrixType::RowCapacitiesType;
 
       HostMatrixType hostMatrix;
-      RowsCapacitiesType rowLengths;
+      RowCapacitiesType rowLengths;
       LegacyMatrixReader< Matrix >::readMtxFileHostMatrix( file, matrix, rowLengths, verbose, symReader );
    }
 };

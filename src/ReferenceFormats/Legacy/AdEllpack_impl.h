@@ -157,7 +157,7 @@ template< typename Real,
           typename Index >
 void
 AdEllpack< Real, Device, Index >::
-setCompressedRowLengths( ConstRowsCapacitiesTypeView rowLengths )
+setCompressedRowLengths( ConstRowCapacitiesTypeView rowLengths )
 {
 
     TNL_ASSERT( this->getRows() > 0, );
@@ -215,7 +215,7 @@ template< typename Real,
           typename Index >
 void
 AdEllpack< Real, Device, Index >::
-setRowCapacities( ConstRowsCapacitiesTypeView rowLengths )
+setRowCapacities( ConstRowCapacitiesTypeView rowLengths )
 {
    setCompressedRowLengths( rowLengths );
 }
@@ -223,7 +223,7 @@ setRowCapacities( ConstRowsCapacitiesTypeView rowLengths )
 template< typename Real,
           typename Device,
           typename Index >
-void AdEllpack< Real, Device, Index >::getCompressedRowLengths( RowsCapacitiesTypeView rowLengths ) const
+void AdEllpack< Real, Device, Index >::getCompressedRowLengths( RowCapacitiesTypeView rowLengths ) const
 {
    TNL_ASSERT_EQ( rowLengths.getSize(), this->getRows(), "invalid size of the rowLengths vector" );
    for( IndexType row = 0; row < this->getRows(); row++ )
@@ -241,7 +241,7 @@ Index AdEllpack< Real, Device, Index >::getTotalLoad() const
 template< typename Real,
           typename Device,
           typename Index >
-void AdEllpack< Real, Device, Index >::performRowLengthsTest( ConstRowsCapacitiesTypeView rowLengths )
+void AdEllpack< Real, Device, Index >::performRowLengthsTest( ConstRowCapacitiesTypeView rowLengths )
 {
     bool found = false;
     for( IndexType row = 0; row < this->getRows(); row++ )
@@ -753,7 +753,7 @@ template< typename Real,
           typename Device,
           typename Index >
 bool AdEllpack< Real, Device, Index >::balanceLoad( const RealType average,
-                                                    ConstRowsCapacitiesTypeView rowLengths,
+                                                    ConstRowCapacitiesTypeView rowLengths,
                                                     warpList< AdEllpack >* list )
 {
     IndexType offset, rowOffset, localLoad, reduceMap[ 32 ];

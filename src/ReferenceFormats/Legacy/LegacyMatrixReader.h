@@ -35,7 +35,7 @@ class LegacyMatrixReader
 
    static void readMtxFileHostMatrix( std::istream& file,
                                       Matrix& matrix,
-                                      typename Matrix::RowsCapacitiesType& rowLengths,
+                                      typename Matrix::RowCapacitiesType& rowLengths,
                                       bool verbose,
                                       bool symReader );
 

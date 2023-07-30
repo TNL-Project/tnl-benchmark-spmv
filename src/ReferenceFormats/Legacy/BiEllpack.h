@@ -34,9 +34,9 @@ public:
 	typedef Real RealType;
 	typedef Device DeviceType;
 	typedef Index IndexType;
-   using RowsCapacitiesType = typename Sparse< RealType, DeviceType, IndexType >::RowsCapacitiesType;
-   using RowsCapacitiesTypeView = typename Sparse< RealType, DeviceType, IndexType >::RowsCapacitiesView;
-   using ConstRowsCapacitiesTypeView = typename Sparse< RealType, DeviceType, IndexType >::ConstRowsCapacitiesView;
+   using RowCapacitiesType = typename Sparse< RealType, DeviceType, IndexType >::RowCapacitiesType;
+   using RowCapacitiesTypeView = typename Sparse< RealType, DeviceType, IndexType >::RowCapacitiesView;
+   using ConstRowCapacitiesTypeView = typename Sparse< RealType, DeviceType, IndexType >::ConstRowCapacitiesView;
 	typedef typename Sparse< RealType, DeviceType, IndexType >::ValuesVector ValuesVector;
 	typedef typename Sparse< RealType, DeviceType, IndexType >::ColumnIndexesVector ColumnIndexesVector;
 
@@ -52,11 +52,11 @@ public:
 	void setDimensions( const IndexType rows,
 	                    const IndexType columns ) override;
 
-   void setCompressedRowLengths( ConstRowsCapacitiesTypeView rowLengths );
+   void setCompressedRowLengths( ConstRowCapacitiesTypeView rowLengths );
 
-   void setRowCapacities( ConstRowsCapacitiesTypeView rowLengths );
+   void setRowCapacities( ConstRowCapacitiesTypeView rowLengths );
 
-   void getCompressedRowLengths( RowsCapacitiesTypeView rowLengths ) const;
+   void getCompressedRowLengths( RowCapacitiesTypeView rowLengths ) const;
 
 	IndexType getRowLength( const IndexType row ) const;
 
@@ -73,7 +73,7 @@ public:
         template< typename Real2, typename Device2, typename Index2 >
         bool operator != ( const BiEllpack< Real2, Device2, Index2 >& matrix ) const;
 
-	void getRowLengths( RowsCapacitiesType& rowLengths ) const;
+	void getRowLengths( RowCapacitiesType& rowLengths ) const;
 
 	bool setElement( const IndexType row,
 					 const IndexType column,
@@ -162,7 +162,7 @@ public:
 	void performRowBubbleSort( Containers::Vector< Index, Device, Index >& tempRowLengths );
 	void computeColumnSizes( Containers::Vector< Index, Device, Index >& tempRowLengths );
 
-//	void verifyRowLengths( const typename BiEllpack< Real, Device, Index >::RowsCapacitiesType& rowLengths );
+//	void verifyRowLengths( const typename BiEllpack< Real, Device, Index >::RowCapacitiesType& rowLengths );
 
 	template< typename InVector,
 			  typename OutVector >
@@ -179,11 +179,11 @@ public:
 	IndexType getStripLength( const IndexType strip ) const;
 
    __cuda_callable__
-	void performRowBubbleSortCudaKernel( const typename BiEllpack< Real, Device, Index >::RowsCapacitiesType& rowLengths,
+	void performRowBubbleSortCudaKernel( const typename BiEllpack< Real, Device, Index >::RowCapacitiesType& rowLengths,
 										 const IndexType strip );
 
    __cuda_callable__
-	void computeColumnSizesCudaKernel( const typename BiEllpack< Real, Device, Index >::RowsCapacitiesType& rowLengths,
+	void computeColumnSizesCudaKernel( const typename BiEllpack< Real, Device, Index >::RowCapacitiesType& rowLengths,
 									   const IndexType numberOfStrips,
 									   const IndexType strip );
 
