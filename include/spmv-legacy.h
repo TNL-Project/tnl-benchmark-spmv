@@ -6,14 +6,14 @@
 #include <TNL/Benchmarks/JsonLogging.h>
 #include "SpmvBenchmarkResult.h"
 
-#include "ReferenceFormats/Legacy/MatrixInfo.h"
-#include "ReferenceFormats/Legacy/CSR.h"
-#include "ReferenceFormats/Legacy/Ellpack.h"
-#include "ReferenceFormats/Legacy/SlicedEllpack.h"
-#include "ReferenceFormats/Legacy/ChunkedEllpack.h"
-#include "ReferenceFormats/Legacy/AdEllpack.h"
-#include "ReferenceFormats/Legacy/BiEllpack.h"
-#include "ReferenceFormats/Legacy/LegacyMatrixReader.h"
+#include "Legacy/MatrixInfo.h"
+#include "Legacy/CSR.h"
+#include "Legacy/Ellpack.h"
+#include "Legacy/SlicedEllpack.h"
+#include "Legacy/ChunkedEllpack.h"
+#include "Legacy/AdEllpack.h"
+#include "Legacy/BiEllpack.h"
+#include "Legacy/LegacyMatrixReader.h"
 
 #include <TNL/Algorithms/sort.h>
 

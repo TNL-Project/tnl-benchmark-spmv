@@ -23,9 +23,9 @@
 #include <TNL/Matrices/HypreCSRMatrix.h>
 #endif
 
-#include "ReferenceFormats/cusparseCSRMatrix.h"
-#include "ReferenceFormats/LightSpMVBenchmark.h"
-#include "ReferenceFormats/CSR5Benchmark.h"
+#include "cusparseCSRMatrix.h"
+#include "LightSpMVBenchmark.h"
+#include "CSR5Benchmark.h"
 
 namespace TNL::Benchmarks::SpMV {
 

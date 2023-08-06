@@ -4,7 +4,7 @@
 
 #include <stdexcept>
 #ifdef __CUDACC__
-#include "LightSpMV-1.0/SpMV.h"
+#include "../src/LightSpMV-1.0/SpMV.h"
 #endif
 #include <TNL/Matrices/SparseMatrix.h>
 

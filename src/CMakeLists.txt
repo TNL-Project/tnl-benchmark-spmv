@@ -28,7 +28,7 @@ if( TNL_BUILD_CUDA )
    add_executable( tnl-benchmark-spmv-legacy tnl-benchmark-spmv-legacy.cu )
    target_link_libraries( tnl-benchmark-spmv-legacy PUBLIC TNL::TNL_CUDA )
 
-   add_executable( tnl-benchmark-spmv-reference tnl-benchmark-spmv-reference.cu ReferenceFormats/LightSpMV-1.0/SpMV.cu ReferenceFormats/LightSpMV-1.0/SpMVCSR.cu )
+   add_executable( tnl-benchmark-spmv-reference tnl-benchmark-spmv-reference.cu LightSpMV-1.0/SpMV.cu LightSpMV-1.0/SpMVCSR.cu )
    target_link_libraries( tnl-benchmark-spmv-reference PUBLIC TNL::TNL_CUDA )
    find_package( CUDAToolkit REQUIRED )
    target_link_libraries( tnl-benchmark-spmv-reference PUBLIC CUDA::cusparse )
