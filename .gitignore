@@ -1,0 +1,5 @@
+# build directory
+/build
+
+# VSCode cache
+/.cache
