@@ -3,3 +3,11 @@
 
 # VSCode cache
 /.cache
+
+# output files
+*.log
+*.json
+*.html
+
+# directory (or symlink to directory) with sparse matrices
+mtx_matrices
