@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+
+# exit as soon as there is an error
+set -o errexit
+# abort when an unset variable is used
+set -o nounset
+# enable recursive globbing
+shopt -s globstar
+
+# get the path of directory where this script is located
+THIS_DIR="$( builtin cd -P "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
+# project directory
+PROJECT_DIR="$( realpath "$THIS_DIR/..")"
+
+# directory where the binaries are built
+BIN_DIR="$PROJECT_DIR/build/src"
+
+# select the benchmark to run
+BENCHMARK="$BIN_DIR/tnl-benchmark-spmv"
+#BENCHMARK="$BIN_DIR/tnl-benchmark-spmv-cuda"
+#BENCHMARK="$BIN_DIR/tnl-benchmark-spmv-legacy"
+#BENCHMARK="$BIN_DIR/tnl-benchmark-spmv-legacy-cuda"
+#BENCHMARK="$BIN_DIR/tnl-benchmark-spmv-reference"
+#BENCHMARK="$BIN_DIR/tnl-benchmark-spmv-reference-cuda"
+
+DEBUG="no"
+#MAX_OMP_THREADS="1"
+OMP_ENABLED="yes"
+
+matrices_base_path="./mtx_matrices"
+log_file="./log-files/sparse-matrix-benchmark.log"
+
+if [[ ! -d "$matrices_base_path" ]]; then
+    echo "The path '$matrices_base_path' does not exist." >&2
+    exit 1
+fi
+
+if [[ ! -d "$(dirname "$log_file")" ]]; then
+    mkdir -p "$(dirname "$log_file")"
+fi
+
+if [[ -f "$log_file" ]]; then
+    echo "WARNING: deleting an existing log file $log_file"
+    rm -f "$log_file"
+fi
+
+# set the default number of OpenMP threads to the number of CPU cores
+if [[ -z ${MAX_OMP_THREADS:-} ]]; then
+    if [[ $(command -v lscpu) ]]; then
+        # get the number of physical cores present on the system, even with multiple NUMA nodes
+        # see https://unix.stackexchange.com/a/279354
+        MAX_OMP_THREADS=$(lscpu --all --parse=CORE,SOCKET | grep -Ev "^#" | sort -u | wc -l)
+    elif [[ $(command -v sysctl) && $OSTYPE == 'darwin'* ]]; then
+        # get the number of physical cores present on the system for MacOS
+        MAX_OMP_THREADS=$(sysctl -n hw.ncpu)
+    fi
+fi
+
+# set parameters for the benchmark
+COMMAND=("$BENCHMARK" --precision double --log-file "$log_file" --output-mode append --verbose 1)
+
+if [[ "$OMP_ENABLED" == "yes" ]]; then
+    COMMAND+=(--openmp-enabled yes)
+    if [[ $MAX_OMP_THREADS != "" ]]; then
+        COMMAND+=(--openmp-max-threads $MAX_OMP_THREADS)
+    fi
+else
+    COMMAND+=(--openmp-enabled no)
+fi
+
+for matrix in "$matrices_base_path"/**/*.mtx; do
+    if [[ "$DEBUG" == "yes" ]]; then
+        gdb --args "${COMMAND[@]}" --input-file "$matrix"
+    else
+        "${COMMAND[@]}" --input-file "$matrix"
+    fi
+done
