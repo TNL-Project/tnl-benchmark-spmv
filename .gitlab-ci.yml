@@ -1,5 +1,8 @@
 default:
   image: "archlinux/devel-tnl:latest"
+  tags:
+    - docker
+    - nvidia
   before_script:
     # make sure that $PATH and other essential variables are set correctly
     - source /etc/profile
