@@ -3,6 +3,10 @@ default:
   before_script:
     # make sure that $PATH and other essential variables are set correctly
     - source /etc/profile
+    # configure parallelization for tests
+    - export CTEST_OUTPUT_ON_FAILURE=1
+    - export CTEST_PARALLEL_LEVEL=4
+    - export OMP_NUM_THREADS=4
 
 # automatically initialize git submodules
 # https://docs.gitlab.com/ee/ci/git_submodules.html
@@ -17,9 +21,11 @@ build_Release:
   script:
     - cmake -B build -S . -G Ninja -DCMAKE_BUILD_TYPE=Release
     - cmake --build build
+    - cmake --build build --target test
 
 build_Debug:
   stage: build
   script:
     - cmake -B build -S . -G Ninja -DCMAKE_BUILD_TYPE=Debug
     - cmake --build build
+    - cmake --build build --target test

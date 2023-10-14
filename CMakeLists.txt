@@ -2,10 +2,14 @@ cmake_minimum_required(VERSION 3.24)
 
 # Set CUDA architectures for which the executables will be compiled.
 # See https://cmake.org/cmake/help/latest/prop_tgt/CUDA_ARCHITECTURES.html
-if( NOT DEFINED CMAKE_CUDA_ARCHITECTURES )
+if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
     # NOTE: "all" and "all-major" are available since CMake 3.23, "native" is available since CMake 3.24
     set(CMAKE_CUDA_ARCHITECTURES "native")
 endif()
+
+# set cmake's include path so that we can include modules from
+# the cmake directory in the TNL repository
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 project(tnl-benchmark-spmv
     LANGUAGES CXX CUDA
@@ -63,3 +67,5 @@ endif()
 
 # Add subdirectories with source
 add_subdirectory(src)
+enable_testing()  # this must be in the top-level CMakeLists.txt
+add_subdirectory(tests)
