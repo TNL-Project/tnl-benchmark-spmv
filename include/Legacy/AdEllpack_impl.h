@@ -160,8 +160,8 @@ AdEllpack< Real, Device, Index >::
 setCompressedRowLengths( ConstRowCapacitiesTypeView rowLengths )
 {
 
-    TNL_ASSERT( this->getRows() > 0, );
-    TNL_ASSERT( this->getColumns() > 0, );
+    TNL_ASSERT_GT( this->getRows(), 0, "" );
+    TNL_ASSERT_GT( this->getColumns(), 0, "" );
 
     if( std::is_same< DeviceType, Devices::Host >::value )
     {
@@ -397,12 +397,8 @@ template< typename Real,
              typename Index2 >
 bool AdEllpack< Real, Device, Index >::operator == ( const AdEllpack< Real2, Device2, Index2 >& matrix ) const
 {
-   TNL_ASSERT( this->getRows() == matrix.getRows() &&
-               this->getColumns() == matrix.getColumns(),
-               std::cerr << "this->getRows() = " << this->getRows()
-                    << " matrix.getRows() = " << matrix.getRows()
-                    << " this->getColumns() = " << this->getColumns()
-                    << " matrix.getColumns() = " << matrix.getColumns() );
+   TNL_ASSERT_EQ( this->getRows(), matrix.getRows(), "" );
+   TNL_ASSERT_EQ( this->getColumns(), matrix.getColumns(), "" );
 
    TNL_ASSERT_TRUE( false, "operator == is not yet implemented for AdEllpack.");
 

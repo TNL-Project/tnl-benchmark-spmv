@@ -6,6 +6,7 @@
 #include <TNL/Math.h>
 #include <TNL/Exceptions/NotImplementedError.h>
 #include "MemoryHelpers.h"
+#include "TNL/Assert.h"
 
 namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy {
 
@@ -53,9 +54,8 @@ template< typename Real,
 void ChunkedEllpack< Real, Device, Index >::setDimensions( const IndexType rows,
                                                            const IndexType columns )
 {
-   TNL_ASSERT( rows > 0 && columns > 0,
-              std::cerr << "rows = " << rows
-                   << " columns = " << columns << std::endl );
+   TNL_ASSERT_GT( rows, 0, "" );
+   TNL_ASSERT_GT( columns, 0, "" );
    Sparse< Real, Device, Index >::setDimensions( rows, columns );
 
    /****
@@ -95,7 +95,7 @@ void ChunkedEllpack< Real, Device, Index >::resolveSliceSizes( ConstRowCapacitie
       row++;
       if( allocatedElementsInSlice < desiredElementsInSlice  )
           if( row < this->rows && sliceSize < chunksInSlice ) continue;
-      TNL_ASSERT( sliceSize >0, );
+      TNL_ASSERT_GT( sliceSize, 0, "" );
       this->slices[ numberOfSlices ].size = sliceSize;
       this->slices[ numberOfSlices ].firstRow = row - sliceSize;
       this->slices[ numberOfSlices ].pointer = allocatedElementsInSlice; // this is only temporary
@@ -159,8 +159,7 @@ bool ChunkedEllpack< Real, Device, Index >::setSlice( ConstRowCapacitiesTypeView
        maxChunkInSlice = max( maxChunkInSlice,
                           roundUpDivision( rowLengths[ i ], this->rowToChunkMapping[ i ] ) );
    }
-      TNL_ASSERT( maxChunkInSlice > 0,
-              std::cerr << " maxChunkInSlice = " << maxChunkInSlice << std::endl );
+      TNL_ASSERT_GT( maxChunkInSlice, 0, "" );
 
    /****
     * Set-up the slice info.
@@ -175,10 +174,8 @@ bool ChunkedEllpack< Real, Device, Index >::setSlice( ConstRowCapacitiesTypeView
    for( IndexType i = sliceBegin; i < sliceEnd; i++ )
    {
       this->rowPointers[ i + 1 ] = maxChunkInSlice*rowToChunkMapping[ i ];
-      TNL_ASSERT( this->rowPointers[ i ] >= 0,
-                 std::cerr << "this->rowPointers[ i ] = " << this->rowPointers[ i ] );
-      TNL_ASSERT( this->rowPointers[ i + 1 ] >= 0,
-                 std::cerr << "this->rowPointers[ i + 1 ] = " << this->rowPointers[ i + 1 ] );
+      TNL_ASSERT_GE( this->rowPointers[ i ], 0, "" );
+      TNL_ASSERT_GE( this->rowPointers[ i + 1 ], 0, "" );
    }
 
    /****
@@ -249,7 +246,7 @@ template< typename Real,
 Index ChunkedEllpack< Real, Device, Index >::getRowLength( const IndexType row ) const
 {
    const IndexType& sliceIndex = rowToSliceMapping.getElement( row );
-   TNL_ASSERT( sliceIndex < this->rows, );
+   TNL_ASSERT_LT( sliceIndex, this->rows, "" );
    const IndexType& chunkSize = slices.getElement( sliceIndex ).chunkSize;
    return rowPointers.getElement( row + 1 ) - rowPointers.getElement( row );
 }
@@ -261,7 +258,7 @@ __cuda_callable__
 Index ChunkedEllpack< Real, Device, Index >::getRowLengthFast( const IndexType row ) const
 {
    const IndexType& sliceIndex = rowToSliceMapping[ row ];
-   TNL_ASSERT( sliceIndex < this->rows, );
+   TNL_ASSERT_LT( sliceIndex, this->rows, "" );
    const IndexType& chunkSize = slices[ sliceIndex ].chunkSize;
    return rowPointers[ row + 1 ] - rowPointers[ row ];
 }
@@ -352,12 +349,8 @@ template< typename Real,
              typename Index2 >
 bool ChunkedEllpack< Real, Device, Index >::operator == ( const ChunkedEllpack< Real2, Device2, Index2 >& matrix ) const
 {
-   TNL_ASSERT( this->getRows() == matrix.getRows() &&
-              this->getColumns() == matrix.getColumns(),
-              std::cerr << "this->getRows() = " << this->getRows()
-                   << " matrix.getRows() = " << matrix.getRows()
-                   << " this->getColumns() = " << this->getColumns()
-                   << " matrix.getColumns() = " << matrix.getColumns() );
+   TNL_ASSERT_EQ( this->getRows(), matrix.getRows(), "" );
+   TNL_ASSERT_EQ( this->getColumns(), matrix.getColumns(), "" );
    // TODO: implement this
    return false;
 }
@@ -412,7 +405,7 @@ bool ChunkedEllpack< Real, Device, Index >::addElementFast( const IndexType row,
                    << " this->columns = " << this-> columns );*/
 
    const IndexType& sliceIndex = rowToSliceMapping[ row ];
-   TNL_ASSERT( sliceIndex < this->rows, );
+   TNL_ASSERT_LT( sliceIndex, this->rows, "" );
    IndexType chunkIndex( 0 );
    if( row != slices[ sliceIndex ].firstRow )
       chunkIndex = rowToChunkMapping[ row - 1 ];
@@ -503,15 +496,13 @@ bool ChunkedEllpack< Real, Device, Index >::addElement( const IndexType row,
                                                                  const RealType& _value,
                                                                  const RealType& _thisElementMultiplicator )
 {
-   TNL_ASSERT( row >= 0 && row < this->rows &&
-              _column >= 0 && _column <= this->columns,
-              std::cerr << " row = " << row
-                   << " column = " << _column
-                   << " this->rows = " << this->rows
-                   << " this->columns = " << this-> columns );
+   TNL_ASSERT_GE( row, 0, "" );
+   TNL_ASSERT_LT( row, this->rows, "" );
+   TNL_ASSERT_GE( _column, 0, "" );
+   TNL_ASSERT_LT( _column, this->columns, "" );
 
    const IndexType& sliceIndex = rowToSliceMapping.getElement( row );
-   TNL_ASSERT( sliceIndex < this->rows, );
+   TNL_ASSERT_LT( sliceIndex, this->rows, "" );
    IndexType chunkIndex( 0 );
    if( row != slices.getElement( sliceIndex ).firstRow )
       chunkIndex = rowToChunkMapping.getElement( row - 1 );
@@ -675,12 +666,11 @@ bool ChunkedEllpack< Real, Device, Index >::setRow( const IndexType row,
                                                              const RealType* values,
                                                              const IndexType elements )
 {
-   TNL_ASSERT( row >= 0 && row < this->rows,
-              std::cerr << " row = " << row
-                   << " this->rows = " << this->rows );
+   TNL_ASSERT_GE( row, 0, "" );
+   TNL_ASSERT_LT( row, this->rows, "" );
 
    const IndexType sliceIndex = rowToSliceMapping.getElement( row );
-   TNL_ASSERT( sliceIndex < this->rows, );
+   TNL_ASSERT_LT( sliceIndex, this->rows, "" );
    IndexType chunkIndex( 0 );
    if( row != slices.getElement( sliceIndex ).firstRow )
       chunkIndex = rowToChunkMapping.getElement( row - 1 );
@@ -776,7 +766,7 @@ Real ChunkedEllpack< Real, Device, Index >::getElementFast( const IndexType row,
                                                                      const IndexType column ) const
 {
    const IndexType sliceIndex = rowToSliceMapping[ row ];
-   TNL_ASSERT( sliceIndex < this->rows, );
+   TNL_ASSERT_LT( sliceIndex, this->rows, "" );
    IndexType chunkIndex( 0 );
    if( row != slices[ sliceIndex ].firstRow )
       chunkIndex = rowToChunkMapping[ row - 1 ];
@@ -822,9 +812,7 @@ Real ChunkedEllpack< Real, Device, Index >::getElement( const IndexType row,
                                                                  const IndexType column ) const
 {
    const IndexType& sliceIndex = rowToSliceMapping.getElement( row );
-   TNL_ASSERT( sliceIndex < this->rows,
-              std::cerr << " sliceIndex = " << sliceIndex
-                   << " this->rows = " << this->rows << std::endl; );
+   TNL_ASSERT_LT( sliceIndex, this->rows, "" );
    IndexType chunkIndex( 0 );
    if( row != slices.getElement( sliceIndex ).firstRow )
       chunkIndex = rowToChunkMapping.getElement( row - 1 );
@@ -877,7 +865,7 @@ void ChunkedEllpack< Real, Device, Index >::getRowFast( const IndexType row,
                                                                  RealType* values ) const
 {
    const IndexType& sliceIndex = rowToSliceMapping[ row ];
-   TNL_ASSERT( sliceIndex < this->rows, );
+   TNL_ASSERT_LT( sliceIndex, this->rows, "" );
    IndexType chunkIndex( 0 );
    if( row != slices[ sliceIndex ].firstRow )
       chunkIndex = rowToChunkMapping[ row - 1 ];

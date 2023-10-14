@@ -49,9 +49,8 @@ template< typename Real,
 void Multidiagonal< Real, Device, Index >::setDimensions( const IndexType rows,
                                                           const IndexType columns )
 {
-   TNL_ASSERT( rows > 0 && columns > 0,
-              std::cerr << "rows = " << rows
-                   << " columns = " << columns << std::endl );
+   TNL_ASSERT_GT( rows, 0, "" );
+   TNL_ASSERT_GT( columns, 0, "" );
    Matrix< Real, Device, Index >::setDimensions( rows, columns );
    if( this->diagonalsShift.getSize() != 0 )
    {
@@ -125,8 +124,7 @@ template< typename Real,
    template< typename Vector >
 void Multidiagonal< Real, Device, Index > :: setDiagonals(  const Vector& diagonals )
 {
-   TNL_ASSERT( diagonals.getSize() > 0,
-              std::cerr << "New number of diagonals = " << diagonals.getSize() << std::endl );
+   TNL_ASSERT_GT( diagonals.getSize(), 0, "" );
    this->diagonalsShift.setLike( diagonals );
    this->diagonalsShift = diagonals;
    if( this->rows != 0 && this->columns != 0 )
@@ -194,12 +192,8 @@ template< typename Real,
              typename Index2 >
 bool Multidiagonal< Real, Device, Index >::operator == ( const Multidiagonal< Real2, Device2, Index2 >& matrix ) const
 {
-   TNL_ASSERT( this->getRows() == matrix.getRows() &&
-              this->getColumns() == matrix.getColumns(),
-              std::cerr << "this->getRows() = " << this->getRows()
-                   << " matrix.getRows() = " << matrix.getRows()
-                   << " this->getColumns() = " << this->getColumns()
-                   << " matrix.getColumns() = " << matrix.getColumns() );
+   TNL_ASSERT_EQ( this->getRows(), matrix.getRows(), "" );
+   TNL_ASSERT_EQ( this->getColumns(), matrix.getColumns(), "" );
    return ( this->diagonals == matrix.diagonals &&
             this->values == matrix.values );
 }
@@ -514,12 +508,8 @@ template< typename Real,
 void Multidiagonal< Real, Device, Index >::vectorProduct( const InVector& inVector,
                                                                    OutVector& outVector ) const
 {
-   TNL_ASSERT( this->getColumns() == inVector.getSize(),
-            std::cerr << "Matrix columns: " << this->getColumns() << std::endl
-                 << "Vector size: " << inVector.getSize() << std::endl );
-   TNL_ASSERT( this->getRows() == outVector.getSize(),
-               std::cerr << "Matrix rows: " << this->getRows() << std::endl
-                    << "Vector size: " << outVector.getSize() << std::endl );
+   TNL_ASSERT_EQ( this->getColumns(), inVector.getSize(), "" );
+   TNL_ASSERT_EQ( this->getRows(), outVector.getSize(), "" );
 
    DeviceDependentCode::vectorProduct( *this, inVector, outVector );
 }
@@ -652,12 +642,10 @@ bool Multidiagonal< Real, Device, Index >::getElementIndex( const IndexType row,
                                                                      const IndexType column,
                                                                      Index& index ) const
 {
-   TNL_ASSERT( row >=0 && row < this->rows,
-            std::cerr << "row = " << row
-                 << " this->rows = " << this->rows << std::endl );
-   TNL_ASSERT( column >=0 && column < this->columns,
-            std::cerr << "column = " << column
-                 << " this->columns = " << this->columns << std::endl );
+   TNL_ASSERT_GE( row, 0, "" );
+   TNL_ASSERT_LT( row, this->rows, "" );
+   TNL_ASSERT_GE( column, 0, "" );
+   TNL_ASSERT_LT( column, this->columns, "" );
 
    typedef MultidiagonalDeviceDependentCode< Device > DDCType;
    IndexType i( 0 );
@@ -681,12 +669,10 @@ bool Multidiagonal< Real, Device, Index >::getElementIndexFast( const IndexType 
                                                                          const IndexType column,
                                                                          Index& index ) const
 {
-   TNL_ASSERT( row >=0 && row < this->rows,
-            std::cerr << "row = " << row
-                 << " this->rows = " << this->rows << std::endl );
-   TNL_ASSERT( column >=0 && column < this->columns,
-            std::cerr << "column = " << column
-                 << " this->columns = " << this->columns << std::endl );
+   TNL_ASSERT_GE( row, 0, "" );
+   TNL_ASSERT_LT( row, this->rows, "" );
+   TNL_ASSERT_GE( column, 0, "" );
+   TNL_ASSERT_LT( column, this->columns, "" );
 
    typedef MultidiagonalDeviceDependentCode< Device > DDCType;
    IndexType i( 0 );

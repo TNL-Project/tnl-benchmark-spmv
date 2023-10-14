@@ -228,7 +228,7 @@ template< typename Real,
 Index CSR< Real, Device, Index, KernelType >::getNonZeroRowLength( const IndexType row ) const
 {
     // TODO: Fix/Implement
-    TNL_ASSERT( false, std::cerr << "TODO: Fix/Implement" );
+    TNL_ASSERT_TRUE( false, "TODO: Fix/Implement" );
     return 0;
 }
 
@@ -345,12 +345,10 @@ bool CSR< Real, Device, Index, KernelType >::addElement( const IndexType row,
                                                       const RealType& value,
                                                       const RealType& thisElementMultiplicator )
 {
-   TNL_ASSERT( row >= 0 && row < this->rows &&
-               column >= 0 && column < this->columns,
-               std::cerr << " row = " << row
-                    << " column = " << column
-                    << " this->rows = " << this->rows
-                    << " this->columns = " << this->columns );
+   TNL_ASSERT_GE( row, 0, "" );
+   TNL_ASSERT_LT( row, this->rows, "" );
+   TNL_ASSERT_GE( column, 0, "" );
+   TNL_ASSERT_LT( column, this->columns, "" );
 
     IndexType elementPtr = this->rowPointers.getElement( row );
     const IndexType rowEnd = this->rowPointers.getElement( row + 1 );

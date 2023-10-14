@@ -41,9 +41,8 @@ template< typename Real,
 void Ellpack< Real, Device, Index >::setDimensions( const IndexType rows,
                                                     const IndexType columns )
 {
-   TNL_ASSERT( rows > 0 && columns > 0,
-              std::cerr << "rows = " << rows
-                   << " columns = " << columns << std::endl );
+   TNL_ASSERT_GT( rows, 0, "" );
+   TNL_ASSERT_GT( columns, 0, "" );
    this->rows = rows;
    this->columns = columns;
 
@@ -102,8 +101,7 @@ template< typename Real,
           typename Index >
 void Ellpack< Real, Device, Index >::setConstantCompressedRowLengths( const IndexType& rowLengths )
 {
-   TNL_ASSERT( rowLengths > 0,
-              std::cerr << " rowLengths = " << rowLengths );
+   TNL_ASSERT_GT( rowLengths, 0, "" );
    this->rowLengths = rowLengths;
    if( this->rows > 0 )
       allocateElements();
@@ -168,12 +166,8 @@ template< typename Real,
              typename Index2 >
 bool Ellpack< Real, Device, Index >::operator == ( const Ellpack< Real2, Device2, Index2 >& matrix ) const
 {
-   TNL_ASSERT( this->getRows() == matrix.getRows() &&
-              this->getColumns() == matrix.getColumns(),
-              std::cerr << "this->getRows() = " << this->getRows()
-                   << " matrix.getRows() = " << matrix.getRows()
-                   << " this->getColumns() = " << this->getColumns()
-                   << " matrix.getColumns() = " << matrix.getColumns() );
+   TNL_ASSERT_EQ( this->getRows(), matrix.getRows(), "" );
+   TNL_ASSERT_EQ( this->getColumns(), matrix.getColumns(), "" );
    // TODO: implement this
    return false;
 }

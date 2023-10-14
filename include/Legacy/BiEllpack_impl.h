@@ -43,7 +43,8 @@ void
 BiEllpack< Real, Device, Index >::
 setDimensions( const IndexType rows, const IndexType columns )
 {
-   TNL_ASSERT( rows >= 0 && columns >= 0, std::cerr << "rows = " << rows << "columns = " << columns << std::endl );
+   TNL_ASSERT_GE( rows, 0, "" );
+   TNL_ASSERT_GE( columns, 0, "" );
 
    if( this->getRows() % this->warpSize != 0 )
       this->setVirtualRows( this->getRows() + this->warpSize - ( this->getRows() % this->warpSize ) );
@@ -119,7 +120,7 @@ template< typename Real,
 __cuda_callable__
 Index BiEllpack< Real, Device, Index >::getStripLength( const IndexType strip ) const
 {
-	TNL_ASSERT( strip >= 0, std::cerr << "strip = " << strip );
+	TNL_ASSERT_GE( strip, 0, "" );
 
     return this->groupPointers.getElement( ( strip + 1 ) * ( this->logWarpSize + 1 ) )
            - this->groupPointers.getElement( strip * ( this->logWarpSize + 1 ) );
@@ -131,9 +132,8 @@ template< typename Real,
 __cuda_callable__
 Index BiEllpack< Real, Device, Index >::getNumberOfGroups( const IndexType row ) const
 {
-	TNL_ASSERT( row >= 0 && row < this->getRows(),
-	            std::cerr <<  "row = " << row
-                              << " this->getRows() = " << this->getRows() );
+	TNL_ASSERT_GE( row, 0, "" );
+   TNL_ASSERT_LT( row, this->getRows(), "" );
 
 	IndexType strip = row / this->warpSize;
 	IndexType rowStripPermutation = this->rowPermArray.getElement( row ) - this->warpSize * strip;
@@ -159,8 +159,8 @@ template< typename Real,
 		  typename Index >
 Index BiEllpack< Real, Device, Index >::getRowLength( const IndexType row ) const
 {
-	TNL_ASSERT( row >= 0 && row < this->getRows(),
-                    std::cerr << "row = " << row << " this->getRows() = " << this->getRows() );
+	TNL_ASSERT_GE( row, 0, "" );
+   TNL_ASSERT_LT( row, this->getRows(), "" );
 
 	const IndexType strip = row / this->warpSize;
 	const IndexType groupBegin = strip * ( this->logWarpSize + 1 );
@@ -217,12 +217,8 @@ template< typename Real,
              typename Index2 >
 bool BiEllpack< Real, Device, Index >::operator == ( const BiEllpack< Real2, Device2, Index2 >& matrix ) const
 {
-   TNL_ASSERT( this->getRows() == matrix.getRows() &&
-               this->getColumns() == matrix.getColumns(),
-               std::cerr << "this->getRows() = " << this->getRows()
-                    << " matrix.getRows() = " << matrix.getRows()
-                    << " this->getColumns() = " << this->getColumns()
-                    << " matrix.getColumns() = " << matrix.getColumns() );
+   TNL_ASSERT_EQ( this->getRows(), matrix.getRows(), "" );
+   TNL_ASSERT_EQ( this->getColumns(), matrix.getColumns(), "" );
 
    TNL_ASSERT_TRUE( false, "operator == is not yet implemented for BiEllpack.");
 
@@ -261,11 +257,10 @@ setElement( const IndexType row,
             const IndexType column,
             const RealType& value )
 {
-    TNL_ASSERT( ( row >= 0 && row < this->getRows() ) ||
-                        ( column >= 0 && column < this->getColumns() ),
-                  std::cerr << "row = " << row
-                       << " this->getRows() = " << this->getRows()
-                       << " this->getColumns() = " << this->getColumns() );
+    TNL_ASSERT_GE( row, 0, "" );
+    TNL_ASSERT_LT( row, this->getRows(), "" );
+    TNL_ASSERT_GE( column, 0, "" );
+    TNL_ASSERT_LT( column, this->getColumns(), "" );
 
     return this->addElement( row, column, value, 0.0 );
 }
@@ -278,11 +273,10 @@ bool BiEllpack< Real, Device, Index >::setElementFast( const IndexType row,
 								  const IndexType column,
 								  const RealType& value )
 {
-	TNL_ASSERT( ( row >= 0 && row < this->getRows() ) ||
-			   ( column >= 0 && column < this->getColumns() ),
-			     std::cerr << "row = " << row
-			     	  << " this->getRows() = " << this->getRows()
-			     	  << " this->getColumns() = " << this->getColumns() );
+   TNL_ASSERT_GE( row, 0, "" );
+   TNL_ASSERT_LT( row, this->getRows(), "" );
+   TNL_ASSERT_GE( column, 0, "" );
+   TNL_ASSERT_LT( column, this->getColumns(), "" );
 
 	return this->addElementFast( row, column, value, 0.0 );
 }
@@ -389,8 +383,8 @@ setRow( const IndexType row,
 	const RealType* values,
 	const IndexType numberOfElements )
 {
-	TNL_ASSERT( row >= 0 && row < this->getRows(),
-                    std::cerr <<"row = " << row << " this->getRows() = " << this->getRows() );
+	TNL_ASSERT_GE( row, 0, "" );
+   TNL_ASSERT_LT( row, this->getRows(), "" );
 
 	const IndexType strip = row / this->warpSize;
 	const IndexType groupBegin = strip * ( this->logWarpSize + 1 );
@@ -428,8 +422,8 @@ addRow( const IndexType row,
         const IndexType numberOfElements,
         const RealType& thisElementMultiplicator )
 {
-	TNL_ASSERT( row >=0 && row < this->getRows(),
-	            std::cerr << "row = " << row << " this->getRows() = " << this->getRows() );
+	TNL_ASSERT_GE( row, 0, "" );
+   TNL_ASSERT_LT( row, this->getRows(), "" );
 
 	const IndexType strip = row / this->warpSize;
 	const IndexType groupBegin = strip * ( this->logWarpSize + 1 );
@@ -466,11 +460,10 @@ template< typename Real,
 Real BiEllpack< Real, Device, Index >::getElement( const IndexType row,
                                                               const IndexType column ) const
 {
-	TNL_ASSERT( ( row >= 0 && row < this->getRows() ) ||
-				( column >= 0 && column < this->getColumns() ),
-				  std::cerr << "row = " << row
-				  	   << " this->getRows() = " << this->getRows()
-				  	   << " this->getColumns() = " << this->getColumns() );
+   TNL_ASSERT_GE( row, 0, "" );
+   TNL_ASSERT_LT( row, this->getRows(), "" );
+   TNL_ASSERT_GE( column, 0, "" );
+   TNL_ASSERT_LT( column, this->getColumns(), "" );
 
 	const IndexType strip = row / this->warpSize;
 	const IndexType groupBegin = strip * ( this->logWarpSize + 1 );
@@ -543,9 +536,8 @@ void BiEllpack< Real, Device, Index >::getRow( const IndexType row,
 							  IndexType* columns,
 							  RealType* values ) const
 {
-	TNL_ASSERT( row >=0 && row < this->getRows(),
-	              std::cerr << "row = " << row
-	                   << " this->getRows() = " << this->getRows() );
+   TNL_ASSERT_GE( row, 0, "" );
+   TNL_ASSERT_LT( row, this->getRows(), "" );
 
 	bool padding = false;
 	const IndexType strip = row / this->warpSize;

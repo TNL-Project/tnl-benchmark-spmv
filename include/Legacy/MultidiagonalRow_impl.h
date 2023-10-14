@@ -64,21 +64,16 @@ setElement( const Index& elementIndex,
             const Index& column,
             const Real& value )
 {
-   TNL_ASSERT( this->values, );
-   TNL_ASSERT( this->step > 0,);
-   TNL_ASSERT( column >= 0 && column < this->columns,
-              std::cerr << "column = " << columns << " this->columns = " << this->columns );
-   TNL_ASSERT( elementIndex >= 0 && elementIndex < this->maxRowLength,
-              std::cerr << "elementIndex = " << elementIndex << " this->maxRowLength =  " << this->maxRowLength );
+   TNL_ASSERT_TRUE( this->values, "" );
+   TNL_ASSERT_GT( this->step, 0, "" );
+   TNL_ASSERT_GE( column, 0, "" );
+   TNL_ASSERT_LT( column, this->columns, "" );
+   TNL_ASSERT_GE( elementIndex, 0, "" );
+   TNL_ASSERT_LT( elementIndex, this->maxRowLength, "" );
 
    Index aux = elementIndex;
    while( row + this->diagonals[ aux ] < column ) aux++;
-   TNL_ASSERT( row + this->diagonals[ aux ] == column,
-              std::cerr << "row = " << row
-                   << " aux = " << aux
-                   << " this->diagonals[ aux ] = " << this->diagonals[ aux]
-                   << " row + this->diagonals[ aux ] " << row + this->diagonals[ aux ]
-                   << " column = " << column );
+   TNL_ASSERT_EQ( row + this->diagonals[ aux ], column, "" );
 
    //printf( "Setting element %d column %d value %f \n", aux * this->step, column, value );
    this->values[ aux * this->step ] = value;

@@ -29,7 +29,8 @@ template< typename Real, typename Device, typename Index, typename RealAllocator
 void
 Matrix< Real, Device, Index, RealAllocator >::setDimensions( const IndexType rows, const IndexType columns )
 {
-   TNL_ASSERT( rows >= 0 && columns >= 0, std::cerr << " rows = " << rows << " columns = " << columns );
+   TNL_ASSERT_GE( rows, 0, "" );
+   TNL_ASSERT_GE( columns, 0, "" );
    this->rows = rows;
    this->columns = columns;
 }

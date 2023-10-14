@@ -57,12 +57,12 @@ setElement( const Index& elementIndex,
             const Index& column,
             const Real& value )
 {
-   TNL_ASSERT( this->columns, );
-   TNL_ASSERT( this->values, );
-   TNL_ASSERT( this->step > 0,);
+   TNL_ASSERT_TRUE( this->columns, "" );
+   TNL_ASSERT_TRUE( this->values, "" );
+   TNL_ASSERT_GT( this->step, 0, "" );
    //printf( "elementIndex = %d length = %d \n", elementIndex, this->length );
-   TNL_ASSERT( elementIndex >= 0 && elementIndex < this->length,
-              std::cerr << "elementIndex = " << elementIndex << " this->length = " << this->length );
+   TNL_ASSERT_GE( elementIndex, 0, "" );
+   TNL_ASSERT_LT( elementIndex, this->length, "" );
 
    this->columns[ elementIndex * step ] = column;
    this->values[ elementIndex * step ] = value;
@@ -74,8 +74,8 @@ const Index&
 SparseRow< Real, Index >::
 getElementColumn( const Index& elementIndex ) const
 {
-   TNL_ASSERT( elementIndex >= 0 && elementIndex < this->length,
-              std::cerr << "elementIndex = " << elementIndex << " this->length = " << this->length );
+   TNL_ASSERT_GE( elementIndex, 0, "" );
+   TNL_ASSERT_LT( elementIndex, this->length, "" );
 
    return this->columns[ elementIndex * step ];
 }
@@ -86,8 +86,8 @@ const Real&
 SparseRow< Real, Index >::
 getElementValue( const Index& elementIndex ) const
 {
-   TNL_ASSERT( elementIndex >= 0 && elementIndex < this->length,
-              std::cerr << "elementIndex = " << elementIndex << " this->length = " << this->length );
+   TNL_ASSERT_GE( elementIndex, 0, "" );
+   TNL_ASSERT_LT( elementIndex, this->length, "" );
 
    return this->values[ elementIndex * step ];
 }
