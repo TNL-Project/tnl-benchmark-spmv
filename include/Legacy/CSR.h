@@ -4,7 +4,6 @@
 #include <TNL/Containers/Vector.h>
 
 #include <TNL/Devices/Cuda.h>
-#include <TNL/Exceptions/CudaBadAlloc.h>
 
 namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy {
 

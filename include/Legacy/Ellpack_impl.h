@@ -48,12 +48,12 @@ void Ellpack< Real, Device, Index >::setDimensions( const IndexType rows,
 
    if( std::is_same< Device, Devices::Cuda >::value )
    {
-       this->alignedRows = roundToMultiple( columns, Cuda::getWarpSize() );
+       this->alignedRows = roundToMultiple( columns, Backend::getWarpSize() );
        if( this->rows - this->alignedRows > 0 )
        {
            IndexType missingRows = this->rows - this->alignedRows;
 
-           missingRows = roundToMultiple( missingRows, Cuda::getWarpSize() );
+           missingRows = roundToMultiple( missingRows, Backend::getWarpSize() );
 
            this->alignedRows +=  missingRows;
        }
@@ -144,7 +144,7 @@ void Ellpack< Real, Device, Index >::setLike( const Ellpack< Real2, Device2, Ind
    Sparse< Real, Device, Index >::setLike( matrix );
    this->rowLengths = matrix.rowLengths;
    if( std::is_same< Device, Devices::Cuda >::value )
-      this->alignedRows = roundToMultiple( this->getRows(), Cuda::getWarpSize() );
+      this->alignedRows = roundToMultiple( this->getRows(), Backend::getWarpSize() );
    else this->alignedRows = this->getRows();
 }
 
@@ -777,7 +777,7 @@ __global__ void EllpackVectorProductCudaKernel(
    Real multiplicator,
    const Index gridIdx )
 {
-   const Index rowIdx = ( gridIdx * Cuda::getMaxGridXSize() + blockIdx.x ) * blockDim.x + threadIdx.x;
+   const Index rowIdx = ( gridIdx * Backend::getMaxGridXSize() + blockIdx.x ) * blockDim.x + threadIdx.x;
    if( rowIdx >= rows )
       return;
    Index i = rowIdx;
@@ -846,13 +846,13 @@ class EllpackDeviceDependentCode< Devices::Cuda >
             //Matrix* kernel_this = Cuda::passToDevice( matrix );
             //InVector* kernel_inVector = Cuda::passToDevice( inVector );
             //OutVector* kernel_outVector = Cuda::passToDevice( outVector );
-            dim3 cudaBlockSize( 256 ), cudaGridSize( Cuda::getMaxGridXSize() );
+            dim3 cudaBlockSize( 256 ), cudaGridSize( Backend::getMaxGridXSize() );
             const IndexType cudaBlocks = roundUpDivision( matrix.getRows(), cudaBlockSize.x );
-            const IndexType cudaGrids = roundUpDivision( cudaBlocks, Cuda::getMaxGridXSize() );
+            const IndexType cudaGrids = roundUpDivision( cudaBlocks, Backend::getMaxGridXSize() );
             for( IndexType gridIdx = 0; gridIdx < cudaGrids; gridIdx++ )
             {
                if( gridIdx == cudaGrids - 1 )
-                  cudaGridSize.x = cudaBlocks % Cuda::getMaxGridXSize();
+                  cudaGridSize.x = cudaBlocks % Backend::getMaxGridXSize();
                EllpackVectorProductCudaKernel
                < Real, Index >
                 <<< cudaGridSize, cudaBlockSize >>>

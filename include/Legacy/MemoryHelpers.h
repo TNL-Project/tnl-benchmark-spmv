@@ -8,9 +8,9 @@
 
 #include <iostream>
 
-#include <TNL/Cuda/CheckDevice.h>
-#include <TNL/Exceptions/CudaSupportMissing.h>
-#include <TNL/Exceptions/CudaBadAlloc.h>
+#include <TNL/Backend/Macros.h>
+#include <TNL/Exceptions/BackendSupportMissing.h>
+#include <TNL/Exceptions/BackendBadAlloc.h>
 
 namespace TNL::Cuda {
 
@@ -22,7 +22,7 @@ passToDevice( const ObjectType& object )
 #ifdef __CUDACC__
    ObjectType* deviceObject;
    if( cudaMalloc( (void**) &deviceObject, (size_t) sizeof( ObjectType ) ) != cudaSuccess )
-      throw Exceptions::CudaBadAlloc();
+      throw Exceptions::BackendBadAlloc();
    if( cudaMemcpy( (void*) deviceObject, (void*) &object, sizeof( ObjectType ), cudaMemcpyHostToDevice ) != cudaSuccess ) {
       TNL_CHECK_CUDA_DEVICE;
       cudaFree( (void*) deviceObject );
@@ -31,7 +31,7 @@ passToDevice( const ObjectType& object )
    }
    return deviceObject;
 #else
-   throw Exceptions::CudaSupportMissing();
+   throw Exceptions::BackendSupportMissing();
 #endif
 }
 
@@ -44,7 +44,7 @@ freeFromDevice( ObjectType* deviceObject )
    cudaFree( (void*) deviceObject );
    TNL_CHECK_CUDA_DEVICE;
 #else
-   throw Exceptions::CudaSupportMissing();
+   throw Exceptions::BackendSupportMissing();
 #endif
 }
 

@@ -3,7 +3,7 @@
 #include <type_traits>
 #include <ostream>
 
-#include <TNL/Cuda/CudaCallable.h>
+#include <TNL/Backend/Macros.h>
 
 namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy {
 

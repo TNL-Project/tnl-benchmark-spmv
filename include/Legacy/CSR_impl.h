@@ -30,7 +30,7 @@ template< typename Real,
           CSRKernel KernelType >
 CSR< Real, Device, Index, KernelType >::CSR()
 : //spmvCudaKernel( hybrid ),
-  cudaWarpSize( 32 ), //Cuda::getWarpSize() )
+  cudaWarpSize( 32 ), //Backend::getWarpSize() )
   hybridModeSplit( 4 )
 {
 }
@@ -1317,7 +1317,7 @@ void SpMVCSRLightPrepare( const Real *inVector,
    cudaMemcpy(kernelRowCnt, &rowCnt, sizeof(*kernelRowCnt), cudaMemcpyHostToDevice);
    /* Get info about GPU */
    cudaDeviceProp properties;
-   cudaGetDeviceProperties( &properties, Cuda::DeviceInfo::getActiveDevice() );
+   cudaGetDeviceProperties( &properties, Backend::getDevice() );
    const Index blocks =
       properties.multiProcessorCount * properties.maxThreadsPerMultiProcessor / threads;
 
