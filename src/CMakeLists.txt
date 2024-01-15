@@ -49,6 +49,7 @@ target_link_libraries( tnl-benchmark-spmv-reference-cuda PUBLIC CUDA::cusparse )
 if( TNL_BUILD_MPI )
    find_package(Hypre)
    if( HYPRE_FOUND )
+      message( "Hypre found - ${HYPRE_LIBRARIES}")
       # enable MPI support in TNL
       target_compile_definitions( tnl-benchmark-spmv-reference PUBLIC "-DHAVE_MPI" )
       # add MPI to the target: https://cliutils.gitlab.io/modern-cmake/chapters/packages/MPI.html
@@ -59,5 +60,16 @@ if( TNL_BUILD_MPI )
       # add Hypre to the target
       target_include_directories( tnl-benchmark-spmv-reference SYSTEM PUBLIC ${HYPRE_INCLUDE_DIRS} )
       target_link_libraries( tnl-benchmark-spmv-reference PUBLIC ${HYPRE_LIBRARIES} -lm )
-   endif()
+
+      # enable MPI support in TNL
+      target_compile_definitions( tnl-benchmark-spmv-reference-cuda PUBLIC "-DHAVE_MPI" )
+      # add MPI to the target: https://cliutils.gitlab.io/modern-cmake/chapters/packages/MPI.html
+      target_link_libraries( tnl-benchmark-spmv-reference-cuda PUBLIC MPI::MPI_CXX CUDA::cublas CUDA::curand CUDA::cusparse)
+
+      # enable Hypre support in TNL
+      target_compile_definitions( tnl-benchmark-spmv-reference-cuda PUBLIC "-DHAVE_HYPRE" )
+      # add Hypre to the target
+      target_include_directories( tnl-benchmark-spmv-reference-cuda SYSTEM PUBLIC ${HYPRE_INCLUDE_DIRS} )
+      target_link_libraries( tnl-benchmark-spmv-reference-cuda PUBLIC ${HYPRE_LIBRARIES} -lm )
+      endif()
 endif()

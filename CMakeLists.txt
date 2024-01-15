@@ -65,6 +65,13 @@ else()
     set(SYSTEM_TNL TRUE)  # avoid further inclusion of libs/tnl from other libs
 endif()
 
+find_package( MPI COMPONENTS CXX )
+if( MPI_CXX_FOUND AND TNL_USE_MPI )
+   set( TNL_BUILD_MPI TRUE )
+   # NOTE: MPI will be added selectively to the targets that need/can utilize it
+   # see https://cliutils.gitlab.io/modern-cmake/chapters/packages/MPI.html
+endif()
+
 # Add subdirectories with source
 add_subdirectory(src)
 enable_testing()  # this must be in the top-level CMakeLists.txt
