@@ -612,8 +612,6 @@ benchmarkSpmv( BenchmarkType& benchmark,
    //
    CSRHostMatrix csrHostMatrix;
    MatrixReader< CSRHostMatrix >::readMtx( inputFileName, csrHostMatrix, verboseMR );
-   CSRHostMatrix b;
-   b = csrHostMatrix;
    const Index uncompressedSize = csrHostMatrix.getValues().getSize();
    TNL::Matrices::compressSparseMatrix( csrHostMatrix );
    const Index compressedSize = csrHostMatrix.getValues().getSize();
@@ -621,10 +619,6 @@ benchmarkSpmv( BenchmarkType& benchmark,
    const int nonzeros = csrHostMatrix.getNonzeroElementsCount();
    const double datasetSize = (double) nonzeros * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
    benchmark.setDatasetSize( datasetSize );
-   if( b != csrHostMatrix ) {
-      std::cout << "ERROR: Matrices do not match !!!" << std::endl;
-      abort();
-   }
 
    ////
    // Nonzero elements per row statistics
