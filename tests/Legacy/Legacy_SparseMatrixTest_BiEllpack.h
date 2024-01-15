@@ -1,4 +1,4 @@
-#include <Benchmarks/SpMV/ReferenceFormats/Legacy/BiEllpack.h>
+#include <Legacy/BiEllpack.h>
 
 #include "Legacy_SparseMatrixTest.hpp"
 #include <iostream>

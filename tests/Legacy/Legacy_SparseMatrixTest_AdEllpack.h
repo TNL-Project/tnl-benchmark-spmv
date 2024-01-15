@@ -1,4 +1,4 @@
-#include <TNL/Matrices/Legacy/AdEllpack.h>
+#include <Legacy/AdEllpack.h>
 
 #include "Legacy_SparseMatrixTest.hpp"
 #include <iostream>

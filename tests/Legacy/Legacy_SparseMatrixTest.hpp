@@ -5,9 +5,9 @@
 #include <iostream>
 
 // Temporary, until test_OperatorEquals doesn't work for all formats.
-#include <Benchmarks/SpMV/ReferenceFormats/Legacy/ChunkedEllpack.h>
-#include <Benchmarks/SpMV/ReferenceFormats/Legacy/AdEllpack.h>
-#include <Benchmarks/SpMV/ReferenceFormats/Legacy/BiEllpack.h>
+#include <Legacy/ChunkedEllpack.h>
+#include <Legacy/AdEllpack.h>
+#include <Legacy/BiEllpack.h>
 
 #include <gtest/gtest.h>
 

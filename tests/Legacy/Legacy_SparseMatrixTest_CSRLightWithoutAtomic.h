@@ -1,4 +1,4 @@
-#include <Benchmarks/SpMV/ReferenceFormats/Legacy/CSR.h>
+#include <Legacy/CSR.h>
 
 #include "Legacy_SparseMatrixTest.hpp"
 #include <iostream>

@@ -1,4 +1,4 @@
-#include <Benchmarks/SpMV/ReferenceFormats/Legacy/Ellpack.h>
+#include <Legacy/Ellpack.h>
 
 #include "Legacy_SparseMatrixTest.hpp"
 #include <iostream>
