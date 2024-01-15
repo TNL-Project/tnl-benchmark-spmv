@@ -257,8 +257,8 @@ benchmarkSpmv( BenchmarkType& benchmark,
    csrCudaMatrix.reset();
    #endif
 
-   // FIXME: LightSpMV fails with CUDA 12
-   #if __CUDACC_VER_MAJOR__ < 12
+   // LightSpMV fails with CUDA 12
+   #if __CUDACC_VER_MAJOR__ < 11 || ( __CUDACC_VER_MAJOR__ >= 12 && __CUDACC_VER_MINOR__ >= 2 )
    ////
    // Perform benchmark on CUDA device with LightSpMV as a reference GPU format
    //
