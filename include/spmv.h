@@ -227,6 +227,43 @@ benchmarkSpMV( BenchmarkType& benchmark,
    SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( csrResultVector, cudaOutVector );
    benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvCuda, cudaBenchmarkResults );
 #endif
+
+   /////
+   // Benchmark SpMV on HIP
+   //
+#ifdef __HIP__
+   using HipMatrix = Matrix< Real, TNL::Devices::Hip, int >;
+   using HipKernel = Kernel< TNL::Devices::Hip, int >;
+   using HipVector = Containers::Vector< Real, Devices::Hip, int >;
+
+   HipMatrix hipMatrix;
+   try {
+      hipMatrix = inputMatrix;
+   }
+   catch( const std::exception& e ) {
+      benchmark.addErrorMessage( "Unable to copy the matrix on GPU: " + String( e.what() ) );
+      return;
+   }
+
+   HipKernel kernel;
+   kernel.init( hipMatrix.getSegments() );
+
+   HipVector hipInVector( hostMatrix.getColumns() ), hipOutVector( hostMatrix.getRows() );
+
+   auto resetHipVectors = [ & ]()
+   {
+      hipInVector = 1.0;
+      hipOutVector = 0.0;
+   };
+
+   auto spmvHip = [ & ]()
+   {
+      hipMatrix.vectorProduct( hipInVector, hipOutVector, kernel );
+   };
+   SpmvBenchmarkResult< Real, Devices::Hip, int > hipBenchmarkResults( csrResultVector, hipOutVector );
+   benchmark.time< Devices::Hip >( resetHipVectors, "GPU", spmvHip, hipBenchmarkResults );
+#endif
+
 }
 
 template< typename Real,
@@ -348,6 +385,67 @@ benchmarkSpMVCSRLight( BenchmarkType& benchmark,
       benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvCuda, cudaBenchmarkResults );
    }
 #endif
+   /////
+   // Benchmark SpMV on HIP
+   //
+#ifdef __HIP__
+   using HipMatrix = Matrix< TestReal, TNL::Devices::Hip, int >;
+   using HipKernel = Kernel< TNL::Devices::Hip, int >;
+   using HipVector = Containers::Vector< Real, Devices::Hip, int >;
+
+   HipMatrix hipMatrix;
+   try {
+      hipMatrix = inputMatrix;
+   }
+   catch( const std::exception& e ) {
+      benchmark.addErrorMessage( "Unable to copy the matrix on GPU: " + String( e.what() ) );
+      return;
+   }
+
+   HipKernel kernel;
+   kernel.init( hipMatrix.getSegments() );
+
+   HipVector hipInVector( hostMatrix.getColumns() ), hipOutVector( hostMatrix.getRows() );
+
+   auto resetHipVectors = [ & ]()
+   {
+      hipInVector = 1.0;
+      hipOutVector = 0.0;
+   };
+
+   auto spmvHip = [ & ]()
+   {
+      hipMatrix.vectorProduct( hipInVector, hipOutVector, kernel );
+   };
+
+   {
+      kernel.setThreadsMapping( Algorithms::SegmentsReductionKernels::CSRLightAutomaticThreads );
+      String format = MatrixInfo< HostMatrix >::getFormat() + " " + HostKernel::getKernelType() + " Automatic";
+      benchmark.setMetadataElement( { "format", format } );
+
+      SpmvBenchmarkResult< Real, Devices::Hip, int > hipBenchmarkResults( csrResultVector, hipOutVector );
+      benchmark.time< Devices::Hip >( resetHipVectors, "GPU", spmvHip, hipBenchmarkResults );
+   };
+
+   {
+      kernel.setThreadsMapping( Algorithms::SegmentsReductionKernels::CSRLightAutomaticThreadsLightSpMV );
+      String format = MatrixInfo< HostMatrix >::getFormat() + " " + HostKernel::getKernelType() + " Automatic Light";
+      benchmark.setMetadataElement( { "format", format } );
+
+      SpmvBenchmarkResult< Real, Devices::Hip, int > hipBenchmarkResults( csrResultVector, hipOutVector );
+      benchmark.time< Devices::Hip >( resetHipVectors, "GPU", spmvHip, hipBenchmarkResults );
+   };
+
+   for( auto threadsPerRow : std::vector< int >{ 1, 2, 4, 8, 16, 32, 64, 128 } ) {
+      kernel.setThreadsPerSegment( threadsPerRow );
+      String format =
+         MatrixInfo< HostMatrix >::getFormat() + " " + HostKernel::getKernelType() + " " + std::to_string( threadsPerRow );
+      benchmark.setMetadataElement( { "format", format } );
+
+      SpmvBenchmarkResult< Real, Devices::Hip, int > hipBenchmarkResults( csrResultVector, hipOutVector );
+      benchmark.time< Devices::Hip >( resetHipVectors, "GPU", spmvHip, hipBenchmarkResults );
+   }
+#endif
 }
 
 template< typename Real,
@@ -442,6 +540,43 @@ benchmarkBinarySpMV( BenchmarkType& benchmark,
    SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( csrResultVector, cudaOutVector );
    benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvCuda, cudaBenchmarkResults );
 #endif
+
+   /////
+   // Benchmark SpMV on HIP
+   //
+#ifdef __HIP__
+   using HipMatrix = Matrix< bool, TNL::Devices::Hip, int >;
+   using HipKernel = Kernel< TNL::Devices::Hip, int >;
+   using HipVector = Containers::Vector< Real, Devices::Hip, int >;
+
+   HipMatrix hipMatrix;
+   try {
+      hipMatrix = inputMatrix;
+   }
+   catch( const std::exception& e ) {
+      benchmark.addErrorMessage( "Unable to copy the matrix on GPU: " + String( e.what() ) );
+      return;
+   }
+
+   HipKernel kernel;
+   kernel.init( hipMatrix.getSegments() );
+
+   HipVector hipInVector( hostMatrix.getColumns() ), hipOutVector( hostMatrix.getRows() );
+
+   auto resetHipVectors = [ & ]()
+   {
+      hipInVector = 1.0;
+      hipOutVector = 0.0;
+   };
+
+   auto spmvHip = [ & ]()
+   {
+      hipMatrix.vectorProduct( hipInVector, hipOutVector, kernel );
+   };
+   SpmvBenchmarkResult< Real, Devices::Hip, int > hipBenchmarkResults( csrResultVector, hipOutVector );
+   benchmark.time< Devices::Hip >( resetHipVectors, "GPU", spmvHip, hipBenchmarkResults );
+#endif
+
 }
 
 template< typename Real, typename HostMatrix >
@@ -689,7 +824,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
    /////
    // Benchmarking TNL formats
    //
-#if ! defined( __CUDACC__ )
+#if ! defined( __CUDACC__ ) && ! defined ( __HIP__ )
    if( parameters.getParameter< bool >( "with-all-cpu-tests" ) )
       dispatchSpMV< Real >( benchmark, csrHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
 #else

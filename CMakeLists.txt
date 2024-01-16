@@ -11,32 +11,18 @@ endif()
 # the cmake directory in the TNL repository
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-project(tnl-benchmark-spmv
-    LANGUAGES CXX CUDA
-)
+project(tnl-benchmark-spmv LANGUAGES CXX)
 
 # Require C++17, and disable compiler-specific extensions (if possible).
-foreach(lang CXX CUDA)
-    set(CMAKE_${lang}_STANDARD 17)
-    set(CMAKE_${lang}_STANDARD_REQUIRED ON)
-    set(CMAKE_${lang}_EXTENSIONS OFF)
-endforeach()
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Set build flags for CXX
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -Wall -Werror=vla")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -march=native -mtune=native")
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELEASE} ${CMAKE_CXX_FLAGS_DEBUG}")
-
-# Set build flags for CUDA
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Wall")
-set(CMAKE_CUDA_FLAGS_DEBUG "-g")
-set(CMAKE_CUDA_FLAGS_RELEASE "-O3 -DNDEBUG -Xcompiler -march=native -Xcompiler -mtune=native")
-set(CMAKE_CUDA_FLAGS_RELWITHDEBINFO "${CMAKE_CUDA_FLAGS_RELEASE} ${CMAKE_CUDA_FLAGS_DEBUG}")
-if(CMAKE_CUDA_COMPILER_ID STREQUAL "NVIDIA")
-    set(CMAKE_CUDA_FLAGS_RELWITHDEBINFO "${CMAKE_CUDA_FLAGS_RELWITHDEBINFO} --generate-line-info")
-endif()
-set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
 
 # Enforce (more or less) warning-free builds
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Wno-error=deprecated -Wno-error=deprecated-declarations -Wno-error=uninitialized")
@@ -54,6 +40,46 @@ if( CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR
     endif()
 endif()
 
+include(CheckLanguage)
+
+check_language(CUDA)
+if(CMAKE_CUDA_COMPILER)
+    enable_language(CUDA)
+
+    # Require C++17, and disable compiler-specific extensions (if possible).
+    set(CMAKE_CUDA_STANDARD 17)
+    set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+    set(CMAKE_CUDA_EXTENSIONS OFF)
+
+    # set project-specific (i.e. not exported) build options
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Wall")
+    set(CMAKE_CUDA_FLAGS_DEBUG "-g")
+    set(CMAKE_CUDA_FLAGS_RELEASE "-O3 -DNDEBUG")
+    set(CMAKE_CUDA_FLAGS_RELWITHDEBINFO "${CMAKE_CUDA_FLAGS_RELEASE} ${CMAKE_CUDA_FLAGS_DEBUG}")
+
+    # enable separable compilation
+    set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
+endif()
+
+check_language(HIP)
+if(CMAKE_HIP_COMPILER)
+    enable_language(HIP)
+
+    # Require C++17, and disable compiler-specific extensions (if possible).
+    set(CMAKE_HIP_STANDARD 17)
+    set(CMAKE_HIP_STANDARD_REQUIRED ON)
+    set(CMAKE_HIP_EXTENSIONS OFF)
+
+    # Set project-specific (i.e. not exported) build options
+    set(CMAKE_HIP_FLAGS "${CMAKE_HIP_FLAGS} -Wall")
+    # NOTE: cmake mirrors the hipcc.pl script and passes some flags to rocm-llvm
+    #       (--offload-arch=gfx803 -mllvm -amdgpu-early-inline-all=true -mllvm -amdgpu-function-calls=false)
+    #       which do not work with -O0 (leads to Memory access fault), hence -O1
+    set(CMAKE_HIP_FLAGS_DEBUG "-O1 -g -DHIP_ENABLE_PRINTF")
+    set(CMAKE_HIP_FLAGS_RELEASE "-O3 -DNDEBUG")
+    set(CMAKE_HIP_FLAGS_RELWITHDEBINFO "${CMAKE_HIP_FLAGS_RELEASE} ${CMAKE_HIP_FLAGS_DEBUG}")
+endif()
+
 # Set the project's include path
 include_directories(include)
 
@@ -63,13 +89,6 @@ if(SYSTEM_TNL)
 else()
     add_subdirectory(libs/tnl EXCLUDE_FROM_ALL)
     set(SYSTEM_TNL TRUE)  # avoid further inclusion of libs/tnl from other libs
-endif()
-
-find_package( MPI COMPONENTS CXX )
-if( MPI_CXX_FOUND AND TNL_USE_MPI )
-   set( TNL_BUILD_MPI TRUE )
-   # NOTE: MPI will be added selectively to the targets that need/can utilize it
-   # see https://cliutils.gitlab.io/modern-cmake/chapters/packages/MPI.html
 endif()
 
 # Add subdirectories with source
