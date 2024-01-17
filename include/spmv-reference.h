@@ -24,6 +24,7 @@
 #endif
 
 #include "cusparseCSRMatrix.h"
+#include "hipsparseCSRMatrix.h"
 #include "LightSpMVBenchmark.h"
 #include "CSR5Benchmark.h"
 
@@ -43,6 +44,10 @@ benchmarkSpmv( BenchmarkType& benchmark,
 #ifdef __CUDACC__
    using CSRCudaMatrix = TNL::Matrices::SparseMatrix< Real, TNL::Devices::Cuda, int >;
    using CusparseMatrix = TNL::CusparseCSR< Real >;
+#endif
+#ifdef __HIP__
+   using CSRHipMatrix = TNL::Matrices::SparseMatrix< Real, TNL::Devices::Hip, int >;
+   using HipsparseMatrix = TNL::HipsparseCSR< Real >;
 #endif
 
    using HostVector = Containers::Vector< Real, Devices::Host, int >;
@@ -282,6 +287,38 @@ benchmarkSpmv( BenchmarkType& benchmark,
    benchmark.setMetadataElement( { "format", "LightSpMV Warp" } );
    benchmark.time< Devices::Cuda >( resetLightSpMVVectors, "GPU", spmvLightSpMV, cudaBenchmarkResults );
    #endif
+#endif
+
+#ifdef __HIP__
+   using HipVector = Containers::Vector< Real, Devices::Hip, int >;
+   ////
+   // Perform benchmark on CUDA device with cuSparse as a reference GPU format
+   //
+   hipsparseHandle_t hipsparseHandle;
+   hipsparseCreate( &hipsparseHandle );
+
+   CSRHipMatrix csrHipMatrix;
+   csrHipMatrix = csrHostMatrix;
+
+   HipVector hipInVector( csrHipMatrix.getColumns() ), hipOutVector( csrHipMatrix.getRows() );
+
+   HipsparseMatrix hipsparseMatrix;
+   hipsparseMatrix.init( csrHipMatrix, hipInVector, hipOutVector, &hipsparseHandle );
+
+   auto resetHipVectors = [ & ]()
+   {
+      hipInVector = 1.0;
+      hipOutVector = 0.0;
+   };
+
+   auto spmvHipsparse = [ & ]()
+   {
+      hipsparseMatrix.vectorProduct( hipInVector, hipOutVector );
+   };
+
+   SpmvBenchmarkResult< Real, Devices::Hip, int > hipBenchmarkResults( hostOutVector, hipOutVector );
+   benchmark.setMetadataElement( { "format", "hipsparse" } );
+   benchmark.time< Devices::Hip >( resetHipVectors, "GPU", spmvHipsparse, hipBenchmarkResults );
 #endif
    csrHostMatrix.reset();
 }
