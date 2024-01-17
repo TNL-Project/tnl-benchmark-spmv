@@ -155,20 +155,23 @@ class CusparseCSR< double > : public CusparseCSRBase< double >
 #ifdef __CUDACC__
 #if CUDART_VERSION >= 11000
          double alpha = 1.0;
+         double beta = 0.0;
          CHECK_CUSPARSE(
             cusparseSpMV( *( this->cusparseHandle ),              // cusparseHandle_t     handle,
                           CUSPARSE_OPERATION_NON_TRANSPOSE,       // cusparseOperation_t  opA,
                           &alpha,                                 // const void*          alpha,
                           this->matA,                             // cusparseSpMatDescr_t matA,
                           this->vecX,                             // cusparseDnVecDescr_t vecX,
-                          &alpha,                                 // const void*          beta,
+                          &beta,                                  // const void*          beta,
                           this->vecY,                             // cusparseDnVecDescr_t vecY,
                           CUDA_R_64F,                             // cudaDataType         computeType,
                           CUSPARSE_SPMV_ALG_DEFAULT,              // cusparseSpMVAlg_t    alg,
                           ( void*) this->buffer.getData() ) );    // void*                externalBuffer)
 #else
-	 double d = 1.0;
-         double* alpha = &d;
+	      double a = 1.0;
+         double b = 0.0;
+         double* alpha = &a;
+         double* beta = &b;
          cusparseDcsrmv( *( this->cusparseHandle ),
                          CUSPARSE_OPERATION_NON_TRANSPOSE,
                          this->matrix->getRows(),
@@ -180,7 +183,7 @@ class CusparseCSR< double > : public CusparseCSRBase< double >
                          this->matrix->getSegments().getOffsets().getData(),
                          this->matrix->getColumnIndexes().getData(),
                          inVector.getData(),
-                         alpha,
+                         beta,
                          outVector.getData() );
 #endif
 #endif
