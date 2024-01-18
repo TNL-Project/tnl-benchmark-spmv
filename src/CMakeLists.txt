@@ -107,3 +107,19 @@ if( MPI_CXX_FOUND )
       endif()
    endif()
 endif()
+
+
+find_package( Ginkgo )
+if( Ginkgo_FOUND )
+   # enable Ginkgo support in TNL
+   target_compile_definitions( tnl-benchmark-spmv-reference PUBLIC "-DHAVE_GINKGO" )
+   # add Ginkgo to the target
+   target_link_libraries( tnl-benchmark-spmv-reference PUBLIC Ginkgo::ginkgo )
+
+   if( CMAKE_CUDA_COMPILER )
+      # enable Ginkgo support in TNL
+      target_compile_definitions( tnl-benchmark-spmv-reference-cuda PUBLIC "-DHAVE_GINKGO" )
+      # add Ginkgo to the target
+      target_link_libraries( tnl-benchmark-spmv-reference-cuda PUBLIC Ginkgo::ginkgo )
+   endif()
+endif()

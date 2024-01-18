@@ -18,6 +18,11 @@
    #include <petscmat.h>
 #endif
 
+#ifdef HAVE_GINKGO
+   #include <TNL/Containers/GinkgoVector.h>
+   #include <TNL/Matrices/GinkgoOperator.h>
+#endif
+
 #ifdef HAVE_HYPRE
    #include <TNL/Hypre.h>
    #include <TNL/Matrices/HypreCSRMatrix.h>
@@ -145,7 +150,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
       MatMult( petscMatrix, inVector, outVector );
    };
 
-   SpmvBenchmarkResult< Real, Devices::Host, int > petscBenchmarkResults( hostOutVector, hostOutVector );
+   SpmvBenchmarkResult< Real, Devices::Host, int > petscBenchmarkResults( hostOutVector, outVector );
    benchmark.setMetadataElement( { "format", "Petsc" } );
    benchmark.time< Devices::Host >( resetPetscVectors, "CPU", petscSpmvCSRHost, petscBenchmarkResults );
 #endif
@@ -183,6 +188,34 @@ benchmarkSpmv( BenchmarkType& benchmark,
    }
    else {
       std::cerr << "Current Real or Index type does not agree with HYPRE_Real or HYPRE_Index." << std::endl;
+   }
+#endif
+
+#ifdef HAVE_GINKGO
+   // Create a Ginkgo Csr view
+   auto gko_host_exec = gko::OmpExecutor::create();
+   auto gko_host_A = gko::share( TNL::Matrices::getGinkgoMatrixCsrView( gko_host_exec, csrHostMatrix ) );
+
+   // Wrap the vectors
+   auto gko_host_b = Containers::GinkgoVector< Real, Devices::Host >::create( gko_host_exec, hostOutVector.getView() );
+   auto gko_host_x = Containers::GinkgoVector< Real, Devices::Host >::create( gko_host_exec, hostInVector.getView() );
+
+   auto spmvGinkgoCSRHost = [ & ]()
+   {
+      gko_host_A->apply( gko_host_b.get(), gko_host_x.get() );
+   };
+
+   SpmvBenchmarkResult< Real, Devices::Host, int > ginkgoHostBenchmarkResults( hostOutVector, hostOutVector );
+   const int maxThreadsCount = Devices::Host::getMaxThreadsCount();
+   int threads = 1;
+   while( true ) {
+      benchmark.setMetadataElement( { "format", "Ginkgo" } );
+      benchmark.setMetadataElement( { "threads", convertToString( threads ).getString() } );
+      Devices::Host::setMaxThreadsCount( threads );
+      benchmark.time< Devices::Host >( resetHostVectors, "CPU", spmvGinkgoCSRHost, ginkgoHostBenchmarkResults );
+      if( threads == maxThreadsCount )
+         break;
+      threads = min( 2 * threads, maxThreadsCount );
    }
 #endif
 
@@ -242,6 +275,25 @@ benchmarkSpmv( BenchmarkType& benchmark,
    else {
       std::cerr << "Current Real or Index type does not agree with HYPRE_Real or HYPRE_Index." << std::endl;
    }
+   #endif
+
+   #ifdef HAVE_GINKGO
+   // Create a Ginkgo Csr view
+   auto gko_cuda_exec = gko::CudaExecutor::create( 0, gko_host_exec );
+   auto gko_cuda_A = gko::share( TNL::Matrices::getGinkgoMatrixCsrView( gko_cuda_exec, csrCudaMatrix ) );
+
+   // Wrap the vectors
+   auto gko_cuda_b = Containers::GinkgoVector< Real, Devices::Cuda >::create( gko_cuda_exec, cudaOutVector.getView() );
+   auto gko_cuda_x = Containers::GinkgoVector< Real, Devices::Cuda >::create( gko_cuda_exec, cudaInVector.getView() );
+
+   auto spmvGinkgoCSRCuda = [ & ]()
+   {
+      gko_cuda_A->apply( gko_cuda_b.get(), gko_cuda_x.get() );
+   };
+
+   SpmvBenchmarkResult< Real, Devices::Cuda, int > ginkgoCudaBenchmarkResults( hostOutVector, cudaOutVector );
+   benchmark.setMetadataElement( { "format", "Ginkgo CSR" } );
+   benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvGinkgoCSRCuda, ginkgoCudaBenchmarkResults );
    #endif
 
    #ifdef HAVE_CSR5
@@ -319,6 +371,26 @@ benchmarkSpmv( BenchmarkType& benchmark,
    SpmvBenchmarkResult< Real, Devices::Hip, int > hipBenchmarkResults( hostOutVector, hipOutVector );
    benchmark.setMetadataElement( { "format", "hipsparse" } );
    benchmark.time< Devices::Hip >( resetHipVectors, "GPU", spmvHipsparse, hipBenchmarkResults );
+
+   #ifdef HAVE_GINKGO
+   // Create a Ginkgo Csr view
+   auto gko_hip_exec = gko::CudaExecutor::create( 0, gko_host_exec );
+   auto gko_hip_A = gko::share( TNL::Matrices::getGinkgoMatrixCsrView( gko_hip_exec, csrHipMatrix ) );
+
+   // Wrap the vectors
+   auto gko_hip_b = Containers::GinkgoVector< Real, Devices::Hip >::create( gko_hip_exec, hipOutVector.getView() );
+   auto gko_hip_x = Containers::GinkgoVector< Real, Devices::Hip >::create( gko_hip_exec, hipInVector.getView() );
+
+   auto spmvGinkgoCSRHip = [ & ]()
+   {
+      gko_hip_A->apply( gko_hip_b.get(), gko_hip_x.get() );
+   };
+
+   SpmvBenchmarkResult< Real, Devices::Hip, int > ginkgoHipBenchmarkResults( hostOutVector, hipOutVector );
+   benchmark.setMetadataElement( { "format", "Ginkgo CSR" } );
+   benchmark.time< Devices::Hip >( resetHipVectors, "GPU", spmvGinkgoCSRHip, ginkgoCudaBenchmarkResults );
+   #endif
+
 #endif
    csrHostMatrix.reset();
 }
