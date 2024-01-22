@@ -13,6 +13,9 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 project(tnl-benchmark-spmv LANGUAGES CXX)
 
+# declare all custom build options
+option( HYPRE_WITH_CUDA "Set if Hypre was built with CUDA on this system." OFF )
+
 # Require C++17, and disable compiler-specific extensions (if possible).
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
