@@ -9,22 +9,22 @@
 using namespace TNL::Matrices;
 
 #include <exception>
-#include <ctime> // Used for file naming, so logs don't get overwritten.
-#include <filesystem> // check file existence
+#include <ctime>       // Used for file naming, so logs don't get overwritten.
+#include <filesystem>  // check file existence
 
 using namespace TNL;
 using namespace TNL::Benchmarks;
 
 template< typename Real >
 void
-runSpMVBenchmarks( TNL::Benchmarks::SpMV::BenchmarkType & benchmark,
-                   const String & inputFileName,
+runSpMVBenchmarks( TNL::Benchmarks::SpMV::BenchmarkType& benchmark,
+                   const String& inputFileName,
                    const Config::ParameterContainer& parameters,
                    bool verboseMR = false )
 {
    // Start the actual benchmark in spmv.h
    try {
-      TNL::Benchmarks::SpMV::benchmarkSpmv< Real >( benchmark, inputFileName, parameters, verboseMR );
+      TNL::Benchmarks::SpMV::benchmarkSpmv< Real, int >( benchmark, inputFileName, parameters, verboseMR );
    }
    catch( const std::exception& ex ) {
       std::cerr << ex.what() << std::endl;
@@ -32,10 +32,11 @@ runSpMVBenchmarks( TNL::Benchmarks::SpMV::BenchmarkType & benchmark,
 }
 
 // Get current date time to have different log files names and avoid overwriting.
-std::string getCurrDateTime()
+std::string
+getCurrDateTime()
 {
    time_t rawtime;
-   struct tm * timeinfo;
+   struct tm* timeinfo;
    char buffer[ 80 ];
    time( &rawtime );
    timeinfo = localtime( &rawtime );
@@ -45,14 +46,14 @@ std::string getCurrDateTime()
 }
 
 void
-setupConfig( Config::ConfigDescription & config )
+setupConfig( Config::ConfigDescription& config )
 {
    config.addDelimiter( "Benchmark settings:" );
    config.addRequiredEntry< String >( "input-file", "Input file name." );
    config.addEntry< bool >( "with-symmetric-matrices", "Perform benchmark even for symmetric matrix formats.", true );
    config.addEntry< bool >( "with-ellpack-formats", "Perform benchmark for Ellpack based matrix formats.", true );
    config.addEntry< bool >( "with-all-cpu-tests", "All matrix formats are tested on both CPU and GPU. ", false );
-   config.addEntry< String >( "log-file", "Log file name.", "tnl-benchmark-spmv::" + getCurrDateTime() + ".log");
+   config.addEntry< String >( "log-file", "Log file name.", "tnl-benchmark-spmv::" + getCurrDateTime() + ".log" );
    config.addEntry< String >( "output-mode", "Mode for opening the log file.", "append" );
    config.addEntryEnum( "append" );
    config.addEntryEnum( "overwrite" );
@@ -83,10 +84,10 @@ main( int argc, char* argv[] )
    Devices::Host::setup( parameters );
    Devices::Cuda::setup( parameters );
 
-   const String & inputFileName = parameters.getParameter< String >( "input-file" );
-   const String & logFileName = parameters.getParameter< String >( "log-file" );
+   const String& inputFileName = parameters.getParameter< String >( "input-file" );
+   const String& logFileName = parameters.getParameter< String >( "log-file" );
    String outputMode = parameters.getParameter< String >( "output-mode" );
-   const String & precision = parameters.getParameter< String >( "precision" );
+   const String& precision = parameters.getParameter< String >( "precision" );
    const int loops = parameters.getParameter< int >( "loops" );
    const int verbose = parameters.getParameter< int >( "verbose" );
    const int verboseMR = parameters.getParameter< int >( "verbose-MReader" );
@@ -96,7 +97,7 @@ main( int argc, char* argv[] )
       std::cerr << "ERROR: Input file name is required." << std::endl;
       return EXIT_FAILURE;
    }
-   if( std::filesystem::exists(logFileName.getString()) ) {
+   if( std::filesystem::exists( logFileName.getString() ) ) {
       std::cout << "Log file " << logFileName << " exists and ";
       if( outputMode == "append" )
          std::cout << "new logs will be appended." << std::endl;
@@ -106,7 +107,7 @@ main( int argc, char* argv[] )
 
    auto mode = std::ios::out;
    if( outputMode == "append" )
-       mode |= std::ios::app;
+      mode |= std::ios::app;
    std::ofstream logFile( logFileName, mode );
 
    // init benchmark and set parameters
