@@ -4,13 +4,8 @@
 
 namespace TNL::Benchmarks {
 
-template< typename Real,
-          typename Device,
-          typename Index,
-          typename ResultReal = Real,
-          typename Logger = JsonLogging >
-struct SpmvBenchmarkResult
-: public BenchmarkResult
+template< typename Real, typename Device, typename Index, typename ResultReal = Real, typename Logger = JsonLogging >
+struct SpmvBenchmarkResult : public BenchmarkResult
 {
    using RealType = Real;
    using DeviceType = Device;
@@ -18,42 +13,51 @@ struct SpmvBenchmarkResult
    using HostVector = Containers::Vector< Real, Devices::Host, Index >;
    using BenchmarkVector = Containers::Vector< ResultReal, Device, Index >;
 
-   using typename BenchmarkResult::HeaderElements;
-   using typename BenchmarkResult::RowElements;
-   using BenchmarkResult::stddev;
    using BenchmarkResult::bandwidth;
    using BenchmarkResult::speedup;
    using BenchmarkResult::time;
+   using BenchmarkResult::time_stddev;
+   using typename BenchmarkResult::HeaderElements;
+   using typename BenchmarkResult::RowElements;
 
-
-   SpmvBenchmarkResult( const HostVector& csrResult,
-                        const BenchmarkVector& benchmarkResult )
+   SpmvBenchmarkResult( const HostVector& csrResult, const BenchmarkVector& benchmarkResult )
    : csrResult( csrResult ), benchmarkResult( benchmarkResult )
    {}
 
-   virtual HeaderElements getTableHeader() const override
+   virtual HeaderElements
+   getTableHeader() const override
    {
-      return HeaderElements({ "time", "stddev", "stddev/time", "loops", "bandwidth", "speedup", "CSR Diff.Max", "CSR Diff.L2" });
+      return HeaderElements(
+         { "time", "speedup", "bandwidth", "CSR Diff.Max", "CSR Diff.L2", "time_stddev", "time_stddev/time", "loops" } );
    }
 
-   virtual std::vector< int > getColumnWidthHints() const override
+   virtual std::vector< int >
+   getColumnWidthHints() const override
    {
-      return std::vector< int >({ 14, 14, 14, 6, 14, 14, 14, 14 });
+      return std::vector< int >( { 14,     // time
+                                   8,      // speedup
+                                   14,     // bandwidth
+                                   14,     // CSR Diff.Max
+                                   14,     // CSR Diff. L2,
+                                   16,     // time_stddev
+                                   18,     // time_stddev/time
+                                   6 } );  // loops
    }
 
-   virtual RowElements getRowElements() const override
+   virtual RowElements
+   getRowElements() const override
    {
       HostVector benchmarkResultCopy;
       benchmarkResultCopy = benchmarkResult;
       auto diff = csrResult - benchmarkResultCopy;
       RowElements elements;
       // write in scientific format to avoid precision loss
-      elements << std::scientific << time << stddev << stddev/time << loops << bandwidth;
+      elements << std::scientific << time;
       if( speedup != 0.0 )
          elements << speedup;
       else
          elements << "N/A";
-      elements << max( abs( diff ) ) << lpNorm( diff, 2.0 );
+      elements << bandwidth << max( abs( diff ) ) << lpNorm( diff, 2.0 ) << time_stddev << time_stddev / time << loops;
       return elements;
    }
 
@@ -61,4 +65,4 @@ struct SpmvBenchmarkResult
    const BenchmarkVector& benchmarkResult;
 };
 
-} // namespace TNL::Benchmarks
+}  // namespace TNL::Benchmarks
