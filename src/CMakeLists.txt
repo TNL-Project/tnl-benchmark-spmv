@@ -24,6 +24,7 @@
 find_package(MPI COMPONENTS CXX)
 if( MPI_CXX_FOUND )
    find_package(Hypre)
+   find_package( Ginkgo )
 endif()
 
 # host binaries
@@ -121,20 +122,20 @@ if( MPI_CXX_FOUND )
    endif()
 endif()
 
+if( MPI_CXX_FOUND )
+   if( Ginkgo_FOUND )
+      if( NOT HYPRE_FOUND OR NOT HYPRE_WITH_CUDA )
+         # enable Ginkgo support in TNL
+         target_compile_definitions( tnl-benchmark-spmv-reference PUBLIC "-DHAVE_GINKGO -DHAVE_MPI" )
+         # add Ginkgo to the target
+         target_link_libraries( tnl-benchmark-spmv-reference PUBLIC Ginkgo::ginkgo )
+      endif()
 
-find_package( Ginkgo )
-if( Ginkgo_FOUND )
-   if( NOT HYPRE_FOUND OR NOT HYPRE_WITH_CUDA )
-      # enable Ginkgo support in TNL
-      target_compile_definitions( tnl-benchmark-spmv-reference PUBLIC "-DHAVE_GINKGO" )
-      # add Ginkgo to the target
-      target_link_libraries( tnl-benchmark-spmv-reference PUBLIC Ginkgo::ginkgo )
-   endif()
-
-   if( CMAKE_CUDA_COMPILER AND ( NOT HYPRE_FOUND OR HYPRE_WITH_CUDA ) )
-      # enable Ginkgo support in TNL
-      target_compile_definitions( tnl-benchmark-spmv-reference-cuda PUBLIC "-DHAVE_GINKGO" )
-      # add Ginkgo to the target
-      target_link_libraries( tnl-benchmark-spmv-reference-cuda PUBLIC Ginkgo::ginkgo )
+      if( CMAKE_CUDA_COMPILER AND ( NOT HYPRE_FOUND OR HYPRE_WITH_CUDA ) )
+         # enable Ginkgo support in TNL
+         target_compile_definitions( tnl-benchmark-spmv-reference-cuda PUBLIC "-DHAVE_GINKGO -DHAVE_MPI" )
+         # add Ginkgo to the target
+         target_link_libraries( tnl-benchmark-spmv-reference-cuda PUBLIC Ginkgo::ginkgo )
+      endif()
    endif()
 endif()
