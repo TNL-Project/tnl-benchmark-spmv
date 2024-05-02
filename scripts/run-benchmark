@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
-# exit as soon as there is an error
-set -o errexit
+# Uncomment if you want to exit as soon as there is an error
+# set -o errexit
+
 # abort when an unset variable is used
 set -o nounset
 # enable recursive globbing
@@ -15,6 +16,12 @@ PROJECT_DIR="$( realpath "$THIS_DIR/..")"
 
 # directory where the binaries are built
 BIN_DIR="$PROJECT_DIR/build/src"
+#BIN_DIR="$HOME/.local/bin"
+
+DEBUG="no"
+DELETE_LOG_FILE="yes"
+#MAX_OMP_THREADS="1"
+OMP_ENABLED="yes"
 
 # select the benchmark to run
 BENCHMARK="$BIN_DIR/tnl-benchmark-spmv"
@@ -24,12 +31,29 @@ BENCHMARK="$BIN_DIR/tnl-benchmark-spmv"
 #BENCHMARK="$BIN_DIR/tnl-benchmark-spmv-reference"
 #BENCHMARK="$BIN_DIR/tnl-benchmark-spmv-reference-cuda"
 
-DEBUG="no"
-#MAX_OMP_THREADS="1"
-OMP_ENABLED="yes"
-
+# set the path to the directory containing the sparse matrices
 matrices_base_path="./mtx_matrices"
+
+# set the path to the log file
 log_file="./log-files/sparse-matrix-benchmark.log"
+#log_file="./log-files/sparse-matrix-benchmark-cuda.log"
+#log_file="./log-files/sparse-matrix-benchmark-legacy.log"
+#log_file="./log-files/sparse-matrix-benchmark-legacy-cuda.log"
+#log_file="./log-files/sparse-matrix-benchmark-reference.log"
+#log_file="./log-files/sparse-matrix-benchmark-reference-cuda.log"
+
+# Function to execute a command and continue on segfault
+run_command() {
+    "$@"
+    local status=$?
+    if [ $status -eq 139 ]; then
+        echo "Caught segfault, but continuing script execution."
+        touch segfaults.log
+        echo "$@" >> segfaults.log
+    fi
+    rm core*
+    return $status
+}
 
 if [[ ! -d "$matrices_base_path" ]]; then
     echo "The path '$matrices_base_path' does not exist." >&2
@@ -40,9 +64,19 @@ if [[ ! -d "$(dirname "$log_file")" ]]; then
     mkdir -p "$(dirname "$log_file")"
 fi
 
-if [[ -f "$log_file" ]]; then
+if [[ -f "$log_file" ]] && [[ "$DELETE_LOG_FILE" == "yes" ]]; then
     echo "WARNING: deleting an existing log file $log_file"
     rm -f "$log_file"
+fi
+
+
+if [[ ! -f "input-files" ]]; then
+   echo "Creating list of input files..."
+   touch input-files
+   for matrix in "$matrices_base_path"/**/*.mtx; do
+       echo "$matrix"
+       echo "$matrix" >> input-files
+   done
 fi
 
 # set the default number of OpenMP threads to the number of CPU cores
@@ -69,10 +103,39 @@ else
     COMMAND+=(--openmp-enabled no)
 fi
 
-for matrix in "$matrices_base_path"/**/*.mtx; do
-    if [[ "$DEBUG" == "yes" ]]; then
-        gdb --args "${COMMAND[@]}" --input-file "$matrix"
-    else
-        "${COMMAND[@]}" --input-file "$matrix"
-    fi
+#mkdir -p stamps
+#stamps_dir="`pwd`/stamps"
+
+while [[ -s input-files ]];
+do
+   matrix=$(head -n 1 input-files)
+   echo "Benchmarking matrix $matrix ..."
+   if [[ "$DEBUG" == "yes" ]]; then
+
+      gdb --args "${COMMAND[@]}" --input-file "$matrix"
+   else
+      run_command "${COMMAND[@]}" --input-file "$matrix"
+   fi
+   sed -i '1d' input-files
 done
+
+#for matrix in "$matrices_base_path"/**/*.mtx; do
+#    stamp_file="$stamps_dir$matrix"
+#    echo "Stamp file is $stamp_file ..."
+#    if [ -f "$stamp_file" ]; then
+#        echo "Skipping matrix $matrix ..."
+#    else
+#       echo "Benchmarking matrix $matrix ..."
+#       if [[ "$DEBUG" == "yes" ]]; then
+#           gdb --args "${COMMAND[@]}" --input-file "$matrix"
+#       else
+#          run_command "${COMMAND[@]}" --input-file "$matrix"
+#       fi
+#    fi
+#    #echo "Making dir $(dirname "$stamp_file") ..."
+#    mkdir -p "$(dirname "$stamp_file")"
+#    pushd "$(dirname "$stamp_file")" > /dev/null
+#    #echo "Creating file "$(basename "$stamp_file")" ... "
+#    touch "$(basename "$stamp_file")"
+#    popd
+##done
