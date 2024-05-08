@@ -95,7 +95,6 @@ class Report:
             for f in self.formats:
                 if not f in ["cusparse", "CSR", format]:
                     copy_df.drop(labels=f, axis="columns", level=0, inplace=True)
-            copy_df.sort_index(inplace=True)
             copy_df.to_html(f"BW-profile/{format}.html")
 
         # Draw ellpack formats profiles
@@ -1391,7 +1390,7 @@ class Report:
         self.cusparse_and_hypre_speedup_comparison()
         self.binary_matrices_comparison()
         self.symmetric_matrices_comparison()
-        self.csr_light_speedup_comparison()
+        # self.csr_light_speedup_comparison()
         # self.csr_hypre_cpu_scalability()
         # self.hypre_cpu_tnl_speedup_scalability()
 

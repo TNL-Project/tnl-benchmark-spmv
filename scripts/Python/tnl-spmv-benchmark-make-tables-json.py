@@ -312,7 +312,7 @@ aux_df = pd.DataFrame(df_data, columns=multicolumns, index=[0])
 aux_df.to_html("index.html")
 
 print("Converting data...")
-result = convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=10)
+result = convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=-1)
 result.to_html("sparse-matrix-benchmark-test-processed.html")
 
 Speedup.compute_speedup(result, formats, cpu_threads_numbers, formats_devices)
@@ -329,8 +329,8 @@ if not os.path.exists("general"):
 os.chdir("general")
 
 print("Writting to HTML file...")
-df.sort_index(inplace=True)
-df.to_html(f"output.html")
+result.sort_index(inplace=True)
+result.to_html(f"output.html")
 
 report = Report.Report(
     result, formats, latex_labels, formats_devices, cpu_threads_numbers, head_size
