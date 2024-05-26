@@ -64,7 +64,7 @@ def compute_hypre_speedup(df, formats, formats_devices):
                     )
 
 
-def compute_ginkgo_speedup(df, formats, formats_devices):
+def compute_ginkgo_speedup(df, formats, formats_devices, threads_num_list):
     """
     Compute speed-up of particular formats compared to Ginkgo on GPU and CSR on CPU
     """
@@ -79,7 +79,14 @@ def compute_ginkgo_speedup(df, formats, formats_devices):
                         (format, device, "speed-up", "Ginkgo"),
                     )
 
-    # TODO: Compute speedup of Ginkgo CSR on CPU compared to CSR on CPU
+    # TODO: Speedup Ginkgo vs CSR on CPU
+    # for threads in threads_num_list:
+    #    divide_columns(
+    #        df,
+    #        ("Ginkgo", "GPU", "time", ""),
+    #        (format, device, "time", ""),
+    #        (format, device, "speed-up", "Ginkgo"),
+    #    )
 
 
 def compute_csr_light_speedup(df, formats):
@@ -163,17 +170,46 @@ def compute_hypre_cpu_speedup(df, formats, threads_num_list):
         )
 
 
-def compute_speedup(df, formats, threads_num_list, formats_devices):
+def compute_legacy_speedup(df, formats, formats_devices, legacy_counterparts):
+    for format in formats:
+        if not legacy_counterparts.get(format):
+            continue
+        legacy_format = legacy_counterparts[format]
+        if legacy_format in formats:
+            if (format, "GPU") in formats_devices and (
+                legacy_format,
+                "GPU",
+            ) in formats_devices:
+                divide_columns(
+                    df,
+                    (legacy_format, "GPU", "time"),
+                    (format, "GPU", "time"),
+                    (format, "GPU", "speed-up", legacy_format),
+                )
+            if (format, "CPU") in formats_devices and (
+                legacy_format,
+                "CPU",
+            ) in formats_devices:
+                divide_columns(
+                    df,
+                    (legacy_format, "CPU", "time"),
+                    (format, "CPU", "time"),
+                    (format, "CPU", "speed-up", legacy_format),
+                )
+
+
+def compute_speedup(df, formats, threads_num_list, formats_devices, legacy_couterparts):
     compute_csr_speedup(df, formats, formats_devices)
     if "cusparse" in formats:
         compute_cusparse_speedup(df, formats, formats_devices)
     if "Hypre" in formats:
         compute_hypre_speedup(df, formats, formats_devices)
     if "Ginkgo" in formats:
-        compute_ginkgo_speedup(df, formats, formats_devices)
+        compute_ginkgo_speedup(df, formats, formats_devices, threads_num_list)
     compute_csr_light_speedup(df, formats)
     compute_binary_speedup(df, formats, formats_devices)
     compute_symmetric_speedup(df, formats, formats_devices)
     compute_cpu_speedup(df, formats, threads_num_list)
     if ("Hypre", "CPU") in formats_devices:
         compute_hypre_cpu_speedup(df, formats, threads_num_list)
+    compute_legacy_speedup(df, formats, formats_devices, legacy_couterparts)

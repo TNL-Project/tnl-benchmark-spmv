@@ -35,6 +35,7 @@ class Report:
         latex_labels,
         formats_devices,
         cpu_threads_numbers,
+        legacy_counterparts,
         head_size=10,
     ):
         self.df = df
@@ -42,6 +43,7 @@ class Report:
         self.latex_labels = latex_labels
         self.formats_devices = formats_devices
         self.cpu_threads_numbers = cpu_threads_numbers
+        self.legacy_counterparts = legacy_counterparts
         self.head_size = head_size
 
     def effective_bw_profile(self):
@@ -375,10 +377,11 @@ class Report:
     def cusparse_and_hypre_speedup_comparison(self):
         df = self.df
         for comparison in ["cusparse", "Hypre"]:
+            profiles = {}
             if comparison in self.formats:
                 if not os.path.exists(f"{comparison}-speed-up"):
                     os.mkdir(f"{comparison}-speed-up")
-                profiles = {}
+
                 for format in self.formats:
                     if not format in ["cusparse", "CSR", "Hypre"]:
                         print(
@@ -391,6 +394,7 @@ class Report:
                             inplace=True,
                             ascending=False,
                         )
+                        print(f"Adding format {format}")
                         profiles[format] = filtered_df[
                             (format, "GPU", "speed-up", comparison)
                         ].copy()
@@ -478,6 +482,8 @@ class Report:
                         copy_df.to_html(f"{comparison}-speed-up/{format}.html")
 
             # Draw Ellpack formats profiles
+            if not profiles:
+                continue
             xlabel = f"Matrix number - sorted by particular formats speedup compared to {comparison}"
             ylabel = "Speedup"
             current_formats = []
@@ -1376,6 +1382,50 @@ class Report:
         with open("color-map.tex", "w") as file:
             self.write_colormap(file, 1200, 5, 13 * scale, 1.5 * scale, standalone=True)
 
+    def legacy_formats_comparison(self):
+        """
+        Comparison of legacy formats
+        """
+        df = self.df
+        if not os.path.exists("legacy-speed-up"):
+            os.mkdir("legacy-speed-up")
+        for format in self.formats:
+            if not self.legacy_counterparts.get(format):
+                continue
+            legacy_format = self.legacy_counterparts.get(format)
+            for device in ["CPU", "GPU"]:
+                if not (format, device) in self.formats_devices:
+                    continue
+                profiles = {}
+                df.sort_values(
+                    by=[(format, device, "speed-up", legacy_format)],
+                    inplace=True,
+                    ascending=False,
+                )
+                profiles[format] = df[
+                    (format, device, "speed-up", legacy_format)
+                ].copy()
+                # print(
+                #    f"format={format} device={device} legacy_format = {legacy_format} >>> {profiles[format]}"
+                # )
+                Graphs.draw_graphs(
+                    [format],
+                    profiles,
+                    xlabel=f"Matrix number - sorted w.r.t. speed-up of {LatexLabels.latex_label(format)}",
+                    ylabel="Speedup",
+                    filename=f"legacy-speed-up/{format}-{device}.pdf",
+                    legend_loc="upper right",
+                    bar=LatexLabels.latex_label(legacy_format),
+                    yscale="linear",
+                    latex_labels=self.latex_labels,
+                )
+                copy_df = df.copy()
+                for f in self.formats:
+                    if not f in [format, legacy_format]:
+                        copy_df.drop(labels=f, axis="columns", level=0, inplace=True)
+                # copy_df.sort_index(inplace=True)
+                copy_df.to_html(f"legacy-speed-up/{format}-{device}.html")
+
     def write(self):
         """
         Write report with benchmark data analysis
@@ -1390,9 +1440,12 @@ class Report:
         self.cusparse_and_hypre_speedup_comparison()
         self.binary_matrices_comparison()
         self.symmetric_matrices_comparison()
+
         # self.csr_light_speedup_comparison()
         # self.csr_hypre_cpu_scalability()
         # self.hypre_cpu_tnl_speedup_scalability()
+
+        self.legacy_formats_comparison()
 
         best = self.df[("TNL Best", "GPU", "format", "")].tolist()
         best_formats = list(set(best))

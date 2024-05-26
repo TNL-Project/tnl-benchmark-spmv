@@ -35,6 +35,8 @@ def draw_graphs(
     size = 1
     color_idx = 0
     for label in graph_labels:
+        if not label in graphs:
+            raise RuntimeError(f"Graph {label} not found in graphs")
         t = np.arange(len(graphs[label]))
         if color_idx < len(matplotlib_fixed_colors):
             axs.plot(

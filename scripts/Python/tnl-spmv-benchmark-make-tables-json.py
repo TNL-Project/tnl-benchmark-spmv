@@ -17,6 +17,17 @@ import LatexLabels
 formats_devices = []
 latex_labels = {}
 
+legacy_couterparts = {
+    "BiEllpack BiEllpack": "BiEllpack Legacy",
+    "ChunkedElpack ChunkedElpack": "ChunkedEllpack Legacy",
+    "SlicedEllpack SlicedEllpack": "SlicedEllpack Legacy",
+    "Ellpack Ellpack": "Ellpack Legacy",
+    "CSR Scalar": "CSR Legacy Scalar",
+    "CSR Vector": "CSR Legacy Vector",
+    "CSR Adaptive": "CSR Legacy Adaptive",
+    "CSR Light Automatic Light": "CSR Legacy LightWithoutAtomic",
+}
+
 
 def gaussian(x, a, b, c, d=0):
     return a * math.exp(-((x - b) ** 2) / (2 * c**2)) + d
@@ -83,6 +94,10 @@ def get_multiindex(input_df, formats, threads_num_list):
                     "diff.max",
                 ]:  # ,'time','speed-up','non-zeros','stddev','stddev/time','diff.max','diff.l2']:
                     mc.add_entry([format, device, data])
+            legacy_format = legacy_couterparts.get(format)
+            if legacy_format:
+                mc.add_entry([format, device, "speed-up", legacy_format])
+
         if not format in ["cusparse", "CSR"]:
             for speedup in ["cusparse", "CSR CPU", "Hypre", "Ginkgo"]:
                 mc.add_entry([format, "GPU", "speed-up", speedup])
@@ -315,7 +330,9 @@ print("Converting data...")
 result = convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=-1)
 result.to_html("sparse-matrix-benchmark-test-processed.html")
 
-Speedup.compute_speedup(result, formats, cpu_threads_numbers, formats_devices)
+Speedup.compute_speedup(
+    result, formats, cpu_threads_numbers, formats_devices, legacy_couterparts
+)
 result.replace(to_replace=" ", value=np.nan, inplace=True)
 
 print("Writting to file sparse-matrix-benchmark-test-processed.html ... ")
@@ -333,7 +350,13 @@ result.sort_index(inplace=True)
 result.to_html(f"output.html")
 
 report = Report.Report(
-    result, formats, latex_labels, formats_devices, cpu_threads_numbers, head_size
+    result,
+    formats,
+    latex_labels,
+    formats_devices,
+    cpu_threads_numbers,
+    legacy_couterparts,
+    head_size,
 )
 report.write()
 os.chdir("..")
