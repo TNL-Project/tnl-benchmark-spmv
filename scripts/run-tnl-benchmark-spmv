@@ -1,0 +1,162 @@
+#!/usr/bin/env bash
+
+# Uncomment if you want to exit as soon as there is an error
+# set -o errexit
+
+# abort when an unset variable is used
+set -o nounset
+# enable recursive globbing
+shopt -s globstar
+
+matrices_base_path="./mtx_matrices"
+OMP_ENABLED="yes"
+MAX_OMP_THREADS="auto"
+DEBUG="no"
+SIZE_LIMIT=-1 # no size limit
+log_file="sparse-matrix-benchmark.log"
+continue_benchmark="no"
+
+# Function to execute a command and continue on segfault
+run_command() {
+    echo "$@"
+    "$@"
+    local status=$?
+    if [ $status -eq 139 ]; then
+        echo "Caught segfault, but continuing script execution."
+        touch segfaults.log
+        echo "$@" >> segfaults.log
+    fi
+    rm -f core*
+    return $status
+}
+
+# Loop through all the positional arguments
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        -b|--benchmark)  # Binary to benchmark
+            BENCHMARK="$2"
+            shift  # Move past the value to the next key
+            ;;
+        -i|--input-dir)  # Input directory
+            matrices_base_path="$2"
+            shift
+            ;;
+        -l|--log-file)  # Log file
+            log_file="$2"
+            shift
+            ;;
+        -c|--continue)  # Continue from a previous run
+            continue_benchmark="$2"
+            shift
+            ;;
+        -s|--size-limit)  # Size limit for matrices
+            SIZE_LIMIT="$2"
+            shift
+            ;;
+        -d|--debug)  # Debug mode
+            DEBUG="$2"
+            shift
+            ;;
+        -o|--openmp-enabled)  # Enable OpenMP
+            OMP_ENABLED="$2"
+            shift
+            ;;
+        -t|--openmp-max-threads)  # Maximum number of OpenMP threads
+            MAX_OMP_THREADS="$2"
+            shift
+            ;;
+        -h|--help)  # Display help
+            echo "Usage: $0 [options]"
+            echo "Options:"
+            echo "  -b, --benchmark BINARY        Binary to benchmark"
+            echo "  -i, --input-dir DIR           Input directory. Default: ./mtx_matrices"
+            echo "  -l, --log-file FILE           Log file. Default: sparse-matrix-benchmark.log"
+            echo "  -c, --continue yes/no         Continue from a previous run. Default: no"
+            echo "  -s, --size-limit SIZE         Size limit for matrices, -1 for no limit. Default: -1"
+            echo "  -d, --debug  yes/no           Debug mode. Default: no"
+            echo "  -o, --openmp-enabled yes/no   Enable OpenMP. Default: yes"
+            echo "  -t, --openmp-max-threads MAX  Maximum number of OpenMP threads. Default: auto"
+            echo "  -h, --help                    Display help"
+            exit 0
+            ;;
+        *)  # Handle unknown options
+            echo "Unknown option: $1"
+            exit 1
+            ;;
+    esac
+    shift  # Move to the next key or value
+done
+
+
+if [[ ! -d "$matrices_base_path" ]]; then
+    echo "The path '$matrices_base_path' does not exist." >&2
+    exit 1
+fi
+
+if [[ ! -d "$(dirname "$log_file")" ]]; then
+    mkdir -p "$(dirname "$log_file")"
+fi
+
+if [[ -f "$log_file" ]] && [[ "$continue_benchmark" != "yes" ]]; then
+    echo "WARNING: deleting an existing log file $log_file."
+    rm -f "$log_file"
+fi
+
+if [[ -f "input-files" ]] && [[ "$continue_benchmark" != "yes" ]]; then
+    echo "WARNING: deleting an existing list of input files."
+    rm -f input-files
+fi
+
+if [[ ! -f "input-files" ]]; then
+   echo "Creating list of input files..."
+   touch input-files
+   for matrix in "$matrices_base_path"/**/*.mtx; do
+      file_size=$(stat --format="%s" "$matrix")
+      if [ $SIZE_LIMIT -eq -1 ] || [ $file_size -lt $SIZE_LIMIT ]; then
+         echo "$matrix"
+         echo "$matrix" >> input-files
+      else
+         echo "Matrix $matrix is too large - SKIPPING."
+      fi
+   done
+fi
+
+# set the default number of OpenMP threads to the number of CPU cores
+if [[ "$MAX_OMP_THREADS" == "auto" ]]; then
+    if [[ $(command -v lscpu) ]]; then
+        # get the number of physical cores present on the system, even with multiple NUMA nodes
+        # see https://unix.stackexchange.com/a/279354
+        MAX_OMP_THREADS=$(lscpu --all --parse=CORE,SOCKET | grep -Ev "^#" | sort -u | wc -l)
+    elif [[ $(command -v sysctl) && $OSTYPE == 'darwin'* ]]; then
+        # get the number of physical cores present on the system for MacOS
+        MAX_OMP_THREADS=$(sysctl -n hw.ncpu)
+    fi
+fi
+
+# set parameters for the benchmark
+COMMAND=("$BENCHMARK" --precision double --log-file "$log_file" --output-mode append --verbose 1)
+
+if [[ "$OMP_ENABLED" == "yes" ]]; then
+    COMMAND+=(--openmp-enabled yes)
+    if [[ $MAX_OMP_THREADS != "" ]]; then
+        COMMAND+=(--openmp-max-threads $MAX_OMP_THREADS)
+    fi
+else
+    COMMAND+=(--openmp-enabled no)
+fi
+
+total_lines=$(wc -l < input-files)
+while [[ -s input-files ]];
+do
+   matrix=$(head -n 1 input-files)
+   lines=$(wc -l < input-files)
+   lines=$((total_lines - lines))
+   echo "$lines / $total_lines : Benchmarking matrix $matrix ..."
+   if [[ "$DEBUG" == "yes" ]]; then
+      gdb --args "${COMMAND[@]}" --input-file "$matrix"
+   else
+      run_command "${COMMAND[@]}" --input-file "$matrix"
+   fi
+   sed -i '1d' input-files
+done
+rm input-files
