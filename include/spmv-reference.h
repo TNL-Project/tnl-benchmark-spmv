@@ -292,7 +292,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
    };
 
    SpmvBenchmarkResult< Real, Devices::Cuda, int > ginkgoCudaBenchmarkResults( hostOutVector, cudaOutVector );
-   benchmark.setMetadataElement( { "format", "Ginkgo CSR" } );
+   benchmark.setMetadataElement( { "format", "Ginkgo" } );
    benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvGinkgoCSRCuda, ginkgoCudaBenchmarkResults );
    #endif
 

@@ -16,80 +16,106 @@ def divide_columns(df, in_colA, in_colB, out_col):
     df[out_col] = out_col_list
 
 
-def compute_csr_speedup(df, formats, formats_devices):
+def divide_column_by_number(df, in_colA, number, out_col):
     """
-    Compute speed-up of particular formats compared to CSR on CPU
+    Compute out_col = in_colA / number
     """
-    for device in ["GPU"]:
-        for format in formats:
-            if not format in ["cusparse", "CSR"]:
-                if (format, device) in formats_devices:
-                    divide_columns(
-                        df,
-                        ("CSR", "CPU", "1 threads", "time"),
-                        (format, device, "time", ""),
-                        (format, device, "speed-up", "CSR CPU"),
-                    )
+    in_colA_list = df[in_colA]
+    out_col_list = []
+
+    for A in in_colA_list:
+        div = 0
+        try:
+            div = A / number
+        except:
+            div = float("nan")
+        out_col_list.append(div)
+    df[out_col] = out_col_list
+
+
+def compute_csr_cpu_speedup(df, formats, threads_num_list):
+    """
+    Compute speed-up and efficiency of the CSR format on CPU with different number of threads
+    """
+    for format in ["CSR"]:
+        if format in formats:
+            for threads in threads_num_list:
+                if threads == 1:
+                    continue
+                divide_columns(
+                    df,
+                    (format, "CPU", "1 threads", "time"),
+                    (format, "CPU", str(threads) + " threads", "time"),
+                    (format, "CPU", str(threads) + " threads", "speed-up"),
+                )
+                divide_column_by_number(
+                    df,
+                    (format, "CPU", str(threads) + " threads", "speed-up"),
+                    threads,
+                    (format, "CPU", str(threads) + " threads", "eff."),
+                )
 
 
 def compute_cusparse_speedup(df, formats, formats_devices):
     """
     Compute speed-up of particular formats compared to Cusparse on GPU and (possibly) Hypre on GPU
     """
-    for device in ["GPU"]:
-        for format in formats:
-            if not format in ["cusparse", "CSR"]:
-                if (format, device) in formats_devices:
+    if "cusparse" in formats:
+        for device in ["GPU"]:
+            for format in formats:
+                if not format in ["cusparse", "CSR"]:
+                    if (format, device) in formats_devices:
+                        divide_columns(
+                            df,
+                            ("cusparse", "GPU", "time", ""),
+                            (format, device, "time", ""),
+                            (format, device, "speed-up", "cusparse"),
+                        )
+
+
+def compute_hypre_and_ginkgo_speedup(df, formats, formats_devices, threads_num_list):
+    """
+    Compute speed-up of particular formats compared to Hypre and Ginkgo on GPU and CSR on CPU
+    """
+    for ref_format in ["Hypre", "Ginkgo"]:
+        if ref_format in formats:
+            for device in ["GPU"]:
+                for format in formats:
+                    if not format in ["cusparse", "CSR", "Ginkgo", "Hypre"]:
+                        if (format, device) in formats_devices:
+                            divide_columns(
+                                df,
+                                (ref_format, "GPU", "time", ""),
+                                (format, device, "time", ""),
+                                (format, device, "speed-up", ref_format),
+                            )
+
+            for threads in threads_num_list:
+                divide_columns(
+                    df,
+                    (ref_format, "CPU", f"{threads} threads", "time"),
+                    ("CSR", "CPU", f"{threads} threads", "time"),
+                    (ref_format, "CPU", f"{threads} threads", "TNL speed-up"),
+                )
+                if threads != 1:
                     divide_columns(
                         df,
-                        ("cusparse", "GPU", "time", ""),
-                        (format, device, "time", ""),
-                        (format, device, "speed-up", "cusparse"),
+                        (ref_format, "CPU", "1 threads", "time"),
+                        (ref_format, "CPU", f"{threads} threads", "time"),
+                        (ref_format, "CPU", f"{threads} threads", "speed-up"),
                     )
-
-
-def compute_hypre_speedup(df, formats, formats_devices):
-    """
-    Compute speed-up of particular formats compared to Hypre on GPU
-    """
-    for device in ["GPU"]:
-        for format in formats:
-            if not format in ["cusparse", "CSR", "Hypre"]:
-                if (format, device) in formats_devices:
-                    divide_columns(
+                    divide_column_by_number(
                         df,
-                        ("Hypre", "GPU", "time", ""),
-                        (format, device, "time", ""),
-                        (format, device, "speed-up", "Hypre"),
+                        (ref_format, "CPU", f"{threads} threads", "speed-up"),
+                        threads,
+                        (ref_format, "CPU", f"{threads} threads", "eff."),
                     )
-
-
-def compute_ginkgo_speedup(df, formats, formats_devices, threads_num_list):
-    """
-    Compute speed-up of particular formats compared to Ginkgo on GPU and CSR on CPU
-    """
-    for device in ["GPU"]:
-        for format in formats:
-            if not format in ["cusparse", "CSR", "Ginkgo"]:
-                if (format, device) in formats_devices:
-                    divide_columns(
-                        df,
-                        ("Ginkgo", "GPU", "time", ""),
-                        (format, device, "time", ""),
-                        (format, device, "speed-up", "Ginkgo"),
-                    )
-
-    # TODO: Speedup Ginkgo vs CSR on CPU
-    # for threads in threads_num_list:
-    #    divide_columns(
-    #        df,
-    #        ("Ginkgo", "GPU", "time", ""),
-    #        (format, device, "time", ""),
-    #        (format, device, "speed-up", "Ginkgo"),
-    #    )
 
 
 def compute_csr_light_speedup(df, formats):
+    """
+    Compute speed-up of CSR Light Automatic and CSR Light Automatic Light compared to LightSpMV Vector
+    """
     if "LightSpMV Vector" in formats:
         for light in ["CSR Light Automatic", "CSR Light Automatic Light"]:
             if light in formats:
@@ -103,6 +129,9 @@ def compute_csr_light_speedup(df, formats):
 
 
 def compute_binary_speedup(df, formats, formats_devices):
+    """
+    Compute speed-up of Binary formats compared to their non-binary counterparts
+    """
     for format in formats:
         if "Binary" in format and (format, "GPU") in formats_devices:
             non_binary_format = format.replace("Binary ", "")
@@ -116,6 +145,9 @@ def compute_binary_speedup(df, formats, formats_devices):
 
 
 def compute_symmetric_speedup(df, formats, formats_devices):
+    """
+    Compute speed-up of Symmetric formats compared to their non-symmetric counterparts
+    """
     for format in formats:
         if "Symmetric" in format:
             if (format, "GPU") in formats_devices:
@@ -129,48 +161,10 @@ def compute_symmetric_speedup(df, formats, formats_devices):
                 )
 
 
-def compute_cpu_speedup(df, formats, threads_num_list):
-    for format in ["CSR", "Hypre"]:
-        if format in formats:
-            sequential_times_list = df[(format, "CPU", "1 threads", "time")]
-            speedup_list = []
-            efficiency_list = []
-            for threads in threads_num_list:
-                if threads == 1:
-                    continue
-                parallel_times_list = df[
-                    (format, "CPU", str(threads) + " threads", "time")
-                ]
-                # print( sequential_times_list)
-                # print( parallel_times_list)
-                for sequential_time, parallel_time in zip(
-                    sequential_times_list, parallel_times_list
-                ):
-                    # print( sequential_time )
-                    # print( parallel_time )
-                    speedup = float(sequential_time) / float(parallel_time)
-                    efficiency = speedup / threads
-                    speedup_list.append(speedup)
-                    efficiency_list.append(efficiency)
-                df[(format, "CPU", str(threads) + " threads", "speed-up")] = (
-                    speedup_list
-                )
-                df[(format, "CPU", str(threads) + " threads", "eff.")] = efficiency_list
-                speedup_list.clear()
-                efficiency_list.clear()
-
-
-def compute_hypre_cpu_speedup(df, formats, threads_num_list):
-    for threads in threads_num_list:
-        divide_columns(
-            df,
-            ("Hypre", "CPU", str(threads) + " threads", "time"),
-            ("CSR", "CPU", str(threads) + " threads", "time"),
-            ("Hypre", "CPU", str(threads) + " threads", "TNL speed-up"),
-        )
-
-
 def compute_legacy_speedup(df, formats, formats_devices, legacy_counterparts):
+    """
+    Compute speed-up of formats compared to their legacy counterparts
+    """
     for format in formats:
         if not legacy_counterparts.get(format):
             continue
@@ -198,18 +192,13 @@ def compute_legacy_speedup(df, formats, formats_devices, legacy_counterparts):
                 )
 
 
-def compute_speedup(df, formats, threads_num_list, formats_devices, legacy_couterparts):
-    compute_csr_speedup(df, formats, formats_devices)
-    if "cusparse" in formats:
-        compute_cusparse_speedup(df, formats, formats_devices)
-    if "Hypre" in formats:
-        compute_hypre_speedup(df, formats, formats_devices)
-    if "Ginkgo" in formats:
-        compute_ginkgo_speedup(df, formats, formats_devices, threads_num_list)
+def compute_speedup(
+    df, formats, threads_num_list, formats_devices, legacy_counterparts
+):
+    compute_csr_cpu_speedup(df, formats, threads_num_list)
+    compute_cusparse_speedup(df, formats, formats_devices)
+    compute_hypre_and_ginkgo_speedup(df, formats, formats_devices, threads_num_list)
     compute_csr_light_speedup(df, formats)
     compute_binary_speedup(df, formats, formats_devices)
     compute_symmetric_speedup(df, formats, formats_devices)
-    compute_cpu_speedup(df, formats, threads_num_list)
-    if ("Hypre", "CPU") in formats_devices:
-        compute_hypre_cpu_speedup(df, formats, threads_num_list)
-    compute_legacy_speedup(df, formats, formats_devices, legacy_couterparts)
+    compute_legacy_speedup(df, formats, formats_devices, legacy_counterparts)

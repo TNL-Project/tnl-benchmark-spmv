@@ -3,7 +3,7 @@
 import os
 import json
 import pandas as pd
-from pandas.io.json import json_normalize
+from pandas import json_normalize
 import matplotlib.pyplot as plt
 import numpy as np
 import math
@@ -70,7 +70,7 @@ def get_multiindex(input_df, formats, threads_num_list):
 
     for format in formats:
         for device in ["CPU", "GPU"]:
-            if (format == "CSR" or format == "Hypre") and device == "CPU":
+            if (format in ["CSR", "Hypre", "Ginkgo"]) and device == "CPU":
                 for threads in threads_num_list:
                     if threads == 1:
                         bm_data = [
@@ -79,7 +79,7 @@ def get_multiindex(input_df, formats, threads_num_list):
                         ]
                     else:
                         bm_data = ["bandwidth", "time", "speed-up", "eff."]
-                    if format == "Hypre":
+                    if format in ["Hypre", "Ginkgo"]:
                         bm_data.append("TNL speed-up")
                     for (
                         data
@@ -151,7 +151,7 @@ def convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=-1)
             time = pd.to_numeric(row["time"], errors="coerce")
             diff_max = pd.to_numeric(row["CSR Diff.Max"], errors="coerce")
             if current_device == "CPU" and (
-                current_format == "CSR" or current_format == "Hypre"
+                current_format in ["CSR", "Ginkgo", "Hypre"]
             ):
                 threads = str(int(row["threads"]))
                 # aux_df.iloc[0][("CSR", "CPU", "1.0 threads", "bandwidth")] = bw
@@ -316,6 +316,7 @@ cpu_threads_numbers = [
 ]
 # if 0 in threads_num_list:
 #    threads_num_list.remove(0)
+print(f"CPU threads: {cpu_threads_numbers}")
 
 accepted_formats = ["CSR"]
 multicolumns, df_data = get_multiindex(
