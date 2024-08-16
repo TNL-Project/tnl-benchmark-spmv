@@ -23,26 +23,26 @@
 
 # host binaries
 add_executable( tnl-benchmark-spmv tnl-benchmark-spmv.cpp )
-target_link_libraries( tnl-benchmark-spmv PUBLIC TNL::TNL_CXX )
+target_link_libraries( tnl-benchmark-spmv PUBLIC TNL::TNL )
 
 add_executable( tnl-benchmark-spmv-legacy tnl-benchmark-spmv-legacy.cpp )
-target_link_libraries( tnl-benchmark-spmv-legacy PUBLIC TNL::TNL_CXX )
+target_link_libraries( tnl-benchmark-spmv-legacy PUBLIC TNL::TNL )
 
 add_executable( tnl-benchmark-spmv-reference tnl-benchmark-spmv-reference.cpp )
-target_link_libraries( tnl-benchmark-spmv-reference PUBLIC TNL::TNL_CXX )
+target_link_libraries( tnl-benchmark-spmv-reference PUBLIC TNL::TNL )
 #target_compile_options( tnl-benchmark-spmv-reference PRIVATE ${PETSC_CXX_FLAGS} )
 #target_include_directories( tnl-benchmark-spmv-reference PRIVATE ${PETSC_INCLUDES} )
 #target_link_libraries( tnl-benchmark-spmv-reference ${PETSC_LIBRARIES} )
 
 # separate CUDA binaries
 add_executable( tnl-benchmark-spmv-cuda tnl-benchmark-spmv.cu )
-target_link_libraries( tnl-benchmark-spmv-cuda PUBLIC TNL::TNL_CUDA )
+target_link_libraries( tnl-benchmark-spmv-cuda PUBLIC TNL::TNL )
 
 add_executable( tnl-benchmark-spmv-legacy-cuda tnl-benchmark-spmv-legacy.cu )
-target_link_libraries( tnl-benchmark-spmv-legacy-cuda PUBLIC TNL::TNL_CUDA )
+target_link_libraries( tnl-benchmark-spmv-legacy-cuda PUBLIC TNL::TNL )
 
 add_executable( tnl-benchmark-spmv-reference-cuda tnl-benchmark-spmv-reference.cu LightSpMV-1.0/SpMV.cu LightSpMV-1.0/SpMVCSR.cu )
-target_link_libraries( tnl-benchmark-spmv-reference-cuda PUBLIC TNL::TNL_CUDA )
+target_link_libraries( tnl-benchmark-spmv-reference-cuda PUBLIC TNL::TNL )
 find_package( CUDAToolkit REQUIRED )
 target_link_libraries( tnl-benchmark-spmv-reference-cuda PUBLIC CUDA::cusparse )
 
