@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.24)
+cmake_minimum_required(VERSION 3.28)
 
 # Set CUDA architectures for which the executables will be compiled.
 # See https://cmake.org/cmake/help/latest/prop_tgt/CUDA_ARCHITECTURES.html
@@ -54,16 +54,17 @@ if( CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR
     endif()
 endif()
 
+# Add dependencies
+include(FetchContent)
+FetchContent_Declare(TNL
+    GIT_REPOSITORY https://gitlab.com/tnl-project/tnl.git
+    GIT_TAG main
+    EXCLUDE_FROM_ALL
+)
+FetchContent_MakeAvailable(TNL)
+
 # Set the project's include path
 include_directories(include)
-
-# Add dependencies
-if(SYSTEM_TNL)
-    find_package(TNL REQUIRED)
-else()
-    add_subdirectory(libs/tnl EXCLUDE_FROM_ALL)
-    set(SYSTEM_TNL TRUE)  # avoid further inclusion of libs/tnl from other libs
-endif()
 
 # Add subdirectories with source
 add_subdirectory(src)
