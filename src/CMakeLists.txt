@@ -29,14 +29,14 @@ endif()
 
 # host binaries
 add_executable( tnl-benchmark-spmv tnl-benchmark-spmv.cpp )
-target_link_libraries( tnl-benchmark-spmv PUBLIC TNL::TNL_CXX )
+target_link_libraries( tnl-benchmark-spmv PUBLIC TNL::TNL )
 
 add_executable( tnl-benchmark-spmv-legacy tnl-benchmark-spmv-legacy.cpp )
-target_link_libraries( tnl-benchmark-spmv-legacy PUBLIC TNL::TNL_CXX )
+target_link_libraries( tnl-benchmark-spmv-legacy PUBLIC TNL::TNL )
 
 if( NOT HYPRE_FOUND OR NOT HYPRE_WITH_CUDA )
    add_executable( tnl-benchmark-spmv-reference tnl-benchmark-spmv-reference.cpp )
-   target_link_libraries( tnl-benchmark-spmv-reference PUBLIC TNL::TNL_CXX )
+   target_link_libraries( tnl-benchmark-spmv-reference PUBLIC TNL::TNL )
    #target_compile_options( tnl-benchmark-spmv-reference PRIVATE ${PETSC_CXX_FLAGS} )
    #target_include_directories( tnl-benchmark-spmv-reference PRIVATE ${PETSC_INCLUDES} )
    #target_link_libraries( tnl-benchmark-spmv-reference ${PETSC_LIBRARIES} )
@@ -47,14 +47,14 @@ endif()
 # separate CUDA binaries
 if( CMAKE_CUDA_COMPILER )
    add_executable( tnl-benchmark-spmv-cuda tnl-benchmark-spmv.cu )
-   target_link_libraries( tnl-benchmark-spmv-cuda PUBLIC TNL::TNL_CUDA )
+   target_link_libraries( tnl-benchmark-spmv-cuda PUBLIC TNL::TNL )
 
    add_executable( tnl-benchmark-spmv-legacy-cuda tnl-benchmark-spmv-legacy.cu )
-   target_link_libraries( tnl-benchmark-spmv-legacy-cuda PUBLIC TNL::TNL_CUDA )
+   target_link_libraries( tnl-benchmark-spmv-legacy-cuda PUBLIC TNL::TNL )
 
    if( NOT HYPRE_FOUND OR HYPRE_WITH_CUDA )
       add_executable( tnl-benchmark-spmv-reference-cuda tnl-benchmark-spmv-reference.cu LightSpMV-1.0/SpMV.cu LightSpMV-1.0/SpMVCSR.cu )
-      target_link_libraries( tnl-benchmark-spmv-reference-cuda PUBLIC TNL::TNL_CUDA )
+      target_link_libraries( tnl-benchmark-spmv-reference-cuda PUBLIC TNL::TNL )
       find_package( CUDAToolkit REQUIRED )
       target_link_libraries( tnl-benchmark-spmv-reference-cuda PUBLIC CUDA::cusparse )
    else()
@@ -65,7 +65,7 @@ endif()
 # separate HIP binaries
 if( CMAKE_HIP_COMPILER )
    add_executable( tnl-benchmark-spmv-hip tnl-benchmark-spmv.hip )
-   target_link_libraries( tnl-benchmark-spmv-hip PUBLIC TNL::TNL_HIP )
+   target_link_libraries( tnl-benchmark-spmv-hip PUBLIC TNL::TNL )
    target_compile_definitions( tnl-benchmark-spmv-hip PUBLIC "-DHIP_ENABLE_PRINTF" )
 
    #find_package( CUDAToolkit REQUIRED ) TODO: Some check for hipsparse
@@ -80,7 +80,7 @@ if( CMAKE_HIP_COMPILER )
       if( NOT HYPRE_FOUND OR NOT HYPRE_WITH_CUDA )
          # Link hipsparse to your target (e.g., your executable or library)
          add_executable( tnl-benchmark-spmv-reference-hip tnl-benchmark-spmv-reference.hip )
-         target_link_libraries( tnl-benchmark-spmv-reference-hip PUBLIC TNL::TNL_HIP )
+         target_link_libraries( tnl-benchmark-spmv-reference-hip PUBLIC TNL::TNL )
          #target_link_libraries( tnl-benchmark-spmv-reference-hip PUBLIC ${hipsparse_LIBRARIES})
          target_link_libraries( tnl-benchmark-spmv-reference-hip PUBLIC roc::hipsparse )
       endif()
