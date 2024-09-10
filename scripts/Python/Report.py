@@ -46,37 +46,84 @@ class Report:
         self.legacy_counterparts = legacy_counterparts
         self.head_size = head_size
 
-    def effective_bw_profile(self):
+    def effective_bw_profile_cpu(self):
         """
-        Writes figures and HTML tables of effective bandwidth profiles.
+        Writes figures and HTML tables of effective bandwidth profiles on CPU.
         """
-        if not os.path.exists("BW-profile"):
-            os.mkdir("BW-profile")
+
+        if not os.path.exists("BW-profile/CPU"):
+            if not os.path.exists("BW-profile"):
+                os.mkdir("BW-profile")
+            os.mkdir("BW-profile/CPU")
         profiles = {}
         color_idx = 0
         print(self.formats)
         df = self.df
         for format in self.formats:
-            print(f"Writing BW profile of {format}")
-            if format == "CSR":
+            if not (format, "CPU") in self.formats_devices:
+                continue
+            for threads in self.cpu_threads_numbers:
                 df.sort_values(
-                    by=[("CSR", "CPU", "1 threads", "bandwidth")],
+                    by=[("CSR", "CPU", f"{threads} threads", "bandwidth")],
                     inplace=True,
                     ascending=False,
                 )
-                profiles[format] = df[("CSR", "CPU", "1 threads", "bandwidth")].copy()
-            else:
-                df.sort_values(
-                    by=[(format, "GPU", "bandwidth", "")], inplace=True, ascending=False
+                profiles[format] = df[("CSR", "CPU", f"{threads} threads", "bandwidth")].copy()
+                print(f"Writing BW profile of {format} with {threads} threads")
+                Graphs.draw_graphs(
+                    [format],
+                    profiles,
+                    xlabel=f"Matrix number - sorted w.r.t. {LatexLabels.latex_label(format)} performance",
+                    ylabel="Effective bandwidth in GB/sec",
+                    filename=f"BW-profile/CPU/{format}-{threads}-threads.pdf",
+                    legend_loc="upper right",
+                    bar="none",
+                    yscale="linear",
+                    latex_labels=self.latex_labels,
                 )
-                profiles[format] = df[(format, "GPU", "bandwidth", "")].copy()
+                Graphs.draw_graphs(
+                    [format],
+                    profiles,
+                    xlabel=f"Matrix number - sorted w.r.t. {LatexLabels.latex_label(format)} performance",
+                    ylabel="Effective bandwidth in GB/sec",
+                    filename=f"BW-profile/CPU/{format}-{threads}-threads-log.pdf",
+                    legend_loc="upper right",
+                    bar="none",
+                    yscale="log",
+                    latex_labels=self.latex_labels,
+                )
+                copy_df = df.copy()
+                for f in self.formats:
+                    if not f in ["cusparse", "CSR", format]:
+                        copy_df.drop(labels=f, axis="columns", level=0, inplace=True)
+                copy_df.to_html(f"BW-profile/CPU/{format}-cpu.html")
+
+    def effective_bw_profile_gpu(self):
+        """
+        Writes figures and HTML tables of effective bandwidth profiles on GPU.
+        """
+        if not os.path.exists("BW-profile/GPU"):
+            if not os.path.exists("BW-profile"):
+                os.mkdir("BW-profile")
+            os.mkdir("BW-profile/GPU")
+        profiles = {}
+        color_idx = 0
+        print(self.formats)
+        df = self.df
+        for format in self.formats:
+            if not (format, "GPU") in self.formats_devices:
+                continue
+            df.sort_values(
+                by=[(format, "GPU", "bandwidth", "")], inplace=True, ascending=False
+            )
+            profiles[format] = df[(format, "GPU", "bandwidth", "")].copy()
             print(f"Writing BW profile of {format}")
             Graphs.draw_graphs(
                 [format],
                 profiles,
                 xlabel=f"Matrix number - sorted w.r.t. {LatexLabels.latex_label(format)} performance",
                 ylabel="Effective bandwidth in GB/sec",
-                filename=f"BW-profile/{format}.pdf",
+                filename=f"BW-profile/GPU/{format}.pdf",
                 legend_loc="upper right",
                 bar="none",
                 yscale="linear",
@@ -87,7 +134,7 @@ class Report:
                 profiles,
                 xlabel=f"Matrix number - sorted w.r.t. {LatexLabels.latex_label(format)} performance",
                 ylabel="Effective bandwidth in GB/sec",
-                filename=f"BW-profile/{format}-log.pdf",
+                filename=f"BW-profile/GPU/{format}-log.pdf",
                 legend_loc="upper right",
                 bar="none",
                 yscale="log",
@@ -97,12 +144,17 @@ class Report:
             for f in self.formats:
                 if not f in ["cusparse", "CSR", format]:
                     copy_df.drop(labels=f, axis="columns", level=0, inplace=True)
-            copy_df.to_html(f"BW-profile/{format}.html")
+            copy_df.to_html(f"BW-profile/GPU/{format}-gpu.html")
 
-        # Draw ellpack formats profiles
+    def ellpack_bw_profiles(self):
+        """
+        Draw ellpack formats profiles
+        """
         current_formats = []
+        profiles = {}
         xlabel = "Matrix number - sorted by particular formats effective bandwidth"
         ylabel = "Effective bandwidth in GB/sec"
+        df = self.df
         for format in self.formats:
             if (
                 (
@@ -115,6 +167,9 @@ class Report:
                 or format == "cusparse"
             ):
                 current_formats.append(format)
+                df.sort_values( by=[(format, "GPU", "bandwidth", "")], inplace=True, ascending=False )
+                profiles[format] = df[(format, "GPU", "bandwidth", "")].copy()
+
         Graphs.draw_graphs(
             current_formats,
             profiles,
@@ -127,8 +182,15 @@ class Report:
             latex_labels=self.latex_labels,
         )
 
-        # Draw CSR formats profiles
-        current_formats.clear()
+    def csr_bw_profiles(self):
+        """
+        Draw CSR formats profiles
+        """
+        current_formats = []
+        profiles = {}
+        xlabel = "Matrix number - sorted by particular formats effective bandwidth"
+        ylabel = "Effective bandwidth in GB/sec"
+        df = self.df
         for format in self.formats:
             if (
                 "CSR" in format
@@ -138,6 +200,11 @@ class Report:
                 and not "Hybrid" in format
             ) or format == "cusparse":
                 current_formats.append(format)
+                df.sort_values(
+                    by=[(format, "GPU", "bandwidth", "")], inplace=True, ascending=False
+                )
+                profiles[format] = df[(format, "GPU", "bandwidth", "")].copy()
+
         Graphs.draw_graphs(
             current_formats,
             profiles,
@@ -324,7 +391,7 @@ class Report:
         for device in ["GPU"]:
             for format in self.formats:
                 profiles = {}
-                if not format in ["cusparse", "CSR"]:
+                if not format in ["cusparse", "CSR", ""]:
                     print(f"Writing comparison of speed-up of {format} compared to CSR")
                     df["tmp"] = df[(format, device, "bandwidth", "")]
                     filtered_df = self.df.dropna(subset=[("tmp", "", "", "")])
@@ -372,6 +439,47 @@ class Report:
                     copy_df.sort_index(inplace=True)
                     copy_df.to_html(f"CSR-speed-up/{format}-{device}.html")
 
+    def ginkgo_comparison(self):
+        """
+        Comparison of Ginkgo with CPU formats by the effective bandwidth.
+        """
+        if not os.path.exists("Ginkgo-speed-up"):
+            os.mkdir("Ginkgo-speed-up")
+        df = self.df
+        profiles = {}
+        for threads in self.cpu_threads_numbers:
+            df.sort_values(
+                by=[("Ginkgo", "CPU", f"{threads} threads", "TNL speed-up")],
+                inplace=True,
+                ascending=False,
+            )
+            profiles["CSR"] = df[
+                ("Ginkgo", "CPU", f"{threads} threads", "TNL speed-up")
+            ].copy()
+            print(f"Writing speedup of TNL compaared to Ginkgo on CPU with {threads} threads")
+            Graphs.draw_graphs(
+                        ["CSR"],
+                        profiles,
+                        xlabel=f"Matrix number - sorted w.r.t. performance of CSR",
+                        ylabel="Speedup",
+                        filename=f"Ginkgo-speed-up/csr-{threads}-threads.pdf",
+                        legend_loc="upper right",
+                        bar="Ginkgo CPU",
+                        yscale="linear",
+                        latex_labels=self.latex_labels,
+                    )
+            Graphs.draw_graphs(
+                ["CSR"],
+                profiles,
+                xlabel=f"Matrix number - sorted w.r.t. performance of CSR",
+                ylabel="Speedup",
+                filename=f"Ginkgo-speed-up/csr-{threads}-threads-log.pdf",
+                legend_loc="upper right",
+                bar="Ginkgo CPU",
+                yscale="log",
+                latex_labels=self.latex_labels,
+            )
+
     ####
     # Comparison of speed-up w.r.t. Cusparse
     def cusparse_and_hypre_speedup_comparison(self):
@@ -398,11 +506,14 @@ class Report:
                         profiles[format] = filtered_df[
                             (format, "GPU", "speed-up", comparison)
                         ].copy()
+                        profiles[f"{format}-bw"] = filtered_df[
+                            (format, "GPU", "bandwidth", "")
+                        ].copy()
                         Graphs.draw_graphs(
                             [format],
                             profiles,
                             xlabel=f"Matrix number - sorted w.r.t. performance of {LatexLabels.latex_label(format)}",
-                            ylabel="Speedup",
+                            ylabel="Speedup in TB/s",
                             filename=f"{comparison}-speed-up/{format}.pdf",
                             legend_loc="upper right",
                             bar=comparison,
@@ -419,6 +530,20 @@ class Report:
                             legend_loc="upper right",
                             bar=comparison,
                             yscale="log",
+                            latex_labels=self.latex_labels,
+                        )
+
+                        Graphs.draw_dual_graphs(
+                            [format, f"{format}-bw"],
+                            profiles,
+                            xlabel=f"{LatexLabels.latex_label(format)}",
+                            ylabels=["Speedup", "Bandwidth"],
+                            filename=f"{comparison}-speed-up/{format}-with-bw.pdf",
+                            legend_loc="none",
+                            bar=comparison,
+                            yscales=["log", "linear"],
+                            left_y_limits=[0, 10],
+                            right_y_limits=[0, 3],
                             latex_labels=self.latex_labels,
                         )
 
@@ -472,13 +597,23 @@ class Report:
                         # axs.set_ylabel("Speedup")
                         # plt.savefig(f"{comparison}-speed-up/{format}-log.pdf")
                         # plt.close(fig)
-                        copy_df = df.copy()
+                        #copy_df = df.copy()
+                        copy_df = df.dropna(subset=[(format, "GPU", "speed-up", comparison)])
                         for f in self.formats:
                             if not f in ["cusparse", "CSR", format, "Hypre"]:
                                 copy_df.drop(
                                     labels=f, axis="columns", level=0, inplace=True
                                 )
-                        copy_df.sort_index(inplace=True)
+                        copy_df.drop(
+                                    labels="tmp", axis="columns", level=0, inplace=True
+                                )
+
+                        # copy_df.sort_index(inplace=True)
+                        copy_df.sort_values(
+                            by=[(format, "GPU", "speed-up", comparison)],
+                            inplace=True,
+                            ascending=False,
+                        )
                         copy_df.to_html(f"{comparison}-speed-up/{format}.html")
 
             # Draw Ellpack formats profiles
@@ -1426,31 +1561,14 @@ class Report:
                 # copy_df.sort_index(inplace=True)
                 copy_df.to_html(f"legacy-speed-up/{format}-{device}.html")
 
-    def write(self):
+    def count_best_kernels(self,filtered_data_frame):
         """
-        Write report with benchmark data analysis
+        Count number of matrices for which particular kernels perform the best.
         """
-
-        # Generate tables and figures
-        self.effective_bw_profile()
-        self.cusparse_comparison()
-        self.csr_comparison()
-        self.legacy_formats_comparison()
-        self.csr_speedup_comparison()
-        self.cusparse_and_hypre_speedup_comparison()
-        self.binary_matrices_comparison()
-        self.symmetric_matrices_comparison()
-
-        # self.csr_light_speedup_comparison()
-        # self.csr_hypre_cpu_scalability()
-        # self.hypre_cpu_tnl_speedup_scalability()
-
-        self.legacy_formats_comparison()
-
-        best = self.df[("TNL Best", "GPU", "format", "")].tolist()
-        best_formats = list(set(best))
-        sum = 0
-        for format in self.formats:
+        result = {}
+        best = filtered_data_frame[("TNL Best", "GPU", "format", "")].tolist()
+        best_kernels = list(set(best))
+        for format in best_kernels:
             if (
                 not "Binary" in format
                 and not "Symmetric" in format
@@ -1459,10 +1577,53 @@ class Report:
                 and not "TNL Best" in format
             ):
                 cases = best.count(format)
-                print(f"{format} is best in {cases} cases.")
-                sum += cases
-        print(f"Total is {sum}.")
-        print(f"Best formats {best_formats}.")
+                result[format] = cases
+        return result
+
+    def best_kernels_table(self):
+        """
+        Write table with best kernels for each matrix
+        """
+        best = self.df[("TNL Best", "GPU", "format", "")].tolist()
+        best_kernels = list(set(best))
+        best_kernels_df = pd.DataFrame(columns=["0", "10","100", "1000","10000", "100000", "1000000", "10000000" ],index=best_kernels)
+        df = self.df
+        for drop in [0,10,100,1000,10000,100000,1000000, 10000000]:
+            df.drop(df[df[("rows", "", "", "")] < drop].index, inplace=True)
+            best_kernels_count = self.count_best_kernels(df)
+            for kernel in best_kernels:
+                if kernel in best_kernels_count:
+                    best_kernels_df.loc[kernel][str(drop)] = best_kernels_count[kernel]
+                else:
+                    best_kernels_df.loc[kernel][str(drop)] = 0
+        best_kernels_df.to_html("best-kernels.html")
+
+    def write(self):
+        """
+        Write report with benchmark data analysis
+        """
+
+        # Generate tables and figures
+        # self.effective_bw_profile_cpu()
+        # self.effective_bw_profile_gpu()
+        # self.ellpack_bw_profiles()
+        # self.csr_bw_profiles()
+        # self.cusparse_comparison()
+        # self.csr_comparison()
+        # self.legacy_formats_comparison()
+        # self.csr_speedup_comparison()
+        # self.ginkgo_comparison()
+        self.cusparse_and_hypre_speedup_comparison()
+        # self.binary_matrices_comparison()
+        # self.symmetric_matrices_comparison()
+
+        # self.csr_light_speedup_comparison()
+        # self.csr_hypre_cpu_scalability()
+        # self.hypre_cpu_tnl_speedup_scalability()
+
+        self.legacy_formats_comparison()
 
         # self.write_performance_circles()
         self.analyze_light_csr()
+
+        self.best_kernels_table()

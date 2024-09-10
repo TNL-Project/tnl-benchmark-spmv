@@ -14,6 +14,8 @@ import Speedup
 import Report
 import LatexLabels
 
+bw_units = "TB/s"
+
 formats_devices = []
 latex_labels = {}
 
@@ -28,6 +30,30 @@ legacy_couterparts = {
     "CSR Light Automatic Light": "CSR Legacy LightWithoutAtomic",
 }
 
+"""
+The following is a list of formats within which we search for the best performance.
+"""
+best_formats_list = [
+    "Ellpack Ellpack",
+    "SlicedEllpack SlicedEllpack",
+    "ChunkedEllpack ChunkedEllpack",
+    "BiEllpack BiEllpack",
+    "CSR Scalar",
+    "CSR Vector",
+#    "CSR Light 1",
+#    "CSR Light 2",
+#    "CSR Light 4",
+#    "CSR Light 8",
+#    "CSR Light 16",
+#    "CSR Light 32",
+#    "CSR Light 64",
+#    "CSR Light 128",
+    "CSR Light Automatic Light",
+    "CSR Adaptive",
+    "cusparse",
+    "CSR CPU",
+    #"Ginkgo CSR",
+]
 
 def gaussian(x, a, b, c, d=0):
     return a * math.exp(-((x - b) ** 2) / (2 * c**2)) + d
@@ -133,7 +159,8 @@ def convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=-1)
         else:
             print(f"{out_idx} : {in_idx} / {len(input_df.index)} : {matrixName} - SKIP")
         aux_df = pd.DataFrame(df_data, columns=multicolumns, index=[out_idx])
-        best_bw = 0
+        best_bw_gpu = 0
+        best_bw_cpu = 0
         best_csr_light_bw = 0
         best_csr_light_format = "0"
         for index, row in df_matrix.iterrows():
@@ -148,6 +175,8 @@ def convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=-1)
             current_device = row["performer"]
             formats_devices.append((current_format, current_device))
             bw = pd.to_numeric(row["bandwidth"], errors="coerce")
+            if bw_units == "TB/s":
+                bw = bw / 1024
             time = pd.to_numeric(row["time"], errors="coerce")
             diff_max = pd.to_numeric(row["CSR Diff.Max"], errors="coerce")
             if current_device == "CPU" and (
@@ -166,6 +195,9 @@ def convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=-1)
                 aux_df.iloc[0][
                     (current_format, current_device, threads + " threads", "time")
                 ] = time
+                if( bw > best_bw_cpu ):
+                    best_bw_cpu = bw
+                    best_cpu_threads = threads
             else:
                 aux_df.iloc[0][(current_format, current_device, "bandwidth", "")] = bw
                 aux_df.iloc[0][(current_format, current_device, "time", "")] = time
@@ -181,10 +213,11 @@ def convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=-1)
                 and not "LightSpMV" in current_format
                 and not "Hybrid" in current_format
                 and current_format != "CSR Light Automatic"
-                and bw > best_bw
+                and current_format in best_formats_list
+                and bw > best_bw_gpu
             ):
-                best_bw = bw
-                best_format = current_format
+                best_bw_gpu = bw
+                best_format_gpu = current_format
             if (
                 current_device == "GPU"
                 and (
@@ -212,9 +245,14 @@ def convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=-1)
             # aux_df.iloc[0][(current_format,current_device,'stddev/time')] = row['stddev/time']
             # aux_df.iloc[0][(current_format,current_device,'diff.max')]    = row['CSR Diff.Max']
             # aux_df.iloc[0][(current_format,current_device,'diff.l2')]    = row['CSR Diff.L2']
-        aux_df.iloc[0][("TNL Best", "GPU", "bandwidth", "")] = best_bw
-        if best_bw > cusparse_bw:
-            aux_df.iloc[0][("TNL Best", "GPU", "format", "")] = best_format
+        aux_df.iloc[0][("TNL Best", "GPU", "bandwidth", "")] = best_bw_gpu
+        aux_df.iloc[0][("TNL Best", "CPU", "bandwidth", "")] = best_bw_cpu
+        if best_bw_gpu > cusparse_bw and best_bw_gpu > best_bw_cpu:
+            aux_df.iloc[0][("TNL Best", "GPU", "format", "")] = best_format_gpu
+        elif best_bw_cpu > cusparse_bw:
+            aux_df.iloc[0][
+                ("TNL Best", "GPU", "format", "")
+            ] = f"CSR CPU {best_cpu_threads} threads"
         else:
             aux_df.iloc[0][("TNL Best", "GPU", "format", "")] = "cusparse"
         best_count += 1
