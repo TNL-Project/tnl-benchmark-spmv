@@ -9,5 +9,8 @@
 *.json
 *.html
 
+# Python compiled byte code
+*.pyc
+
 # directory (or symlink to directory) with sparse matrices
 mtx_matrices
