@@ -138,8 +138,8 @@ def compute_binary_speedup(df, formats, formats_devices):
             print(f"Adding speed-up of {format} vs {non_binary_format}")
             divide_columns(
                 df,
-                (format, "GPU", "time"),
                 (non_binary_format, "GPU", "time"),
+                (format, "GPU", "time"),
                 (format, "GPU", "speed-up", "non-binary"),
             )
 

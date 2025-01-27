@@ -68,7 +68,9 @@ class Report:
                     inplace=True,
                     ascending=False,
                 )
-                profiles[format] = df[("CSR", "CPU", f"{threads} threads", "bandwidth")].copy()
+                profiles[format] = df[
+                    ("CSR", "CPU", f"{threads} threads", "bandwidth")
+                ].copy()
                 print(f"Writing BW profile of {format} with {threads} threads")
                 Graphs.draw_graphs(
                     [format],
@@ -167,7 +169,9 @@ class Report:
                 or format == "cusparse"
             ):
                 current_formats.append(format)
-                df.sort_values( by=[(format, "GPU", "bandwidth", "")], inplace=True, ascending=False )
+                df.sort_values(
+                    by=[(format, "GPU", "bandwidth", "")], inplace=True, ascending=False
+                )
                 profiles[format] = df[(format, "GPU", "bandwidth", "")].copy()
 
         Graphs.draw_graphs(
@@ -456,18 +460,20 @@ class Report:
             profiles["CSR"] = df[
                 ("Ginkgo", "CPU", f"{threads} threads", "TNL speed-up")
             ].copy()
-            print(f"Writing speedup of TNL compaared to Ginkgo on CPU with {threads} threads")
+            print(
+                f"Writing speedup of TNL compaared to Ginkgo on CPU with {threads} threads"
+            )
             Graphs.draw_graphs(
-                        ["CSR"],
-                        profiles,
-                        xlabel=f"Matrix number - sorted w.r.t. performance of CSR",
-                        ylabel="Speedup",
-                        filename=f"Ginkgo-speed-up/csr-{threads}-threads.pdf",
-                        legend_loc="upper right",
-                        bar="Ginkgo CPU",
-                        yscale="linear",
-                        latex_labels=self.latex_labels,
-                    )
+                ["CSR"],
+                profiles,
+                xlabel=f"Matrix number - sorted w.r.t. performance of CSR",
+                ylabel="Speedup",
+                filename=f"Ginkgo-speed-up/csr-{threads}-threads.pdf",
+                legend_loc="upper right",
+                bar="Ginkgo CPU",
+                yscale="linear",
+                latex_labels=self.latex_labels,
+            )
             Graphs.draw_graphs(
                 ["CSR"],
                 profiles,
@@ -542,71 +548,22 @@ class Report:
                             legend_loc="none",
                             bar=comparison,
                             yscales=["log", "linear"],
-                            left_y_limits=[0, 10],
+                            left_y_limits=[1.0e-4, 10],
                             right_y_limits=[0, 3],
                             latex_labels=self.latex_labels,
                         )
 
-                        # fig, axs = plt.subplots(1, 1, figsize=(6, 4))
-                        # size = len(
-                        #     filtered_df[(format, "GPU", "speed-up", comparison)].index
-                        # )
-                        # t = np.arange(size)
-                        # bar = np.full(size, 1)
-                        # axs.plot(
-                        #     t,
-                        #     filtered_df[(format, "GPU", "speed-up", comparison)],
-                        #     "-o",
-                        #     ms=1,
-                        #     lw=1,
-                        # )
-                        # axs.plot(t, bar, "-", ms=1, lw=1)
-                        # axs.legend(
-                        #     [LatexLabels.latex_label(format), comparison], loc="upper right"
-                        # )
-                        # axs.set_ylabel("Speedup")
-                        # axs.set_xlabel(
-                        #     f"Matrix number - sorted w.r.t. {LatexLabels.latex_label(format)} speed-up"
-                        # )
-                        # plt.rcParams.update(
-                        #     {
-                        #         "text.usetex": True,
-                        #         "font.family": "sans-serif",
-                        #         "font.sans-serif": ["Helvetica"],
-                        #     }
-                        # )
-                        # plt.savefig(f"{comparison}-speed-up/{format}.pdf")
-                        # plt.close(fig)
-
-                        # fig, axs = plt.subplots(1, 1, figsize=(6, 4))
-                        # axs.set_yscale("log")
-                        # axs.plot(
-                        #     t,
-                        #     filtered_df[(format, "GPU", "speed-up", comparison)],
-                        #     "-o",
-                        #     ms=1,
-                        #     lw=1,
-                        # )
-                        # axs.plot(t, bar, "-", ms=1, lw=1)
-                        # axs.legend(
-                        #     [LatexLabels.latex_label(format), comparison], loc="lower left"
-                        # )
-                        # axs.set_xlabel(
-                        #     f"Matrix number - sorted w.r.t. {LatexLabels.latex_label(format)} speed-up"
-                        # )
-                        # axs.set_ylabel("Speedup")
-                        # plt.savefig(f"{comparison}-speed-up/{format}-log.pdf")
-                        # plt.close(fig)
-                        #copy_df = df.copy()
-                        copy_df = df.dropna(subset=[(format, "GPU", "speed-up", comparison)])
+                        copy_df = df.dropna(
+                            subset=[(format, "GPU", "speed-up", comparison)]
+                        )
                         for f in self.formats:
                             if not f in ["cusparse", "CSR", format, "Hypre"]:
                                 copy_df.drop(
                                     labels=f, axis="columns", level=0, inplace=True
                                 )
                         copy_df.drop(
-                                    labels="tmp", axis="columns", level=0, inplace=True
-                                )
+                            labels="tmp", axis="columns", level=0, inplace=True
+                        )
 
                         # copy_df.sort_index(inplace=True)
                         copy_df.sort_values(
@@ -823,7 +780,7 @@ class Report:
                 # df['tmp'] = df[(format, 'GPU','speed-up','non-binary')]
                 filtered_df = df.dropna(
                     subset=[(format, "GPU", "speed-up", "non-binary")]
-                )  # ('tmp','','','')])
+                ).copy()  # ('tmp','','','')])
                 # print( f"{format} -> {filtered_df[(format,'GPU','speed-up','non-binary')]}" )
                 ascend_df = filtered_df.copy()
                 filtered_df.sort_values(
@@ -839,6 +796,10 @@ class Report:
                 profiles[format] = filtered_df[
                     (format, "GPU", "speed-up", "non-binary")
                 ].copy()
+                profiles[f"{format}-bw"] = filtered_df[
+                    (format, "GPU", "bandwidth", "")
+                ].copy()
+
                 Graphs.draw_graphs(
                     [format],
                     profiles,
@@ -862,14 +823,32 @@ class Report:
                     latex_labels=self.latex_labels,
                 )
 
-                copy_df = filtered_df.copy()
+                Graphs.draw_dual_graphs(
+                    [format, f"{format}-bw"],
+                    profiles,
+                    xlabel=f"{LatexLabels.latex_label(format)}",
+                    ylabels=["Speedup", "Bandwidth"],
+                    filename=f"binary-speed-up/{format}-with-bw.pdf",
+                    legend_loc="none",
+                    bar="",
+                    yscales=["log", "linear"],
+                    left_y_limits=[0.4, 10],
+                    right_y_limits=[0, 3],
+                    fig_size=(8, 3),
+                    latex_labels=self.latex_labels,
+                )
+
+                copy_df = filtered_df.dropna(
+                    subset=[(format, "GPU", "speed-up", "non-binary")]
+                ).copy()
                 for f in self.formats:
-                    if not f in ["cusparse", "CSR", format, non_binary_format]:
-                        # print( f"Droping {f}..." )
-                        # head_df.drop( labels=f, axis='columns', level=0, inplace=True )
+                    if not f in ["cusparse", "CSR", format, "Hypre"]:
                         copy_df.drop(labels=f, axis="columns", level=0, inplace=True)
-                copy_df.sort_index(inplace=True)
-                # head_df.to_html( f"Binary-speed-up/{format}-head.html" )
+                copy_df.sort_values(
+                    by=[(format, "GPU", "speed-up", "non-binary")],
+                    inplace=True,
+                    ascending=False,
+                )
                 copy_df.to_html(f"binary-speed-up/{format}.html")
 
     def symmetric_matrices_comparison(self):
@@ -889,7 +868,7 @@ class Report:
                 # df['tmp'] = df[(format, 'GPU','speed-up','non-symmetric')]
                 filtered_df = df.dropna(
                     subset=[(format, "GPU", "speed-up", "non-symmetric")]
-                )  # ('tmp','','','')])
+                ).copy()  # ('tmp','','','')])
                 # ascend_df = filtered_df.copy()
                 # print( f"{format} -> {filtered_df[(format,'GPU','speed-up','non-symmetric')]}" )
                 filtered_df.sort_values(
@@ -910,6 +889,8 @@ class Report:
                 profiles[format] = filtered_df[
                     (format, "GPU", "speed-up", "non-symmetric")
                 ]
+                profiles[f"{format}-bw"] = filtered_df[(format, "GPU", "bandwidth", "")]
+
                 Graphs.draw_graphs(
                     [format],
                     profiles,
@@ -932,6 +913,52 @@ class Report:
                     yscale="log",
                     latex_labels=self.latex_labels,
                 )
+
+                Graphs.draw_dual_graphs(
+                    [format, f"{format}-bw"],
+                    profiles,
+                    xlabel=f"{LatexLabels.latex_label(format)}",
+                    ylabels=["Speedup", "Bandwidth"],
+                    filename=f"symmetric-speed-up/{format}-with-bw.pdf",
+                    legend_loc="none",
+                    bar="",
+                    yscales=["log", "linear"],
+                    left_y_limits=[0.01, 100],
+                    right_y_limits=[0, 3],
+                    fig_size=(8, 5),
+                    latex_labels=self.latex_labels,
+                )
+                copy_df = filtered_df.dropna(
+                    subset=[(format, "GPU", "speed-up", "non-symmetric")]
+                ).copy()
+                for f in self.formats:
+                    if not f in [
+                        "cusparse",
+                        "CSR",
+                        format,
+                        "Hypre",
+                        non_symmetric_format,
+                    ]:
+                        copy_df.drop(labels=f, axis="columns", level=0, inplace=True)
+                copy_df.sort_values(
+                    by=[(format, "GPU", "speed-up", "non-symmetric")],
+                    inplace=True,
+                    ascending=False,
+                )
+                copy_df.to_html(f"symmetric-speed-up/{format}.html")
+
+                # copy_df = df.copy()
+
+                # for f in self.formats:
+                #    if not f in ["cusparse", "CSR", format, non_symmetric_format]:
+                #        copy_df.drop(labels=f, axis="columns", level=0, inplace=True)
+                # copy_df.sort_index(inplace=True)
+                # copy_df.sort_values(
+                #    by=[(format, "GPU", "speed-up", "non-symmetric")],
+                #    inplace=True,
+                #    ascending=False,
+                # )
+                # copy_df.to_html(f"symmetric-speed-up/{format}.html")
 
                 profiles[format] = cusparse_filtered_df[
                     (format, "GPU", "speed-up", "cusparse")
@@ -1131,7 +1158,7 @@ class Report:
                         {
                             "text.usetex": True,
                             "font.family": "sans-serif",
-                            "font.sans-serif": ["Helvetica"],
+                            # "font.sans-serif": ["Helvetica"],
                         }
                     )
                     plt.savefig(f"{format}-{threads}-threads-{metrics}.pdf")
@@ -1174,7 +1201,7 @@ class Report:
                     {
                         "text.usetex": True,
                         "font.family": "sans-serif",
-                        "font.sans-serif": ["Helvetica"],
+                        # "font.sans-serif": ["Helvetica"],
                     }
                 )
                 plt.savefig(f"Hypre-{threads}-threads-TNL-speed-up.pdf")
@@ -1229,7 +1256,7 @@ class Report:
             {
                 "text.usetex": True,
                 "font.family": "sans-serif",
-                "font.sans-serif": ["Helvetica"],
+                # "font.sans-serif": ["Helvetica"],
             }
         )
         plt.savefig(f"LightSpMV-threads-mapping.pdf")
@@ -1561,7 +1588,7 @@ class Report:
                 # copy_df.sort_index(inplace=True)
                 copy_df.to_html(f"legacy-speed-up/{format}-{device}.html")
 
-    def count_best_kernels(self,filtered_data_frame):
+    def count_best_kernels(self, filtered_data_frame):
         """
         Count number of matrices for which particular kernels perform the best.
         """
@@ -1586,9 +1613,21 @@ class Report:
         """
         best = self.df[("TNL Best", "GPU", "format", "")].tolist()
         best_kernels = list(set(best))
-        best_kernels_df = pd.DataFrame(columns=["0", "10","100", "1000","10000", "100000", "1000000", "10000000" ],index=best_kernels)
+        best_kernels_df = pd.DataFrame(
+            columns=[
+                "0",
+                "10",
+                "100",
+                "1000",
+                "10000",
+                "100000",
+                "1000000",
+                "10000000",
+            ],
+            index=best_kernels,
+        )
         df = self.df
-        for drop in [0,10,100,1000,10000,100000,1000000, 10000000]:
+        for drop in [0, 10, 100, 1000, 10000, 100000, 1000000, 10000000]:
             df.drop(df[df[("rows", "", "", "")] < drop].index, inplace=True)
             best_kernels_count = self.count_best_kernels(df)
             for kernel in best_kernels:
@@ -1613,9 +1652,9 @@ class Report:
         # self.legacy_formats_comparison()
         # self.csr_speedup_comparison()
         # self.ginkgo_comparison()
-        self.cusparse_and_hypre_speedup_comparison()
-        # self.binary_matrices_comparison()
-        # self.symmetric_matrices_comparison()
+        # self.cusparse_and_hypre_speedup_comparison()
+        self.binary_matrices_comparison()
+        self.symmetric_matrices_comparison()
 
         # self.csr_light_speedup_comparison()
         # self.csr_hypre_cpu_scalability()

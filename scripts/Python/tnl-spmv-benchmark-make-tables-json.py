@@ -40,20 +40,21 @@ best_formats_list = [
     "BiEllpack BiEllpack",
     "CSR Scalar",
     "CSR Vector",
-#    "CSR Light 1",
-#    "CSR Light 2",
-#    "CSR Light 4",
-#    "CSR Light 8",
-#    "CSR Light 16",
-#    "CSR Light 32",
-#    "CSR Light 64",
-#    "CSR Light 128",
+    #    "CSR Light 1",
+    #    "CSR Light 2",
+    #    "CSR Light 4",
+    #    "CSR Light 8",
+    #    "CSR Light 16",
+    #    "CSR Light 32",
+    #    "CSR Light 64",
+    #    "CSR Light 128",
     "CSR Light Automatic Light",
     "CSR Adaptive",
     "cusparse",
     "CSR CPU",
-    #"Ginkgo CSR",
+    # "Ginkgo CSR",
 ]
+
 
 def gaussian(x, a, b, c, d=0):
     return a * math.exp(-((x - b) ** 2) / (2 * c**2)) + d
@@ -195,7 +196,7 @@ def convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=-1)
                 aux_df.iloc[0][
                     (current_format, current_device, threads + " threads", "time")
                 ] = time
-                if( bw > best_bw_cpu ):
+                if bw > best_bw_cpu:
                     best_bw_cpu = bw
                     best_cpu_threads = threads
             else:

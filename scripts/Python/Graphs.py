@@ -71,7 +71,7 @@ def draw_graphs(
         {
             "text.usetex": True,
             "font.family": "sans-serif",
-            "font.sans-serif": ["Helvetica"],
+            #"font.sans-serif": ["Helvetica"],
             "font.size": 22,
         }
     )
@@ -90,6 +90,7 @@ def draw_dual_graphs(
     yscales=["linear","linear"],
     left_y_limits =[0,0],
     right_y_limits=[0,0],
+    fig_size=(8, 5),
     latex_labels={},
 ):
     """
@@ -106,7 +107,7 @@ def draw_dual_graphs(
     yscale - scale of y axis ('linear' or 'log')
     latex_labels - dictionary with labels in latex format where key is the label of the graph and value is the latex label
     """
-    fig, ax1 = plt.subplots(1, 1, figsize=(8, 5))
+    fig, ax1 = plt.subplots(1, 1, figsize=fig_size)
     ax2 = ax1.twinx()
     latexNames = []
     size = 1
@@ -117,7 +118,9 @@ def draw_dual_graphs(
     if not graph_labels[1] in graphs:
         raise RuntimeError(f"Graph {graph_labels[1]} not found in graphs")
     if not len(graphs[graph_labels[0]]) == len(graphs[graph_labels[1]]):
-        raise RuntimeError("Graphs must have the same size")
+        raise RuntimeError(
+            f"Graphs must have the same size ({len(graphs[graph_labels[0]])} != {len(graphs[graph_labels[1]])}"
+        )
 
     t = np.arange(len(graphs[graph_labels[0]]))
     ax1.plot(
@@ -138,10 +141,10 @@ def draw_dual_graphs(
     )
 
     size = max(len(graphs[graph_labels[0]]), len(graphs[graph_labels[1]]))
-    #if not latex_labels:
+    # if not latex_labels:
     #    latexNames.append(graph_labels[0])
     #    latexNames.append(graph_labels[1])
-    #else:
+    # else:
     #    latexNames.append(latex_labels[graph_labels[0]])
     #    latexNames.append(latex_labels[graph_labels[1]])
 
