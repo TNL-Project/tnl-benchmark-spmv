@@ -92,12 +92,21 @@ endif()
 include_directories(include)
 
 # Add dependencies
-if(SYSTEM_TNL)
-    find_package(TNL REQUIRED)
-else()
-    add_subdirectory(libs/tnl EXCLUDE_FROM_ALL)
-    set(SYSTEM_TNL TRUE)  # avoid further inclusion of libs/tnl from other libs
-endif()
+#if(SYSTEM_TNL)
+#    find_package(TNL REQUIRED)
+#else()
+#    add_subdirectory(libs/tnl EXCLUDE_FROM_ALL)
+#    set(SYSTEM_TNL TRUE)  # avoid further inclusion of libs/tnl from other libs
+#endif()
+include(FetchContent)
+FetchContent_Declare(TNL
+    GIT_REPOSITORY https://gitlab.com/tnl-project/tnl.git
+    GIT_TAG TO/bfs-sssp
+    EXCLUDE_FROM_ALL
+)
+set(TNL_EXPORT_INTERFACE_TARGETS ON)  # needed for adding to the interface target
+FetchContent_MakeAvailable(TNL)
+
 
 # Add subdirectories with source
 add_subdirectory(src)
