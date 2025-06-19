@@ -19,77 +19,87 @@ class AdEllpackDeviceDependentCode;
 template< typename MatrixType >
 struct warpInfo
 {
-    using RealType = typename MatrixType::RealType;
-    using DeviceType = typename MatrixType::DeviceType;
-    using IndexType = typename MatrixType::IndexType;
+   using RealType = typename MatrixType::RealType;
+   using DeviceType = typename MatrixType::DeviceType;
+   using IndexType = typename MatrixType::IndexType;
 
-    IndexType offset;
-    IndexType rowOffset;
-    IndexType localLoad;
-    IndexType reduceMap[ 32 ];
+   IndexType offset;
+   IndexType rowOffset;
+   IndexType localLoad;
+   IndexType reduceMap[ 32 ];
 
-    warpInfo< MatrixType >* next;
-    warpInfo< MatrixType >* previous;
+   warpInfo< MatrixType >* next;
+   warpInfo< MatrixType >* previous;
 };
 
 template< typename MatrixType >
 class warpList
 {
 public:
+   using RealType = typename MatrixType::RealType;
+   using DeviceType = typename MatrixType::DeviceType;
+   using IndexType = typename MatrixType::IndexType;
 
-    using RealType = typename MatrixType::RealType;
-    using DeviceType = typename MatrixType::DeviceType;
-    using IndexType = typename MatrixType::IndexType;
+   warpList();
 
-    warpList();
+   bool
+   addWarp( const IndexType offset, const IndexType rowOffset, const IndexType localLoad, const IndexType* reduceMap );
 
-    bool addWarp( const IndexType offset,
-                  const IndexType rowOffset,
-                  const IndexType localLoad,
-                  const IndexType* reduceMap );
+   warpInfo< MatrixType >*
+   splitInHalf( warpInfo< MatrixType >* warp );
 
-    warpInfo< MatrixType >* splitInHalf( warpInfo< MatrixType >* warp );
+   IndexType
+   getNumberOfWarps()
+   {
+      return this->numberOfWarps;
+   }
 
-    IndexType getNumberOfWarps()
-    { return this->numberOfWarps; }
+   warpInfo< MatrixType >*
+   getNextWarp( warpInfo< MatrixType >* warp )
+   {
+      return warp->next;
+   }
 
-    warpInfo< MatrixType >* getNextWarp( warpInfo< MatrixType >* warp )
-    { return warp->next; }
+   warpInfo< MatrixType >*
+   getHead()
+   {
+      return this->head;
+   }
 
-    warpInfo< MatrixType >* getHead()
-    { return this->head; }
+   warpInfo< MatrixType >*
+   getTail()
+   {
+      return this->tail;
+   }
 
-    warpInfo< MatrixType >* getTail()
-    { return this->tail; }
+   ~warpList();
 
-    ~warpList();
-
-    void printList()
-    {
-        if( this->getHead() == this->getTail() )
-            std::cout << "HEAD==TAIL" << std::endl;
-        else
-        {
-            for( warpInfo< MatrixType >* i = this->getHead(); i != this->getTail()->next; i = i->next )
-            {
-                if( i == this->getHead() )
-                    std::cout << "Head:" << "\ti->localLoad = " << i->localLoad << "\ti->offset = " << i->offset << "\ti->rowOffset = " << i->rowOffset << std::endl;
-                else if( i == this->getTail() )
-                    std::cout << "Tail:" << "\ti->localLoad = " << i->localLoad << "\ti->offset = " << i->offset << "\ti->rowOffset = " << i->rowOffset << std::endl;
-                else
-                    std::cout << "\ti->localLoad = " << i->localLoad << "\ti->offset = " << i->offset << "\ti->rowOffset = " << i->rowOffset << std::endl;
-            }
-            std::cout << std::endl;
-        }
-    }
+   void
+   printList()
+   {
+      if( this->getHead() == this->getTail() )
+         std::cout << "HEAD==TAIL" << std::endl;
+      else {
+         for( warpInfo< MatrixType >* i = this->getHead(); i != this->getTail()->next; i = i->next ) {
+            if( i == this->getHead() )
+               std::cout << "Head:" << "\ti->localLoad = " << i->localLoad << "\ti->offset = " << i->offset
+                         << "\ti->rowOffset = " << i->rowOffset << std::endl;
+            else if( i == this->getTail() )
+               std::cout << "Tail:" << "\ti->localLoad = " << i->localLoad << "\ti->offset = " << i->offset
+                         << "\ti->rowOffset = " << i->rowOffset << std::endl;
+            else
+               std::cout << "\ti->localLoad = " << i->localLoad << "\ti->offset = " << i->offset
+                         << "\ti->rowOffset = " << i->rowOffset << std::endl;
+         }
+         std::cout << std::endl;
+      }
+   }
 
 private:
+   IndexType numberOfWarps;
 
-    IndexType numberOfWarps;
-
-    warpInfo< MatrixType >* head;
-    warpInfo< MatrixType >* tail;
-
+   warpInfo< MatrixType >* head;
+   warpInfo< MatrixType >* tail;
 };
 
 template< typename Real, typename Device, typename Index >
@@ -105,187 +115,186 @@ private:
    friend class AdEllpack;
 
 public:
+   typedef Real RealType;
+   typedef Device DeviceType;
+   typedef Index IndexType;
+   typedef typename Sparse< RealType, DeviceType, IndexType >::RowCapacitiesType RowCapacitiesType;
+   typedef typename Sparse< RealType, DeviceType, IndexType >::ConstRowCapacitiesTypeView ConstRowCapacitiesTypeView;
+   typedef typename Sparse< RealType, DeviceType, IndexType >::RowCapacitiesTypeView RowCapacitiesTypeView;
 
-    typedef Real RealType;
-    typedef Device DeviceType;
-    typedef Index IndexType;
-    typedef typename Sparse< RealType, DeviceType, IndexType >::RowCapacitiesType RowCapacitiesType;
-    typedef typename Sparse< RealType, DeviceType, IndexType >::ConstRowCapacitiesTypeView ConstRowCapacitiesTypeView;
-    typedef typename Sparse< RealType, DeviceType, IndexType >::RowCapacitiesTypeView RowCapacitiesTypeView;
+   template< typename _Real = Real, typename _Device = Device, typename _Index = Index >
+   using Self = AdEllpack< _Real, _Device, _Index >;
 
-    template< typename _Real = Real,
-              typename _Device = Device,
-              typename _Index = Index >
-    using Self = AdEllpack< _Real, _Device, _Index >;
+   static constexpr bool
+   isSymmetric()
+   {
+      return false;
+   }
 
-    static constexpr bool isSymmetric() { return false; }
+   AdEllpack();
 
-    AdEllpack();
+   void
+   setCompressedRowLengths( ConstRowCapacitiesTypeView rowLengths );
 
-    void setCompressedRowLengths( ConstRowCapacitiesTypeView rowLengths );
+   void
+   setRowCapacities( ConstRowCapacitiesTypeView rowLengths );
 
-    void setRowCapacities( ConstRowCapacitiesTypeView rowLengths );
+   void
+   getCompressedRowLengths( RowCapacitiesTypeView rowLengths ) const;
 
-    void getCompressedRowLengths( RowCapacitiesTypeView rowLengths ) const;
+   IndexType
+   getWarp( const IndexType row ) const;
 
-    IndexType getWarp( const IndexType row ) const;
+   IndexType
+   getInWarpOffset( const IndexType row, const IndexType warp ) const;
 
-    IndexType getInWarpOffset( const IndexType row,
-                               const IndexType warp ) const;
+   IndexType
+   getRowLength( const IndexType row ) const;
 
-    IndexType getRowLength( const IndexType row ) const;
+   template< typename Real2, typename Device2, typename Index2 >
+   void
+   setLike( const AdEllpack< Real2, Device2, Index2 >& matrix );
 
-    template< typename Real2, typename Device2, typename Index2 >
-    void setLike( const AdEllpack< Real2, Device2, Index2 >& matrix );
+   void
+   reset();
 
-    void reset();
+   template< typename Real2, typename Device2, typename Index2 >
+   bool
+   operator==( const AdEllpack< Real2, Device2, Index2 >& matrix ) const;
 
-    template< typename Real2, typename Device2, typename Index2 >
-    bool operator == ( const AdEllpack< Real2, Device2, Index2 >& matrix ) const;
+   template< typename Real2, typename Device2, typename Index2 >
+   bool
+   operator!=( const AdEllpack< Real2, Device2, Index2 >& matrix ) const;
 
-    template< typename Real2, typename Device2, typename Index2 >
-    bool operator != ( const AdEllpack< Real2, Device2, Index2 >& matrix ) const;
+   bool
+   setElement( const IndexType row, const IndexType column, const RealType& value );
 
-    bool setElement( const IndexType row,
-                     const IndexType column,
-                     const RealType& value );
+   bool
+   addElement( const IndexType row,
+               const IndexType column,
+               const RealType& value,
+               const RealType& thisElementMultiplicator = 1.0 );
 
-    bool addElement( const IndexType row,
-                     const IndexType column,
-                     const RealType& value,
-                     const RealType& thisElementMultiplicator = 1.0 );
+   bool
+   setRow( const IndexType row, const IndexType* columnIndexes, const RealType* values, const IndexType elements );
 
-    bool setRow( const IndexType row,
-                 const IndexType* columnIndexes,
-                 const RealType* values,
-                 const IndexType elements );
+   bool
+   addRow( const IndexType row,
+           const IndexType* columnIndexes,
+           const RealType* values,
+           const IndexType elements,
+           const RealType& thisElementMultiplicator = 1.0 );
 
-    bool addRow( const IndexType row,
-                 const IndexType* columnIndexes,
-                 const RealType* values,
-                 const IndexType elements,
-                 const RealType& thisElementMultiplicator = 1.0 );
+   RealType
+   getElement( const IndexType row, const IndexType column ) const;
 
-    RealType getElement( const IndexType row,
-                         const IndexType column ) const;
+   //MatrixRow getRow( const IndexType row );
 
-    //MatrixRow getRow( const IndexType row );
+   //const MatrixType getRow( const IndexType row ) const;
 
-    //const MatrixType getRow( const IndexType row ) const;
+   // TODO: Change this to return MatrixRow type like in CSR format, like those above
+   void
+   getRow( const IndexType row, IndexType* columns, RealType* values ) const;
 
-    // TODO: Change this to return MatrixRow type like in CSR format, like those above
-    void getRow( const IndexType row,
-                 IndexType* columns,
-                 RealType* values ) const;
+   template< typename InVector, typename OutVector >
+   void
+   vectorProduct( const InVector& inVector, OutVector& outVector ) const;
 
-    template< typename InVector,
-              typename OutVector >
-    void vectorProduct( const InVector& inVector,
-                        OutVector& outVector ) const;
+   // copy assignment
+   AdEllpack&
+   operator=( const AdEllpack& matrix );
 
-    // copy assignment
-    AdEllpack& operator=( const AdEllpack& matrix );
+   // cross-device copy assignment
+   template< typename Real2, typename Device2, typename Index2, typename = typename Enabler< Device2 >::type >
+   AdEllpack&
+   operator=( const AdEllpack< Real2, Device2, Index2 >& matrix );
 
-    // cross-device copy assignment
-    template< typename Real2, typename Device2, typename Index2,
-             typename = typename Enabler< Device2 >::type >
-    AdEllpack& operator=( const AdEllpack< Real2, Device2, Index2 >& matrix );
+   void
+   save( File& file ) const;
 
-    void save( File& file ) const override;
+   void
+   load( File& file );
 
-    void load( File& file ) override;
+   void
+   save( const String& fileName ) const;
 
-    void save( const String& fileName ) const;
+   void
+   load( const String& fileName );
 
-    void load( const String& fileName );
+   void
+   print( std::ostream& str ) const override;
 
-    void print( std::ostream& str ) const override;
+   bool
+   balanceLoad( const RealType average, ConstRowCapacitiesTypeView rowLengths, warpList< AdEllpack >* list );
 
-    bool balanceLoad( const RealType average,
-                      ConstRowCapacitiesTypeView rowLengths,
-                      warpList< AdEllpack >* list );
+   void
+   computeWarps( const IndexType SMs, const IndexType threadsPerSM, warpList< AdEllpack >* list );
 
-    void computeWarps( const IndexType SMs,
-                       const IndexType threadsPerSM,
-                       warpList< AdEllpack >* list );
+   bool
+   createArrays( warpList< AdEllpack >* list );
 
-    bool createArrays( warpList< AdEllpack >* list );
+   void
+   performRowTest();
 
-    void performRowTest();
+   void
+   performRowLengthsTest( ConstRowCapacitiesTypeView rowLengths );
 
-    void performRowLengthsTest( ConstRowCapacitiesTypeView rowLengths );
-
-    IndexType getTotalLoad() const;
+   IndexType
+   getTotalLoad() const;
 
 #ifdef __CUDACC__
-    template< typename InVector,
-              typename OutVector >
-    __device__
-    void spmvCuda( const InVector& inVector,
-                   OutVector& outVector,
-                   const int gridIdx ) const;
-
-    template< typename InVector,
-              typename OutVector >
+   template< typename InVector, typename OutVector >
    __device__
-   void spmvCuda2( const InVector& inVector,
-                   OutVector& outVector,
-                   const int gridIdx ) const;
+   void
+   spmvCuda( const InVector& inVector, OutVector& outVector, const int gridIdx ) const;
 
-   template< typename InVector,
-             typename OutVector >
+   template< typename InVector, typename OutVector >
    __device__
-   void spmvCuda4( const InVector& inVector,
-                   OutVector& outVector,
-                   const int gridIdx ) const;
+   void
+   spmvCuda2( const InVector& inVector, OutVector& outVector, const int gridIdx ) const;
 
-   template< typename InVector,
-          typename OutVector >
+   template< typename InVector, typename OutVector >
    __device__
-   void spmvCuda8( const InVector& inVector,
-                   OutVector& outVector,
-                   const int gridIdx ) const;
+   void
+   spmvCuda4( const InVector& inVector, OutVector& outVector, const int gridIdx ) const;
 
-   template< typename InVector,
-          typename OutVector >
+   template< typename InVector, typename OutVector >
    __device__
-   void spmvCuda16( const InVector& inVector,
-                    OutVector& outVector,
-                    const int gridIdx ) const;
+   void
+   spmvCuda8( const InVector& inVector, OutVector& outVector, const int gridIdx ) const;
 
-   template< typename InVector,
-          typename OutVector >
+   template< typename InVector, typename OutVector >
    __device__
-   void spmvCuda32( const InVector& inVector,
-                    OutVector& outVector,
-                    const int gridIdx ) const;
+   void
+   spmvCuda16( const InVector& inVector, OutVector& outVector, const int gridIdx ) const;
 
+   template< typename InVector, typename OutVector >
+   __device__
+   void
+   spmvCuda32( const InVector& inVector, OutVector& outVector, const int gridIdx ) const;
 
 #endif
 
+   // these arrays must be public
+   Containers::Vector< Index, Device, Index > offset;
 
-    // these arrays must be public
-    Containers::Vector< Index, Device, Index > offset;
+   Containers::Vector< Index, Device, Index > rowOffset;
 
-    Containers::Vector< Index, Device, Index > rowOffset;
+   Containers::Vector< Index, Device, Index > localLoad;
 
-    Containers::Vector< Index, Device, Index > localLoad;
+   Containers::Vector< Index, Device, Index > reduceMap;
 
-    Containers::Vector< Index, Device, Index > reduceMap;
-
-    typedef AdEllpackDeviceDependentCode< DeviceType > DeviceDependentCode;
-    friend class AdEllpackDeviceDependentCode< DeviceType >;
-    friend class AdEllpack< RealType, Devices::Host, IndexType >;
-    friend class AdEllpack< RealType, Devices::Cuda, IndexType >;
+   typedef AdEllpackDeviceDependentCode< DeviceType > DeviceDependentCode;
+   friend class AdEllpackDeviceDependentCode< DeviceType >;
+   friend class AdEllpack< RealType, Devices::Host, IndexType >;
+   friend class AdEllpack< RealType, Devices::Cuda, IndexType >;
 
 protected:
+   IndexType totalLoad;
 
-    IndexType totalLoad;
-
-    IndexType warpSize;
-
+   IndexType warpSize;
 };
 
-} // namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy
+}  // namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy
 
 #include "AdEllpack_impl.h"

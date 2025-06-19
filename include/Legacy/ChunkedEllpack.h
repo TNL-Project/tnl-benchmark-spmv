@@ -9,7 +9,6 @@
  * Minarechová Z. and Ševčovič D. (ed.), pages 282-290.
  */
 
-
 #pragma once
 
 #include "Sparse.h"
@@ -36,13 +35,13 @@ struct tnlChunkedEllpackSliceInfo
 };
 
 #ifdef __CUDACC__
-template< typename Real,
-          typename Index,
-          typename Vector >
-__global__ void ChunkedEllpackVectorProductCudaKernel( const ChunkedEllpack< Real, Devices::Cuda, Index >* matrix,
-                                                                const Vector* inVector,
-                                                                Vector* outVector,
-                                                                int gridIdx );
+template< typename Real, typename Index, typename Vector >
+__global__
+void
+ChunkedEllpackVectorProductCudaKernel( const ChunkedEllpack< Real, Devices::Cuda, Index >* matrix,
+                                       const Vector* inVector,
+                                       Vector* outVector,
+                                       int gridIdx );
 #endif
 
 template< typename Real, typename Device, typename Index >
@@ -74,246 +73,270 @@ public:
    typedef typename BaseType::MatrixRow MatrixRow;
    typedef SparseRow< const RealType, const IndexType > ConstMatrixRow;
 
-   template< typename _Real = Real,
-             typename _Device = Device,
-             typename _Index = Index >
+   template< typename _Real = Real, typename _Device = Device, typename _Index = Index >
    using Self = ChunkedEllpack< _Real, _Device, _Index >;
 
-   static constexpr bool isSymmetric() { return false; }
+   static constexpr bool
+   isSymmetric()
+   {
+      return false;
+   }
 
    ChunkedEllpack();
 
-   static std::string getSerializationType();
+   static std::string
+   getSerializationType();
 
-   std::string getSerializationTypeVirtual() const override;
+   std::string
+   getSerializationTypeVirtual() const;
 
-   void setDimensions( const IndexType rows,
-                       const IndexType columns ) override;
+   void
+   setDimensions( const IndexType rows, const IndexType columns ) override;
 
-   void setCompressedRowLengths( ConstRowCapacitiesTypeView rowLengths );
+   void
+   setCompressedRowLengths( ConstRowCapacitiesTypeView rowLengths );
 
-   void setRowCapacities( ConstRowCapacitiesTypeView rowLengths );
+   void
+   setRowCapacities( ConstRowCapacitiesTypeView rowLengths );
 
-   IndexType getRowLength( const IndexType row ) const;
+   IndexType
+   getRowLength( const IndexType row ) const;
 
    __cuda_callable__
-   IndexType getRowLengthFast( const IndexType row ) const;
+   IndexType
+   getRowLengthFast( const IndexType row ) const;
 
-   IndexType getNonZeroRowLength( const IndexType row ) const;
+   IndexType
+   getNonZeroRowLength( const IndexType row ) const;
 
    template< typename Real2, typename Device2, typename Index2 >
-   void setLike( const ChunkedEllpack< Real2, Device2, Index2 >& matrix );
+   void
+   setLike( const ChunkedEllpack< Real2, Device2, Index2 >& matrix );
 
-   void reset();
+   void
+   reset();
 
    template< typename Real2, typename Device2, typename Index2 >
-   bool operator == ( const ChunkedEllpack< Real2, Device2, Index2 >& matrix ) const;
+   bool
+   operator==( const ChunkedEllpack< Real2, Device2, Index2 >& matrix ) const;
 
    template< typename Real2, typename Device2, typename Index2 >
-   bool operator != ( const ChunkedEllpack< Real2, Device2, Index2 >& matrix ) const;
+   bool
+   operator!=( const ChunkedEllpack< Real2, Device2, Index2 >& matrix ) const;
 
-   void setNumberOfChunksInSlice( const IndexType chunksInSlice );
-
-   __cuda_callable__
-   IndexType getNumberOfChunksInSlice() const;
-
-   void setDesiredChunkSize( const IndexType desiredChunkSize );
-
-   IndexType getDesiredChunkSize() const;
+   void
+   setNumberOfChunksInSlice( const IndexType chunksInSlice );
 
    __cuda_callable__
-   IndexType getNumberOfSlices() const;
+   IndexType
+   getNumberOfChunksInSlice() const;
+
+   void
+   setDesiredChunkSize( const IndexType desiredChunkSize );
+
+   IndexType
+   getDesiredChunkSize() const;
 
    __cuda_callable__
-   bool setElementFast( const IndexType row,
-                        const IndexType column,
-                        const RealType& value );
-
-   bool setElement( const IndexType row,
-                    const IndexType column,
-                    const RealType& value );
+   IndexType
+   getNumberOfSlices() const;
 
    __cuda_callable__
-   bool addElementFast( const IndexType row,
-                        const IndexType column,
-                        const RealType& value,
-                        const RealType& thisElementMultiplicator = 1.0 );
+   bool
+   setElementFast( const IndexType row, const IndexType column, const RealType& value );
 
-   bool addElement( const IndexType row,
-                    const IndexType column,
-                    const RealType& value,
-                    const RealType& thisElementMultiplicator = 1.0 );
-
+   bool
+   setElement( const IndexType row, const IndexType column, const RealType& value );
 
    __cuda_callable__
-   bool setRowFast( const IndexType row,
-                    const IndexType* columnIndexes,
-                    const RealType* values,
-                    const IndexType elements );
+   bool
+   addElementFast( const IndexType row,
+                   const IndexType column,
+                   const RealType& value,
+                   const RealType& thisElementMultiplicator = 1.0 );
 
-   bool setRow( const IndexType row,
-                const IndexType* columnIndexes,
-                const RealType* values,
-                const IndexType elements );
-
-
-   __cuda_callable__
-   bool addRowFast( const IndexType row,
-                    const IndexType* columns,
-                    const RealType* values,
-                    const IndexType numberOfElements,
-                    const RealType& thisElementMultiplicator = 1.0 );
-
-   bool addRow( const IndexType row,
-                const IndexType* columns,
-                const RealType* values,
-                const IndexType numberOfElements,
-                const RealType& thisElementMultiplicator = 1.0 );
-
+   bool
+   addElement( const IndexType row,
+               const IndexType column,
+               const RealType& value,
+               const RealType& thisElementMultiplicator = 1.0 );
 
    __cuda_callable__
-   RealType getElementFast( const IndexType row,
-                            const IndexType column ) const;
+   bool
+   setRowFast( const IndexType row, const IndexType* columnIndexes, const RealType* values, const IndexType elements );
 
-   RealType getElement( const IndexType row,
-                        const IndexType column ) const;
+   bool
+   setRow( const IndexType row, const IndexType* columnIndexes, const RealType* values, const IndexType elements );
 
    __cuda_callable__
-   void getRowFast( const IndexType row,
-                    IndexType* columns,
-                    RealType* values ) const;
+   bool
+   addRowFast( const IndexType row,
+               const IndexType* columns,
+               const RealType* values,
+               const IndexType numberOfElements,
+               const RealType& thisElementMultiplicator = 1.0 );
+
+   bool
+   addRow( const IndexType row,
+           const IndexType* columns,
+           const RealType* values,
+           const IndexType numberOfElements,
+           const RealType& thisElementMultiplicator = 1.0 );
+
+   __cuda_callable__
+   RealType
+   getElementFast( const IndexType row, const IndexType column ) const;
+
+   RealType
+   getElement( const IndexType row, const IndexType column ) const;
+
+   __cuda_callable__
+   void
+   getRowFast( const IndexType row, IndexType* columns, RealType* values ) const;
 
    /*void getRow( const IndexType row,
                 IndexType* columns,
                 RealType* values ) const;*/
 
    __cuda_callable__
-   MatrixRow getRow( const IndexType rowIndex );
+   MatrixRow
+   getRow( const IndexType rowIndex );
 
    __cuda_callable__
-   ConstMatrixRow getRow( const IndexType rowIndex ) const;
+   ConstMatrixRow
+   getRow( const IndexType rowIndex ) const;
 
    template< typename Vector >
    __cuda_callable__
-   typename Vector::RealType rowVectorProduct( const IndexType row,
-                                               const Vector& vector ) const;
+   typename Vector::RealType
+   rowVectorProduct( const IndexType row, const Vector& vector ) const;
 
 #ifdef __CUDACC__
-   template< typename InVector,
-             typename OutVector >
-   __device__ void computeSliceVectorProduct( const InVector* inVector,
-                                              OutVector* outVector,
-                                              int gridIdx  ) const;
+   template< typename InVector, typename OutVector >
+   __device__
+   void
+   computeSliceVectorProduct( const InVector* inVector, OutVector* outVector, int gridIdx ) const;
 #endif
 
-
-   template< typename InVector,
-             typename OutVector >
-   void vectorProduct( const InVector& inVector,
-                       OutVector& outVector ) const;
+   template< typename InVector, typename OutVector >
+   void
+   vectorProduct( const InVector& inVector, OutVector& outVector ) const;
 
    template< typename Real2, typename Index2 >
-   void addMatrix( const ChunkedEllpack< Real2, Device, Index2 >& matrix,
-                   const RealType& matrixMultiplicator = 1.0,
-                   const RealType& thisMatrixMultiplicator = 1.0 );
+   void
+   addMatrix( const ChunkedEllpack< Real2, Device, Index2 >& matrix,
+              const RealType& matrixMultiplicator = 1.0,
+              const RealType& thisMatrixMultiplicator = 1.0 );
 
    template< typename Real2, typename Index2 >
-   void getTransposition( const ChunkedEllpack< Real2, Device, Index2 >& matrix,
-                          const RealType& matrixMultiplicator = 1.0 );
+   void
+   getTransposition( const ChunkedEllpack< Real2, Device, Index2 >& matrix, const RealType& matrixMultiplicator = 1.0 );
 
    // copy assignment
-   ChunkedEllpack& operator=( const ChunkedEllpack& matrix );
+   ChunkedEllpack&
+   operator=( const ChunkedEllpack& matrix );
 
    // cross-device copy assignment
-   template< typename Real2, typename Device2, typename Index2,
-             typename = typename Enabler< Device2 >::type >
-   ChunkedEllpack& operator=( const ChunkedEllpack< Real2, Device2, Index2 >& matrix );
+   template< typename Real2, typename Device2, typename Index2, typename = typename Enabler< Device2 >::type >
+   ChunkedEllpack&
+   operator=( const ChunkedEllpack< Real2, Device2, Index2 >& matrix );
 
-   void save( File& file ) const override;
+   void
+   save( File& file ) const;
 
-   void load( File& file ) override;
+   void
+   load( File& file );
 
-   void save( const String& fileName ) const;
+   void
+   save( const String& fileName ) const;
 
-   void load( const String& fileName );
+   void
+   load( const String& fileName );
 
-   void print( std::ostream& str ) const override;
+   void
+   print( std::ostream& str ) const override;
 
-   void printStructure( std::ostream& str,
-                        const String& = "" ) const;
+   void
+   printStructure( std::ostream& str, const String& = "" ) const;
 
 protected:
+   void
+   resolveSliceSizes( ConstRowCapacitiesTypeView rowLengths );
 
-   void resolveSliceSizes( ConstRowCapacitiesTypeView rowLengths );
+   bool
+   setSlice( ConstRowCapacitiesTypeView rowLengths, const IndexType sliceIdx, IndexType& elementsToAllocation );
 
-   bool setSlice( ConstRowCapacitiesTypeView rowLengths,
-                  const IndexType sliceIdx,
-                  IndexType& elementsToAllocation );
-
-   bool addElementToChunk( const IndexType sliceOffset,
-                           const IndexType chunkIndex,
-                           const IndexType chunkSize,
-                           IndexType& column,
-                           RealType& value,
-                           RealType& thisElementMultiplicator );
-
-   __cuda_callable__
-   bool addElementToChunkFast( const IndexType sliceOffset,
-                               const IndexType chunkIndex,
-                               const IndexType chunkSize,
-                               IndexType& column,
-                               RealType& value,
-                               RealType& thisElementMultiplicator );
-
-   __cuda_callable__
-   void setChunkFast( const IndexType sliceOffset,
+   bool
+   addElementToChunk( const IndexType sliceOffset,
                       const IndexType chunkIndex,
                       const IndexType chunkSize,
-                      const IndexType* columnIndexes,
-                      const RealType* values,
-                      const IndexType elements );
-
-   void setChunk( const IndexType sliceOffset,
-                  const IndexType chunkIndex,
-                  const IndexType chunkSize,
-                  const IndexType* columnIndexes,
-                  const RealType* values,
-                  const IndexType elements );
-
-   bool getElementInChunk( const IndexType sliceOffset,
-                           const IndexType chunkIndex,
-                           const IndexType chunkSize,
-                           const IndexType column,
-                           RealType& value ) const;
+                      IndexType& column,
+                      RealType& value,
+                      RealType& thisElementMultiplicator );
 
    __cuda_callable__
-   bool getElementInChunkFast( const IndexType sliceOffset,
-                               const IndexType chunkIndex,
-                               const IndexType chunkSize,
-                               const IndexType column,
-                               RealType& value ) const;
-
-   void getChunk( const IndexType sliceOffset,
-                  const IndexType chunkIndex,
-                  const IndexType chunkSize,
-                  IndexType* columns,
-                  RealType* values ) const;
+   bool
+   addElementToChunkFast( const IndexType sliceOffset,
+                          const IndexType chunkIndex,
+                          const IndexType chunkSize,
+                          IndexType& column,
+                          RealType& value,
+                          RealType& thisElementMultiplicator );
 
    __cuda_callable__
-   void getChunkFast( const IndexType sliceOffset,
+   void
+   setChunkFast( const IndexType sliceOffset,
+                 const IndexType chunkIndex,
+                 const IndexType chunkSize,
+                 const IndexType* columnIndexes,
+                 const RealType* values,
+                 const IndexType elements );
+
+   void
+   setChunk( const IndexType sliceOffset,
+             const IndexType chunkIndex,
+             const IndexType chunkSize,
+             const IndexType* columnIndexes,
+             const RealType* values,
+             const IndexType elements );
+
+   bool
+   getElementInChunk( const IndexType sliceOffset,
                       const IndexType chunkIndex,
                       const IndexType chunkSize,
-                      IndexType* columns,
-                      RealType* values ) const;
+                      const IndexType column,
+                      RealType& value ) const;
+
+   __cuda_callable__
+   bool
+   getElementInChunkFast( const IndexType sliceOffset,
+                          const IndexType chunkIndex,
+                          const IndexType chunkSize,
+                          const IndexType column,
+                          RealType& value ) const;
+
+   void
+   getChunk( const IndexType sliceOffset,
+             const IndexType chunkIndex,
+             const IndexType chunkSize,
+             IndexType* columns,
+             RealType* values ) const;
+
+   __cuda_callable__
+   void
+   getChunkFast( const IndexType sliceOffset,
+                 const IndexType chunkIndex,
+                 const IndexType chunkSize,
+                 IndexType* columns,
+                 RealType* values ) const;
 
    template< typename Vector >
    __cuda_callable__
-   typename Vector::RealType chunkVectorProduct( const IndexType sliceOffset,
-                                                 const IndexType chunkIndex,
-                                                 const IndexType chunkSize,
-                                                 const Vector& vector ) const;
-
-
+   typename Vector::RealType
+   chunkVectorProduct( const IndexType sliceOffset,
+                       const IndexType chunkIndex,
+                       const IndexType chunkSize,
+                       const Vector& vector ) const;
 
    IndexType chunksInSlice, desiredChunkSize;
 
@@ -330,14 +353,14 @@ protected:
 
 #ifdef __CUDACC__
    template< typename Vector >
-   friend void ChunkedEllpackVectorProductCudaKernel( const ChunkedEllpack< Real, Devices::Cuda, Index >* matrix,
-                                                               const Vector* inVector,
-                                                               Vector* outVector,
-                                                               int gridIdx );
+   friend void
+   ChunkedEllpackVectorProductCudaKernel( const ChunkedEllpack< Real, Devices::Cuda, Index >* matrix,
+                                          const Vector* inVector,
+                                          Vector* outVector,
+                                          int gridIdx );
 #endif
 };
 
-} // namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy
+}  // namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy
 
 #include "ChunkedEllpack_impl.h"
-

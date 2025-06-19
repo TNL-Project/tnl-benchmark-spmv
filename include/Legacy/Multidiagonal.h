@@ -5,10 +5,10 @@
 #include "MultidiagonalRow.h"
 
 namespace TNL {
-    namespace Benchmarks {
-        namespace SpMV {
-            namespace ReferenceFormats {
-               namespace Legacy {
+namespace Benchmarks {
+namespace SpMV {
+namespace ReferenceFormats {
+namespace Legacy {
 
 template< typename Device >
 class MultidiagonalDeviceDependentCode;
@@ -35,172 +35,191 @@ public:
    typedef Matrix< Real, Device, Index > BaseType;
    typedef MultidiagonalRow< Real, Index > MatrixRow;
 
-   template< typename _Real = Real,
-             typename _Device = Device,
-             typename _Index = Index >
+   template< typename _Real = Real, typename _Device = Device, typename _Index = Index >
    using Self = Multidiagonal< _Real, _Device, _Index >;
 
-   static constexpr bool isSymmetric() { return false; };
+   static constexpr bool
+   isSymmetric()
+   {
+      return false;
+   };
 
    Multidiagonal();
 
-   static std::string getSerializationType();
+   static std::string
+   getSerializationType();
 
-   std::string getSerializationTypeVirtual() const override;
+   std::string
+   getSerializationTypeVirtual() const;
 
-   void setDimensions( const IndexType rows,
-                       const IndexType columns ) override;
+   void
+   setDimensions( const IndexType rows, const IndexType columns ) override;
 
-   void setCompressedRowLengths( ConstRowCapacitiesTypeView rowLengths );
+   void
+   setCompressedRowLengths( ConstRowCapacitiesTypeView rowLengths );
 
-   void setRowCapacities( ConstRowCapacitiesTypeView rowLengths );
+   void
+   setRowCapacities( ConstRowCapacitiesTypeView rowLengths );
 
-   IndexType getRowLength( const IndexType row ) const;
+   IndexType
+   getRowLength( const IndexType row ) const;
 
    __cuda_callable__
-   IndexType getRowLengthFast( const IndexType row ) const;
+   IndexType
+   getRowLengthFast( const IndexType row ) const;
 
-   IndexType getMaxRowLength() const;
+   IndexType
+   getMaxRowLength() const;
 
    template< typename Vector >
-   void setDiagonals( const Vector& diagonals );
+   void
+   setDiagonals( const Vector& diagonals );
 
-   const Containers::Vector< Index, Device, Index >& getDiagonals() const;
-
-   template< typename Real2, typename Device2, typename Index2 >
-   void setLike( const Multidiagonal< Real2, Device2, Index2 >& matrix );
-
-   IndexType getNumberOfMatrixElements() const;
-
-   IndexType getNumberOfNonzeroMatrixElements() const;
-
-   IndexType getMaxRowlength() const;
-
-   void reset();
+   const Containers::Vector< Index, Device, Index >&
+   getDiagonals() const;
 
    template< typename Real2, typename Device2, typename Index2 >
-   bool operator == ( const Multidiagonal< Real2, Device2, Index2 >& matrix ) const;
+   void
+   setLike( const Multidiagonal< Real2, Device2, Index2 >& matrix );
+
+   IndexType
+   getNumberOfMatrixElements() const;
+
+   IndexType
+   getNumberOfNonzeroMatrixElements() const;
+
+   IndexType
+   getMaxRowlength() const;
+
+   void
+   reset();
 
    template< typename Real2, typename Device2, typename Index2 >
-   bool operator != ( const Multidiagonal< Real2, Device2, Index2 >& matrix ) const;
+   bool
+   operator==( const Multidiagonal< Real2, Device2, Index2 >& matrix ) const;
 
-   void setValue( const RealType& v );
+   template< typename Real2, typename Device2, typename Index2 >
+   bool
+   operator!=( const Multidiagonal< Real2, Device2, Index2 >& matrix ) const;
 
-   __cuda_callable__
-   bool setElementFast( const IndexType row,
-                        const IndexType column,
-                        const RealType& value );
-
-   bool setElement( const IndexType row,
-                    const IndexType column,
-                    const RealType& value );
+   void
+   setValue( const RealType& v );
 
    __cuda_callable__
-   bool addElementFast( const IndexType row,
-                        const IndexType column,
-                        const RealType& value,
-                        const RealType& thisElementMultiplicator = 1.0 );
+   bool
+   setElementFast( const IndexType row, const IndexType column, const RealType& value );
 
-   bool addElement( const IndexType row,
-                    const IndexType column,
-                    const RealType& value,
-                    const RealType& thisElementMultiplicator = 1.0 );
-
+   bool
+   setElement( const IndexType row, const IndexType column, const RealType& value );
 
    __cuda_callable__
-   bool setRowFast( const IndexType row,
-                    const IndexType* columns,
-                    const RealType* values,
-                    const IndexType numberOfElements );
+   bool
+   addElementFast( const IndexType row,
+                   const IndexType column,
+                   const RealType& value,
+                   const RealType& thisElementMultiplicator = 1.0 );
 
-   bool setRow( const IndexType row,
-                const IndexType* columns,
-                const RealType* values,
-                const IndexType numberOfElements );
-
-
-   __cuda_callable__
-   bool addRowFast( const IndexType row,
-                    const IndexType* columns,
-                    const RealType* values,
-                    const IndexType numberOfElements,
-                    const RealType& thisElementMultiplicator = 1.0 );
-
-   bool addRow( const IndexType row,
-                const IndexType* columns,
-                const RealType* values,
-                const IndexType numberOfElements,
-                const RealType& thisElementMultiplicator = 1.0 );
+   bool
+   addElement( const IndexType row,
+               const IndexType column,
+               const RealType& value,
+               const RealType& thisElementMultiplicator = 1.0 );
 
    __cuda_callable__
-   RealType getElementFast( const IndexType row,
-                            const IndexType column ) const;
+   bool
+   setRowFast( const IndexType row, const IndexType* columns, const RealType* values, const IndexType numberOfElements );
 
-   RealType getElement( const IndexType row,
-                        const IndexType column ) const;
+   bool
+   setRow( const IndexType row, const IndexType* columns, const RealType* values, const IndexType numberOfElements );
 
    __cuda_callable__
-   void getRowFast( const IndexType row,
-                    IndexType* columns,
-                    RealType* values ) const;
+   bool
+   addRowFast( const IndexType row,
+               const IndexType* columns,
+               const RealType* values,
+               const IndexType numberOfElements,
+               const RealType& thisElementMultiplicator = 1.0 );
+
+   bool
+   addRow( const IndexType row,
+           const IndexType* columns,
+           const RealType* values,
+           const IndexType numberOfElements,
+           const RealType& thisElementMultiplicator = 1.0 );
+
+   __cuda_callable__
+   RealType
+   getElementFast( const IndexType row, const IndexType column ) const;
+
+   RealType
+   getElement( const IndexType row, const IndexType column ) const;
+
+   __cuda_callable__
+   void
+   getRowFast( const IndexType row, IndexType* columns, RealType* values ) const;
 
    /*void getRow( const IndexType row,
                 IndexType* columns,
                 RealType* values ) const;*/
 
    __cuda_callable__
-   MatrixRow getRow( const IndexType rowIndex );
+   MatrixRow
+   getRow( const IndexType rowIndex );
 
    __cuda_callable__
-   const MatrixRow getRow( const IndexType rowIndex ) const;
+   const MatrixRow
+   getRow( const IndexType rowIndex ) const;
 
    template< typename Vector >
    __cuda_callable__
-   typename Vector::RealType rowVectorProduct( const IndexType row,
-                                               const Vector& vector ) const;
+   typename Vector::RealType
+   rowVectorProduct( const IndexType row, const Vector& vector ) const;
 
-   template< typename InVector,
-             typename OutVector >
-   void vectorProduct( const InVector& inVector,
-                       OutVector& outVector ) const;
-
-   template< typename Real2, typename Index2 >
-   void addMatrix( const Multidiagonal< Real2, Device, Index2 >& matrix,
-                   const RealType& matrixMultiplicator = 1.0,
-                   const RealType& thisMatrixMultiplicator = 1.0 );
+   template< typename InVector, typename OutVector >
+   void
+   vectorProduct( const InVector& inVector, OutVector& outVector ) const;
 
    template< typename Real2, typename Index2 >
-   void getTransposition( const Multidiagonal< Real2, Device, Index2 >& matrix,
-                          const RealType& matrixMultiplicator = 1.0 );
+   void
+   addMatrix( const Multidiagonal< Real2, Device, Index2 >& matrix,
+              const RealType& matrixMultiplicator = 1.0,
+              const RealType& thisMatrixMultiplicator = 1.0 );
+
+   template< typename Real2, typename Index2 >
+   void
+   getTransposition( const Multidiagonal< Real2, Device, Index2 >& matrix, const RealType& matrixMultiplicator = 1.0 );
 
    // copy assignment
-   Multidiagonal& operator=( const Multidiagonal& matrix );
+   Multidiagonal&
+   operator=( const Multidiagonal& matrix );
 
    // cross-device copy assignment
-   template< typename Real2, typename Device2, typename Index2,
-             typename = typename Enabler< Device2 >::type >
-   Multidiagonal& operator=( const Multidiagonal< Real2, Device2, Index2 >& matrix );
+   template< typename Real2, typename Device2, typename Index2, typename = typename Enabler< Device2 >::type >
+   Multidiagonal&
+   operator=( const Multidiagonal< Real2, Device2, Index2 >& matrix );
 
-   void save( File& file ) const override;
+   void
+   save( File& file ) const;
 
-   void load( File& file ) override;
+   void
+   load( File& file );
 
-   void save( const String& fileName ) const;
+   void
+   save( const String& fileName ) const;
 
-   void load( const String& fileName );
+   void
+   load( const String& fileName );
 
-   void print( std::ostream& str ) const override;
+   void
+   print( std::ostream& str ) const override;
 
 protected:
-
-   bool getElementIndex( const IndexType row,
-                         const IndexType column,
-                         IndexType& index ) const;
+   bool
+   getElementIndex( const IndexType row, const IndexType column, IndexType& index ) const;
 
    __cuda_callable__
-   bool getElementIndexFast( const IndexType row,
-                             const IndexType column,
-                             IndexType& index ) const;
+   bool
+   getElementIndexFast( const IndexType row, const IndexType column, IndexType& index ) const;
 
    Containers::Vector< Real, Device, Index > values;
 
@@ -210,11 +229,10 @@ protected:
    friend class MultidiagonalDeviceDependentCode< DeviceType >;
 };
 
-
-               } //namespace Legacy
-            } //namespace ReferenceFormats
-        } //namespace SpMV
-    } //namespace Benchmarks
-} // namespace TNL
+}  //namespace Legacy
+}  //namespace ReferenceFormats
+}  //namespace SpMV
+}  //namespace Benchmarks
+}  // namespace TNL
 
 #include "Multidiagonal_impl.h"

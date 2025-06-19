@@ -100,7 +100,7 @@ Matrix< Real, Device, Index, RealAllocator >::reset()
    this->values.reset();
 }
 
-template< typename Real, typename Device, typename Index, typename RealAllocator >
+/*template< typename Real, typename Device, typename Index, typename RealAllocator >
 template< typename MatrixT >
 bool
 Matrix< Real, Device, Index, RealAllocator >::operator==( const MatrixT& matrix ) const
@@ -112,7 +112,7 @@ Matrix< Real, Device, Index, RealAllocator >::operator==( const MatrixT& matrix 
          if( this->getElement( row, column ) != matrix.getElement( row, column ) )
             return false;
    return true;
-}
+}*/
 
 template< typename Real, typename Device, typename Index, typename RealAllocator >
 template< typename MatrixT >
@@ -126,7 +126,6 @@ template< typename Real, typename Device, typename Index, typename RealAllocator
 void
 Matrix< Real, Device, Index, RealAllocator >::save( File& file ) const
 {
-   Object::save( file );
    file.save( &this->rows );
    file.save( &this->columns );
    file << this->values;
@@ -136,7 +135,6 @@ template< typename Real, typename Device, typename Index, typename RealAllocator
 void
 Matrix< Real, Device, Index, RealAllocator >::load( File& file )
 {
-   Object::load( file );
    file.load( &this->rows );
    file.load( &this->columns );
    file >> this->values;
