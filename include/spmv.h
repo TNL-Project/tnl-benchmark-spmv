@@ -6,35 +6,21 @@
 
 #include <cstdint>
 
+#include "SpmvBenchmarkResult.h"
 #include <TNL/Benchmarks/Benchmarks.h>
 #include <TNL/Benchmarks/JsonLogging.h>
-#include "SpmvBenchmarkResult.h"
 
-#include <TNL/Matrices/MatrixReader.h>
-#include <TNL/Matrices/MatrixInfo.h>
-#include <TNL/Matrices/SparseMatrix.h>
-#include <TNL/Matrices/MatrixType.h>
-#include <TNL/Algorithms/Segments/CSR.h>
-#include <TNL/Algorithms/Segments/Ellpack.h>
-#include <TNL/Algorithms/Segments/SlicedEllpack.h>
-#include <TNL/Algorithms/Segments/ChunkedEllpack.h>
 #include <TNL/Algorithms/Segments/BiEllpack.h>
-#include <TNL/Algorithms/SegmentsReductionKernels/CSRScalarKernel.h>
-#include <TNL/Algorithms/SegmentsReductionKernels/CSRVectorKernel.h>
-#include <TNL/Algorithms/SegmentsReductionKernels/CSRHybridKernel.h>
-#include <TNL/Algorithms/SegmentsReductionKernels/CSRLightKernel.h>
-#include <TNL/Algorithms/SegmentsReductionKernels/CSRAdaptiveKernel.h>
-#include <TNL/Algorithms/SegmentsReductionKernels/EllpackKernel.h>
-#include <TNL/Algorithms/SegmentsReductionKernels/SlicedEllpackKernel.h>
-#include <TNL/Algorithms/SegmentsReductionKernels/ChunkedEllpackKernel.h>
-#include <TNL/Algorithms/SegmentsReductionKernels/BiEllpackKernel.h>
+#include <TNL/Algorithms/Segments/CSR.h>
+#include <TNL/Algorithms/Segments/ChunkedEllpack.h>
+#include <TNL/Algorithms/Segments/Ellpack.h>
+#include <TNL/Algorithms/Segments/ReductionLaunchConfigurations.h>
+#include <TNL/Algorithms/Segments/SlicedEllpack.h>
 #include <TNL/Algorithms/sort.h>
-
-// Uncomment the following line to enable benchmarking the sandbox sparse matrix.
-//#define WITH_TNL_BENCHMARK_SPMV_SANDBOX_MATRIX
-#ifdef WITH_TNL_BENCHMARK_SPMV_SANDBOX_MATRIX
-   #include <TNL/Matrices/Sandbox/SparseSandboxMatrix.h>
-#endif
+#include <TNL/Matrices/MatrixInfo.h>
+#include <TNL/Matrices/MatrixReader.h>
+#include <TNL/Matrices/MatrixType.h>
+#include <TNL/Matrices/SparseMatrix.h>
 
 using namespace TNL::Matrices;
 
@@ -49,6 +35,9 @@ template< typename Device, typename Index, typename IndexAllocator >
 using CSRSegments = Algorithms::Segments::CSR< Device, Index, IndexAllocator >;
 
 template< typename Device, typename Index, typename IndexAllocator >
+using AdaptiveCSRSegments = Algorithms::Segments::AdaptiveCSR< Device, Index, IndexAllocator >;
+
+template< typename Device, typename Index, typename IndexAllocator >
 using EllpackSegments = Algorithms::Segments::Ellpack< Device, Index, IndexAllocator >;
 
 template< typename Device, typename Index, typename IndexAllocator >
@@ -61,87 +50,81 @@ template< typename Device, typename Index, typename IndexAllocator >
 using BiEllpackSegments = Algorithms::Segments::BiEllpack< Device, Index, IndexAllocator >;
 
 /////
-// General sparse matrix aliases
+// Sparse matrix types aliases
 //
-template< typename Real, typename Device, typename Index >
-using SparseMatrix_CSR = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, CSRSegments >;
+template< typename Real, typename Device, typename Index, typename MatrixType = TNL::Matrices::GeneralMatrix >
+using SparseMatrix_CSR = Matrices::SparseMatrix< Real, Device, Index, MatrixType, CSRSegments >;
 
-template< typename Real, typename Device, typename Index >
-using SparseMatrix_Ellpack = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, EllpackSegments >;
+template< typename Real, typename Device, typename Index, typename MatrixType = TNL::Matrices::GeneralMatrix >
+using SparseMatrix_AdaptiveCSR = Matrices::SparseMatrix< Real, Device, Index, MatrixType, AdaptiveCSRSegments >;
 
-template< typename Real, typename Device, typename Index >
-using SparseMatrix_SlicedEllpack =
-   Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, SlicedEllpackSegments >;
+template< typename Real, typename Device, typename Index, typename MatrixType = TNL::Matrices::GeneralMatrix >
+using SparseMatrix_Ellpack = Matrices::SparseMatrix< Real, Device, Index, MatrixType, EllpackSegments >;
 
-template< typename Real, typename Device, typename Index >
-using SparseMatrix_ChunkedEllpack =
-   Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, ChunkedEllpackSegments >;
+template< typename Real, typename Device, typename Index, typename MatrixType = TNL::Matrices::GeneralMatrix >
+using SparseMatrix_SlicedEllpack = Matrices::SparseMatrix< Real, Device, Index, MatrixType, SlicedEllpackSegments >;
 
-template< typename Real, typename Device, typename Index >
-using SparseMatrix_BiEllpack = Matrices::SparseMatrix< Real, Device, Index, Matrices::GeneralMatrix, BiEllpackSegments >;
+template< typename Real, typename Device, typename Index, typename MatrixType = TNL::Matrices::GeneralMatrix >
+using SparseMatrix_ChunkedEllpack = Matrices::SparseMatrix< Real, Device, Index, MatrixType, ChunkedEllpackSegments >;
+
+template< typename Real, typename Device, typename Index, typename MatrixType = TNL::Matrices::GeneralMatrix >
+using SparseMatrix_BiEllpack = Matrices::SparseMatrix< Real, Device, Index, MatrixType, BiEllpackSegments >;
 
 /////
-// Symmetric sparse matrix aliases
+// Main benchmarking
 //
-template< typename Real, typename Device, typename Index >
-using SymmetricSparseMatrix_CSR = Matrices::SparseMatrix< Real, Device, Index, Matrices::SymmetricMatrix, CSRSegments >;
+template< typename Real,
+          typename Device,
+          typename Index,
+          typename InputMatrix,
+          typename TestMatrix,
+          typename MatrixType = TNL::Matrices::GeneralMatrix >
+void
+benchmarkSpMVWithDevice( BenchmarkType& benchmark,
+                         const InputMatrix& inputMatrix,
+                         const TNL::Containers::Vector< Real, Devices::Host, Index >& csrResultVector,
+                         const String& inputFileName,
+                         const Config::ParameterContainer& parameters,
+                         bool verboseMR )
+{
+   using DeviceMatrix =
+      typename TestMatrix::Self< typename TestMatrix::RealType, Device, typename TestMatrix::IndexType, MatrixType >;
+   using DeviceVector = Containers::Vector< Real, Device, Index >;
 
-template< typename Real, typename Device, typename Index >
-using SymmetricSparseMatrix_Ellpack = Matrices::SparseMatrix< Real, Device, Index, Matrices::SymmetricMatrix, EllpackSegments >;
+   DeviceMatrix deviceMatrix;
+   try {
+      deviceMatrix = inputMatrix;
+   }
+   catch( const std::exception& e ) {
+      benchmark.addErrorMessage( "Unable to copy the matrix on GPU: " + String( e.what() ) );
+      return;
+   }
+   DeviceVector deviceInVector( deviceMatrix.getColumns() ), deviceOutVector( deviceMatrix.getRows() );
 
-template< typename Real, typename Device, typename Index >
-using SymmetricSparseMatrix_SlicedEllpack =
-   Matrices::SparseMatrix< Real, Device, Index, Matrices::SymmetricMatrix, SlicedEllpackSegments >;
+   for( auto [ launch_config, tag ] : TNL::Algorithms::Segments::reductionLaunchConfigurations( deviceMatrix.getSegments() ) ) {
+      benchmark.setMetadataElement( { "format", MatrixInfo< TestMatrix >::getFormat() } );
+      benchmark.setMetadataElement( { "launch cfg.", tag } );
 
-template< typename Real, typename Device, typename Index >
-using SymmetricSparseMatrix_ChunkedEllpack =
-   Matrices::SparseMatrix< Real, Device, Index, Matrices::SymmetricMatrix, ChunkedEllpackSegments >;
+      auto resetDeviceVectors = [ & ]()
+      {
+         deviceInVector = 1.0;
+         deviceOutVector = 0.0;
+      };
 
-template< typename Real, typename Device, typename Index >
-using SymmetricSparseMatrix_BiEllpack =
-   Matrices::SparseMatrix< Real, Device, Index, Matrices::SymmetricMatrix, BiEllpackSegments >;
-
-#ifdef WITH_TNL_BENCHMARK_SPMV_SANDBOX_MATRIX
-template< typename Real, typename Device, typename Index >
-using SparseSandboxMatrix = Matrices::Sandbox::SparseSandboxMatrix< Real, Device, Index, Matrices::GeneralMatrix >;
-#endif
-
-/////
-// SpMV kernels
-template< typename Device, typename Index >
-using CSRScalarKernel = Algorithms::SegmentsReductionKernels::CSRScalarKernel< Index, Device >;
-
-template< typename Device, typename Index >
-using CSRVectorKernel = Algorithms::SegmentsReductionKernels::CSRVectorKernel< Index, Device >;
-
-template< typename Device, typename Index >
-using CSRHybridKernel = Algorithms::SegmentsReductionKernels::CSRHybridKernel< Index, Device >;
-
-template< typename Device, typename Index >
-using CSRLightKernel = Algorithms::SegmentsReductionKernels::CSRLightKernel< Index, Device >;
-
-template< typename Device, typename Index >
-using CSRAdaptiveKernel = Algorithms::SegmentsReductionKernels::CSRAdaptiveKernel< Index, Device >;
-
-template< typename Device, typename Index >
-using EllpackKernel = Algorithms::SegmentsReductionKernels::EllpackKernel< Index, Device >;
-
-template< typename Device, typename Index >
-using SlicedEllpackKernel = Algorithms::SegmentsReductionKernels::SlicedEllpackKernel< Index, Device >;
-
-template< typename Device, typename Index >
-using ChunkedEllpackKernel = Algorithms::SegmentsReductionKernels::ChunkedEllpackKernel< Index, Device >;
-
-template< typename Device, typename Index >
-using BiEllpackKernel = Algorithms::SegmentsReductionKernels::BiEllpackKernel< Index, Device >;
+      auto spmvDevice = [ & ]()
+      {
+         deviceMatrix.vectorProduct( deviceInVector, deviceOutVector, launch_config );
+      };
+      SpmvBenchmarkResult< Real, Device, Index > deviceBenchmarkResults( csrResultVector, deviceOutVector );
+      benchmark.time< Device >( resetDeviceVectors, "GPU", spmvDevice, deviceBenchmarkResults );
+   }
+}
 
 template< typename Real,
           typename Index,
           typename InputMatrix,
-          template< typename, typename, typename >
-          class Matrix,
-          template< typename, typename >
-          class Kernel >
+          typename TestMatrix,
+          typename MatrixType = TNL::Matrices::GeneralMatrix >
 void
 benchmarkSpMV( BenchmarkType& benchmark,
                const InputMatrix& inputMatrix,
@@ -150,12 +133,16 @@ benchmarkSpMV( BenchmarkType& benchmark,
                const Config::ParameterContainer& parameters,
                bool verboseMR )
 {
-   using HostMatrix = Matrix< Real, TNL::Devices::Host, Index >;
-   using HostKernel = Kernel< TNL::Devices::Host, Index >;
+   // TODO: Host should be benchmarked as other devices, i.e. with
+   //       launch configurations when it allows changing the number of OMP
+   //       threads.
+   using HostMatrix = typename TestMatrix::
+      Self< typename TestMatrix::RealType, TNL::Devices::Host, typename TestMatrix::IndexType, MatrixType >;
    using HostVector = Containers::Vector< Real, Devices::Host, Index >;
 
    bool allCpuTests = parameters.getParameter< bool >( "with-all-cpu-tests" );
-   benchmark.setMetadataElement( { "format", MatrixInfo< HostMatrix >::getFormat() + " " + HostKernel::getKernelType() } );
+   benchmark.setMetadataElement( { "format", MatrixInfo< TestMatrix >::getFormat() } );
+   benchmark.setMetadataElement( { "launch cfg.", "" } );
 
    HostMatrix hostMatrix;
    try {
@@ -170,13 +157,8 @@ benchmarkSpMV( BenchmarkType& benchmark,
    const double datasetSize = (double) nonzeros * ( 2 * sizeof( Real ) + sizeof( Index ) ) / oneGB;
    benchmark.setDatasetSize( datasetSize );
 
-   /////
    // Benchmark SpMV on host
-   //
-   if( allCpuTests ) {
-      HostKernel kernel;
-      kernel.init( hostMatrix.getSegments() );
-
+   if( allCpuTests || TestMatrix::isBinary() || TestMatrix::isSymmetric() ) {
       HostVector hostInVector( hostMatrix.getColumns() ), hostOutVector( hostMatrix.getRows() );
 
       auto resetHostVectors = [ & ]()
@@ -187,497 +169,66 @@ benchmarkSpMV( BenchmarkType& benchmark,
 
       auto spmvHost = [ & ]()
       {
-         hostMatrix.vectorProduct( hostInVector, hostOutVector, kernel );
+         hostMatrix.vectorProduct( hostInVector, hostOutVector );
       };
       SpmvBenchmarkResult< Real, Devices::Host, Index > hostBenchmarkResults( csrResultVector, hostOutVector );
       benchmark.time< Devices::Host >( resetHostVectors, "CPU", spmvHost, hostBenchmarkResults );
    }
 
-   /////
-   // Benchmark SpMV on CUDA
-   //
 #ifdef __CUDACC__
-   using CudaMatrix = Matrix< Real, TNL::Devices::Cuda, Index >;
-   using CudaKernel = Kernel< TNL::Devices::Cuda, Index >;
-   using CudaVector = Containers::Vector< Real, Devices::Cuda, Index >;
-
-   CudaMatrix cudaMatrix;
-   try {
-      cudaMatrix = inputMatrix;
-   }
-   catch( const std::exception& e ) {
-      benchmark.addErrorMessage( "Unable to copy the matrix on GPU: " + String( e.what() ) );
-      return;
-   }
-
-   CudaKernel kernel;
-   kernel.init( cudaMatrix.getSegments() );
-
-   CudaVector cudaInVector( hostMatrix.getColumns() ), cudaOutVector( hostMatrix.getRows() );
-
-   auto resetCudaVectors = [ & ]()
-   {
-      cudaInVector = 1.0;
-      cudaOutVector = 0.0;
-   };
-
-   auto spmvCuda = [ & ]()
-   {
-      cudaMatrix.vectorProduct( cudaInVector, cudaOutVector, kernel );
-   };
-   SpmvBenchmarkResult< Real, Devices::Cuda, Index > cudaBenchmarkResults( csrResultVector, cudaOutVector );
-   benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvCuda, cudaBenchmarkResults );
-#endif
-
-   /////
-   // Benchmark SpMV on HIP
-   //
-#ifdef __HIP__
-   using HipMatrix = Matrix< Real, TNL::Devices::Hip, Index >;
-   using HipKernel = Kernel< TNL::Devices::Hip, Index >;
-   using HipVector = Containers::Vector< Real, Devices::Hip, Index >;
-
-   HipMatrix hipMatrix;
-   try {
-      hipMatrix = inputMatrix;
-   }
-   catch( const std::exception& e ) {
-      benchmark.addErrorMessage( "Unable to copy the matrix on GPU: " + String( e.what() ) );
-      return;
-   }
-
-   HipKernel kernel;
-   kernel.init( hipMatrix.getSegments() );
-
-   HipVector hipInVector( hostMatrix.getColumns() ), hipOutVector( hostMatrix.getRows() );
-
-   auto resetHipVectors = [ & ]()
-   {
-      hipInVector = 1.0;
-      hipOutVector = 0.0;
-   };
-
-   auto spmvHip = [ & ]()
-   {
-      hipMatrix.vectorProduct( hipInVector, hipOutVector, kernel );
-   };
-   SpmvBenchmarkResult< Real, Devices::Hip, Index > hipBenchmarkResults( csrResultVector, hipOutVector );
-   benchmark.time< Devices::Hip >( resetHipVectors, "GPU", spmvHip, hipBenchmarkResults );
-#endif
-}
-
-template< typename Real,
-          typename Index,
-          typename InputMatrix,
-          template< typename, typename, typename >
-          class Matrix,
-          template< typename, typename >
-          class Kernel,
-          typename TestReal = Real >
-void
-benchmarkSpMVCSRLight( BenchmarkType& benchmark,
-                       const InputMatrix& inputMatrix,
-                       const TNL::Containers::Vector< Real, Devices::Host, Index >& csrResultVector,
-                       const String& inputFileName,
-                       const Config::ParameterContainer& parameters,
-                       bool verboseMR )
-{
-   using HostMatrix = Matrix< TestReal, TNL::Devices::Host, Index >;
-   using HostKernel = Kernel< TNL::Devices::Host, Index >;
-   using HostVector = Containers::Vector< Real, Devices::Host, Index >;
-
-   bool allCpuTests = parameters.getParameter< bool >( "with-all-cpu-tests" );
-   benchmark.setMetadataElement( { "format", MatrixInfo< HostMatrix >::getFormat() + " " + HostKernel::getKernelType() } );
-
-   HostMatrix hostMatrix;
-   try {
-      hostMatrix = inputMatrix;
-   }
-   catch( const std::exception& e ) {
-      benchmark.addErrorMessage( "Unable to convert the matrix to the target format:" + String( e.what() ) );
-      return;
-   }
-
-   const Index nonzeros = hostMatrix.getNonzeroElementsCount();
-   const double datasetSize = (double) nonzeros * ( 2 * sizeof( Real ) + sizeof( Index ) ) / oneGB;
-   benchmark.setDatasetSize( datasetSize );
-
-   /////
-   // Benchmark SpMV on host
-   //
-   if( allCpuTests ) {
-      HostKernel kernel;
-      kernel.init( hostMatrix.getSegments() );
-
-      HostVector hostInVector( hostMatrix.getColumns() ), hostOutVector( hostMatrix.getRows() );
-
-      auto resetHostVectors = [ & ]()
-      {
-         hostInVector = 1.0;
-         hostOutVector = 0.0;
-      };
-
-      auto spmvHost = [ & ]()
-      {
-         hostMatrix.vectorProduct( hostInVector, hostOutVector, kernel );
-      };
-      SpmvBenchmarkResult< Real, Devices::Host, Index > hostBenchmarkResults( csrResultVector, hostOutVector );
-      benchmark.time< Devices::Host >( resetHostVectors, "CPU", spmvHost, hostBenchmarkResults );
-   }
-
-   /////
    // Benchmark SpMV on CUDA
-   //
-#ifdef __CUDACC__
-   using CudaMatrix = Matrix< TestReal, TNL::Devices::Cuda, Index >;
-   using CudaKernel = Kernel< TNL::Devices::Cuda, Index >;
-   using CudaVector = Containers::Vector< Real, Devices::Cuda, Index >;
-
-   CudaMatrix cudaMatrix;
-   try {
-      cudaMatrix = inputMatrix;
-   }
-   catch( const std::exception& e ) {
-      benchmark.addErrorMessage( "Unable to copy the matrix on GPU: " + String( e.what() ) );
-      return;
-   }
-
-   CudaKernel kernel;
-   kernel.init( cudaMatrix.getSegments() );
-
-   CudaVector cudaInVector( hostMatrix.getColumns() ), cudaOutVector( hostMatrix.getRows() );
-
-   auto resetCudaVectors = [ & ]()
-   {
-      cudaInVector = 1.0;
-      cudaOutVector = 0.0;
-   };
-
-   auto spmvCuda = [ & ]()
-   {
-      cudaMatrix.vectorProduct( cudaInVector, cudaOutVector, kernel );
-   };
-
-   {
-      kernel.setThreadsMapping( Algorithms::SegmentsReductionKernels::CSRLightAutomaticThreads );
-      String format = MatrixInfo< HostMatrix >::getFormat() + " " + HostKernel::getKernelType() + " Automatic";
-      benchmark.setMetadataElement( { "format", format } );
-
-      SpmvBenchmarkResult< Real, Devices::Cuda, Index > cudaBenchmarkResults( csrResultVector, cudaOutVector );
-      benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvCuda, cudaBenchmarkResults );
-   };
-
-   {
-      kernel.setThreadsMapping( Algorithms::SegmentsReductionKernels::CSRLightAutomaticThreadsLightSpMV );
-      String format = MatrixInfo< HostMatrix >::getFormat() + " " + HostKernel::getKernelType() + " Automatic Light";
-      benchmark.setMetadataElement( { "format", format } );
-
-      SpmvBenchmarkResult< Real, Devices::Cuda, Index > cudaBenchmarkResults( csrResultVector, cudaOutVector );
-      benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvCuda, cudaBenchmarkResults );
-   };
-
-   for( auto threadsPerRow : std::vector< Index >{ 1, 2, 4, 8, 16, 32, 64, 128 } ) {
-      kernel.setThreadsPerSegment( threadsPerRow );
-      String format =
-         MatrixInfo< HostMatrix >::getFormat() + " " + HostKernel::getKernelType() + " " + std::to_string( threadsPerRow );
-      benchmark.setMetadataElement( { "format", format } );
-
-      SpmvBenchmarkResult< Real, Devices::Cuda, Index > cudaBenchmarkResults( csrResultVector, cudaOutVector );
-      benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvCuda, cudaBenchmarkResults );
-   }
+   benchmarkSpMVWithDevice< Real, Devices::Cuda, Index, InputMatrix, TestMatrix, MatrixType >(
+      benchmark, inputMatrix, csrResultVector, inputFileName, parameters, verboseMR );
 #endif
-   /////
-   // Benchmark SpMV on HIP
-   //
+
 #ifdef __HIP__
-   using HipMatrix = Matrix< TestReal, TNL::Devices::Hip, Index >;
-   using HipKernel = Kernel< TNL::Devices::Hip, Index >;
-   using HipVector = Containers::Vector< Real, Devices::Hip, Index >;
-
-   HipMatrix hipMatrix;
-   try {
-      hipMatrix = inputMatrix;
-   }
-   catch( const std::exception& e ) {
-      benchmark.addErrorMessage( "Unable to copy the matrix on GPU: " + String( e.what() ) );
-      return;
-   }
-
-   HipKernel kernel;
-   kernel.init( hipMatrix.getSegments() );
-
-   HipVector hipInVector( hostMatrix.getColumns() ), hipOutVector( hostMatrix.getRows() );
-
-   auto resetHipVectors = [ & ]()
-   {
-      hipInVector = 1.0;
-      hipOutVector = 0.0;
-   };
-
-   auto spmvHip = [ & ]()
-   {
-      hipMatrix.vectorProduct( hipInVector, hipOutVector, kernel );
-   };
-
-   {
-      kernel.setThreadsMapping( Algorithms::SegmentsReductionKernels::CSRLightAutomaticThreads );
-      String format = MatrixInfo< HostMatrix >::getFormat() + " " + HostKernel::getKernelType() + " Automatic";
-      benchmark.setMetadataElement( { "format", format } );
-
-      SpmvBenchmarkResult< Real, Devices::Hip, Index > hipBenchmarkResults( csrResultVector, hipOutVector );
-      benchmark.time< Devices::Hip >( resetHipVectors, "GPU", spmvHip, hipBenchmarkResults );
-   };
-
-   {
-      kernel.setThreadsMapping( Algorithms::SegmentsReductionKernels::CSRLightAutomaticThreadsLightSpMV );
-      String format = MatrixInfo< HostMatrix >::getFormat() + " " + HostKernel::getKernelType() + " Automatic Light";
-      benchmark.setMetadataElement( { "format", format } );
-
-      SpmvBenchmarkResult< Real, Devices::Hip, Index > hipBenchmarkResults( csrResultVector, hipOutVector );
-      benchmark.time< Devices::Hip >( resetHipVectors, "GPU", spmvHip, hipBenchmarkResults );
-   };
-
-   for( auto threadsPerRow : std::vector< Index >{ 1, 2, 4, 8, 16, 32, 64, 128 } ) {
-      kernel.setThreadsPerSegment( threadsPerRow );
-      String format =
-         MatrixInfo< HostMatrix >::getFormat() + " " + HostKernel::getKernelType() + " " + std::to_string( threadsPerRow );
-      benchmark.setMetadataElement( { "format", format } );
-
-      SpmvBenchmarkResult< Real, Devices::Hip, Index > hipBenchmarkResults( csrResultVector, hipOutVector );
-      benchmark.time< Devices::Hip >( resetHipVectors, "GPU", spmvHip, hipBenchmarkResults );
-   }
-#endif
-}
-
-template< typename Real,
-          typename Index,
-          typename InputMatrix,
-          template< typename, typename, typename >
-          class Matrix,
-          template< typename, typename >
-          class Kernel >
-void
-benchmarkBinarySpMV( BenchmarkType& benchmark,
-                     const InputMatrix& inputMatrix,
-                     const TNL::Containers::Vector< Real, Devices::Host, Index >& csrResultVector,
-                     const String& inputFileName,
-                     const Config::ParameterContainer& parameters,
-                     bool verboseMR )
-{
-   using HostMatrix = Matrix< bool, TNL::Devices::Host, Index >;
-   using HostKernel = Kernel< TNL::Devices::Host, Index >;
-   using HostVector = Containers::Vector< Real, Devices::Host, Index >;
-
-   bool allCpuTests = parameters.getParameter< bool >( "with-all-cpu-tests" );
-   benchmark.setMetadataElement( { "format", MatrixInfo< HostMatrix >::getFormat() + " " + HostKernel::getKernelType() } );
-
-   HostMatrix hostMatrix;
-   try {
-      hostMatrix = inputMatrix;
-   }
-   catch( const std::exception& e ) {
-      benchmark.addErrorMessage( "Unable to convert the matrix to the target format:" + String( e.what() ) );
-      return;
-   }
-
-   const Index nonzeros = hostMatrix.getNonzeroElementsCount();
-   const double datasetSize = (double) nonzeros * ( 2 * sizeof( Real ) + sizeof( Index ) ) / oneGB;
-   benchmark.setDatasetSize( datasetSize );
-
-   /////
-   // Benchmark SpMV on host
-   //
-   if( allCpuTests ) {
-      HostKernel kernel;
-      kernel.init( hostMatrix.getSegments() );
-
-      HostVector hostInVector( hostMatrix.getColumns() ), hostOutVector( hostMatrix.getRows() );
-
-      auto resetHostVectors = [ & ]()
-      {
-         hostInVector = 1.0;
-         hostOutVector = 0.0;
-      };
-
-      auto spmvHost = [ & ]()
-      {
-         hostMatrix.vectorProduct( hostInVector, hostOutVector, kernel );
-      };
-      SpmvBenchmarkResult< Real, Devices::Host, Index > hostBenchmarkResults( csrResultVector, hostOutVector );
-      benchmark.time< Devices::Host >( resetHostVectors, "CPU", spmvHost, hostBenchmarkResults );
-   }
-
-   /////
-   // Benchmark SpMV on CUDA
-   //
-#ifdef __CUDACC__
-   using CudaMatrix = Matrix< bool, TNL::Devices::Cuda, Index >;
-   using CudaKernel = Kernel< TNL::Devices::Cuda, Index >;
-   using CudaVector = Containers::Vector< Real, Devices::Cuda, Index >;
-
-   CudaMatrix cudaMatrix;
-   try {
-      cudaMatrix = inputMatrix;
-   }
-   catch( const std::exception& e ) {
-      benchmark.addErrorMessage( "Unable to copy the matrix on GPU: " + String( e.what() ) );
-      return;
-   }
-
-   CudaKernel kernel;
-   kernel.init( cudaMatrix.getSegments() );
-
-   CudaVector cudaInVector( hostMatrix.getColumns() ), cudaOutVector( hostMatrix.getRows() );
-
-   auto resetCudaVectors = [ & ]()
-   {
-      cudaInVector = 1.0;
-      cudaOutVector = 0.0;
-   };
-
-   auto spmvCuda = [ & ]()
-   {
-      cudaMatrix.vectorProduct( cudaInVector, cudaOutVector, kernel );
-   };
-   SpmvBenchmarkResult< Real, Devices::Cuda, Index > cudaBenchmarkResults( csrResultVector, cudaOutVector );
-   benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvCuda, cudaBenchmarkResults );
-#endif
-
-   /////
    // Benchmark SpMV on HIP
-   //
-#ifdef __HIP__
-   using HipMatrix = Matrix< bool, TNL::Devices::Hip, Index >;
-   using HipKernel = Kernel< TNL::Devices::Hip, Index >;
-   using HipVector = Containers::Vector< Real, Devices::Hip, Index >;
-
-   HipMatrix hipMatrix;
-   try {
-      hipMatrix = inputMatrix;
-   }
-   catch( const std::exception& e ) {
-      benchmark.addErrorMessage( "Unable to copy the matrix on GPU: " + String( e.what() ) );
-      return;
-   }
-
-   HipKernel kernel;
-   kernel.init( hipMatrix.getSegments() );
-
-   HipVector hipInVector( hostMatrix.getColumns() ), hipOutVector( hostMatrix.getRows() );
-
-   auto resetHipVectors = [ & ]()
-   {
-      hipInVector = 1.0;
-      hipOutVector = 0.0;
-   };
-
-   auto spmvHip = [ & ]()
-   {
-      hipMatrix.vectorProduct( hipInVector, hipOutVector, kernel );
-   };
-   SpmvBenchmarkResult< Real, Devices::Hip, Index > hipBenchmarkResults( csrResultVector, hipOutVector );
-   benchmark.time< Devices::Hip >( resetHipVectors, "GPU", spmvHip, hipBenchmarkResults );
+   benchmarkSpMVWithDevice< Real, Devices::Hip, Index, InputMatrix, TestMatrix, MatrixType >(
+      benchmark, inputMatrix, csrResultVector, inputFileName, parameters, verboseMR );
 #endif
 }
 
-template< typename Real, typename Index, typename HostMatrix >
-void
-dispatchBinary( BenchmarkType& benchmark,
-                const HostMatrix& hostMatrix,
-                const TNL::Containers::Vector< Real, Devices::Host, Index >& hostOutVector,
-                const String& inputFileName,
-                const Config::ParameterContainer& parameters,
-                bool verboseMR )
-{
-   bool withEllpack = parameters.getParameter< bool >( "with-ellpack-formats" );
-   benchmarkBinarySpMV< Real, Index, HostMatrix, SparseMatrix_CSR, CSRScalarKernel >(
-      benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-   benchmarkBinarySpMV< Real, Index, HostMatrix, SparseMatrix_CSR, CSRVectorKernel >(
-      benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-   benchmarkSpMVCSRLight< Real, Index, HostMatrix, SparseMatrix_CSR, CSRLightKernel, bool >(
-      benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-   benchmarkBinarySpMV< Real, Index, HostMatrix, SparseMatrix_CSR, CSRAdaptiveKernel >(
-      benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-   if( withEllpack ) {
-      benchmarkBinarySpMV< Real, Index, HostMatrix, SparseMatrix_Ellpack, EllpackKernel >(
-         benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-      benchmarkBinarySpMV< Real, Index, HostMatrix, SparseMatrix_SlicedEllpack, SlicedEllpackKernel >(
-         benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-      benchmarkBinarySpMV< Real, Index, HostMatrix, SparseMatrix_ChunkedEllpack, ChunkedEllpackKernel >(
-         benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-      benchmarkBinarySpMV< Real, Index, HostMatrix, SparseMatrix_BiEllpack, BiEllpackKernel >(
-         benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-   }
-}
-
-template< typename Real, typename Index >
+template< typename Real, typename Index, typename TestValue, typename MatrixType, typename InputMatrix >
 void
 dispatchSpMV( BenchmarkType& benchmark,
-              const SparseMatrix_CSR< Real, TNL::Devices::Host, Index >& hostMatrix,
+              const InputMatrix& hostMatrix,
               const TNL::Containers::Vector< Real, Devices::Host, Index >& hostOutVector,
               const String& inputFileName,
               const Config::ParameterContainer& parameters,
               bool verboseMR )
 {
-   using HostMatrixType = SparseMatrix_CSR< Real, TNL::Devices::Host, Index >;
    bool withEllpack = parameters.getParameter< bool >( "with-ellpack-formats" );
-   benchmarkSpMV< Real, Index, HostMatrixType, SparseMatrix_CSR, CSRScalarKernel >(
+   benchmarkSpMV< Real, Index, InputMatrix, SparseMatrix_CSR< TestValue, TNL::Devices::Host, Index, MatrixType > >(
       benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-   benchmarkSpMV< Real, Index, HostMatrixType, SparseMatrix_CSR, CSRVectorKernel >(
-      benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-   //benchmarkSpMV< Real, Index, HostMatrixType, SparseMatrix_CSR, CSRHybridKernel >( benchmark, hostMatrix,
-   //hostOutVector, inputFileName, parameters, verboseMR );
-   benchmarkSpMVCSRLight< Real, Index, HostMatrixType, SparseMatrix_CSR, CSRLightKernel >(
-      benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-   benchmarkSpMV< Real, Index, HostMatrixType, SparseMatrix_CSR, CSRAdaptiveKernel >(
+   benchmarkSpMV< Real, Index, InputMatrix, SparseMatrix_AdaptiveCSR< TestValue, TNL::Devices::Host, Index, MatrixType > >(
       benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
    if( withEllpack ) {
-      benchmarkSpMV< Real, Index, HostMatrixType, SparseMatrix_Ellpack, EllpackKernel >(
+      benchmarkSpMV< Real, Index, InputMatrix, SparseMatrix_Ellpack< TestValue, TNL::Devices::Host, Index, MatrixType > >(
          benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-      benchmarkSpMV< Real, Index, HostMatrixType, SparseMatrix_SlicedEllpack, SlicedEllpackKernel >(
+      benchmarkSpMV< Real, Index, InputMatrix, SparseMatrix_SlicedEllpack< TestValue, TNL::Devices::Host, Index, MatrixType > >(
          benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-      benchmarkSpMV< Real, Index, HostMatrixType, SparseMatrix_ChunkedEllpack, ChunkedEllpackKernel >(
+      benchmarkSpMV< Real, Index, InputMatrix, SparseMatrix_ChunkedEllpack< TestValue, TNL::Devices::Host, Index, MatrixType > >(
          benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-      benchmarkSpMV< Real, Index, HostMatrixType, SparseMatrix_BiEllpack, BiEllpackKernel >(
+      benchmarkSpMV< Real, Index, InputMatrix, SparseMatrix_BiEllpack< TestValue, TNL::Devices::Host, Index, MatrixType > >(
          benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
    }
-   dispatchBinary< Real >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-#ifdef WITH_TNL_BENCHMARK_SPMV_SANDBOX_MATRIX
-   benchmarkSpMV< Real, HostMatrixType, SparseSandboxMatrix >(
-      benchmark, hostMatrix, hostOutVector, inputFileName, allCpuTests, verboseMR );
-#endif
 }
 
-template< typename Real, typename Index, typename SymmetricInputMatrix >
+template< typename Real, typename Index, typename InputMatrix >
 void
-dispatchSymmetricBinary( BenchmarkType& benchmark,
-                         const SymmetricInputMatrix& symmetricHostMatrix,
-                         const TNL::Containers::Vector< Real, Devices::Host, Index >& hostOutVector,
-                         const String& inputFileName,
-                         const Config::ParameterContainer& parameters,
-                         bool verboseMR )
+dispatchGeneral( BenchmarkType& benchmark,
+                 const InputMatrix& hostMatrix,
+                 const TNL::Containers::Vector< Real, Devices::Host, Index >& hostOutVector,
+                 const String& inputFileName,
+                 const Config::ParameterContainer& parameters,
+                 bool verboseMR )
 {
-   bool withEllpack = parameters.getParameter< bool >( "with-ellpack-formats" );
-   benchmarkBinarySpMV< Real, Index, SymmetricInputMatrix, SymmetricSparseMatrix_CSR, CSRScalarKernel >(
-      benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-   benchmarkBinarySpMV< Real, Index, SymmetricInputMatrix, SymmetricSparseMatrix_CSR, CSRVectorKernel >(
-      benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-   //benchmarkBinarySpMV< Real, Index, SymmetricInputMatrix, SymmetricSparseMatrix_CSR, CSRHybridKernel >( benchmark,
-   //symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-   benchmarkSpMVCSRLight< Real, Index, SymmetricInputMatrix, SymmetricSparseMatrix_CSR, CSRLightKernel, bool >(
-      benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-   benchmarkBinarySpMV< Real, Index, SymmetricInputMatrix, SymmetricSparseMatrix_CSR, CSRAdaptiveKernel >(
-      benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-   if( withEllpack ) {
-      benchmarkBinarySpMV< Real, Index, SymmetricInputMatrix, SymmetricSparseMatrix_Ellpack, EllpackKernel >(
-         benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-      benchmarkBinarySpMV< Real, Index, SymmetricInputMatrix, SymmetricSparseMatrix_SlicedEllpack, SlicedEllpackKernel >(
-         benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-      benchmarkBinarySpMV< Real, Index, SymmetricInputMatrix, SymmetricSparseMatrix_ChunkedEllpack, ChunkedEllpackKernel >(
-         benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-      benchmarkBinarySpMV< Real, Index, SymmetricInputMatrix, SymmetricSparseMatrix_BiEllpack, BiEllpackKernel >(
-         benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-   }
+   dispatchSpMV< Real, Index, Real, TNL::Matrices::GeneralMatrix >(
+      benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+
+   // Dispatch binary SpMV for general matrices
+   dispatchSpMV< Real, Index, bool, TNL::Matrices::GeneralMatrix >(
+      benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
 }
 
 template< typename Real, typename Index >
@@ -689,8 +240,6 @@ dispatchSymmetric( BenchmarkType& benchmark,
                    bool verboseMR )
 {
    using SymmetricInputMatrix = TNL::Matrices::SparseMatrix< Real, TNL::Devices::Host, Index, TNL::Matrices::SymmetricMatrix >;
-   //using InputMatrix = TNL::Matrices::SparseMatrix< Real, TNL::Devices::Host, Index >;
-   //bool allCpuTests = parameters.getParameter< bool >( "with-all-cpu-tests" );
    bool withEllpack = parameters.getParameter< bool >( "with-ellpack-formats" );
    SymmetricInputMatrix symmetricHostMatrix;
    try {
@@ -701,27 +250,12 @@ dispatchSymmetric( BenchmarkType& benchmark,
       return;
    }
    compressSparseMatrix( symmetricHostMatrix );
-   benchmarkSpMV< Real, Index, SymmetricInputMatrix, SymmetricSparseMatrix_CSR, CSRScalarKernel >(
+   dispatchSpMV< Real, Index, Real, TNL::Matrices::SymmetricMatrix >(
       benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-   benchmarkSpMV< Real, Index, SymmetricInputMatrix, SymmetricSparseMatrix_CSR, CSRVectorKernel >(
+
+   // Dispatch binary SpMV for general matrices
+   dispatchSpMV< Real, Index, bool, TNL::Matrices::SymmetricMatrix >(
       benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-   //benchmarkSpMV< Real, SymmetricInputMatrix, SymmetricSparseMatrix_CSR, CSRHybridKernel >( benchmark,
-   //symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-   benchmarkSpMVCSRLight< Real, Index, SymmetricInputMatrix, SymmetricSparseMatrix_CSR, CSRLightKernel >(
-      benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-   benchmarkSpMV< Real, Index, SymmetricInputMatrix, SymmetricSparseMatrix_CSR, CSRAdaptiveKernel >(
-      benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-   if( withEllpack ) {
-      benchmarkSpMV< Real, Index, SymmetricInputMatrix, SymmetricSparseMatrix_Ellpack, EllpackKernel >(
-         benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-      benchmarkSpMV< Real, Index, SymmetricInputMatrix, SymmetricSparseMatrix_SlicedEllpack, SlicedEllpackKernel >(
-         benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-      benchmarkSpMV< Real, Index, SymmetricInputMatrix, SymmetricSparseMatrix_ChunkedEllpack, ChunkedEllpackKernel >(
-         benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-      benchmarkSpMV< Real, Index, SymmetricInputMatrix, SymmetricSparseMatrix_BiEllpack, BiEllpackKernel >(
-         benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-   }
-   dispatchSymmetricBinary< Real >( benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
 }
 
 template< typename Real = double, typename Index = int >
@@ -773,12 +307,16 @@ benchmarkSpmv( BenchmarkType& benchmark,
       { "nonzeros per row std_dev", convertToString( std_dev ) },
       { "nonzeros per row percentile 25", convertToString( percentile_25 ) },
       { "nonzeros per row percentile 50", convertToString( percentile_50 ) },
-      { "nonzeros per row percentile 75", convertToString( percentile_75 ) }
-      // NOTE: 'nonzeros per row average' can be easily calculated with Pandas based on the other metadata
+      { "nonzeros per row percentile 75", convertToString( percentile_75 ) },
+      { "format", "" },
+      { "launch cfg.", "" },
+      { "threads", "1" }  // NOTE: 'nonzeros per row average' can be easily
+                          // calculated with Pandas based on the other metadata
    } );
    benchmark.setMetadataWidths( {
       { "matrix name", 32 },
-      { "format", 46 },
+      { "format", 32 },
+      { "launch cfg.", 40 },
       { "threads", 5 },
    } );
 
@@ -795,6 +333,9 @@ benchmarkSpmv( BenchmarkType& benchmark,
       csrHostMatrix.vectorProduct( hostInVector, hostOutVector );
    };
 
+   // TODO: Move the following benchmarking to benchmarkSpMV function
+   // when we can set the number of threads for the host in the
+   // launch configuration.
    SpmvBenchmarkResult< Real, Devices::Host, Index > csrBenchmarkResults( hostOutVector, hostOutVector );
 #ifdef HAVE_OPENMP
    const int maxThreadsCount = Devices::Host::getMaxThreadsCount();
@@ -813,19 +354,8 @@ benchmarkSpmv( BenchmarkType& benchmark,
       threads = min( 2 * threads, maxThreadsCount );
    }
 
-   /////
-   // Benchmarking TNL formats
-   //
-#if ! defined( __CUDACC__ ) && ! defined( __HIP__ )
-   if( parameters.getParameter< bool >( "with-all-cpu-tests" ) )
-      dispatchSpMV< Real, Index >( benchmark, csrHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-#else
-   dispatchSpMV< Real, Index >( benchmark, csrHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-#endif
+   dispatchGeneral< Real, Index >( benchmark, csrHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
 
-   /////
-   // Benchmarking symmetric sparse matrices
-   //
    if( parameters.getParameter< bool >( "with-symmetric-matrices" ) )
       dispatchSymmetric< Real, Index >( benchmark, hostOutVector, inputFileName, parameters, verboseMR );
 }
