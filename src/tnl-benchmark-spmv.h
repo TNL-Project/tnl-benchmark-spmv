@@ -51,6 +51,7 @@ setupConfig( Config::ConfigDescription& config )
    config.addDelimiter( "Benchmark settings:" );
    config.addRequiredEntry< String >( "input-file", "Input file name." );
    config.addEntry< bool >( "with-symmetric-matrices", "Perform benchmark even for symmetric matrix formats.", true );
+   config.addEntry< bool >( "with-sorted-segments", "Perform benchmark formats based on sorted segments.", true );
    config.addEntry< bool >( "with-ellpack-formats", "Perform benchmark for Ellpack based matrix formats.", true );
    config.addEntry< bool >( "with-all-cpu-tests", "All matrix formats are tested on both CPU and GPU. ", false );
    config.addEntry< String >( "log-file", "Log file name.", "tnl-benchmark-spmv::" + getCurrDateTime() + ".log" );
