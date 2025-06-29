@@ -191,8 +191,23 @@ dispatchSpMV( BenchmarkType& benchmark,
       benchmarkSpMV< Real, Index, InputMatrix, BiEllpackSegments, TestValue, MatrixType >(
          benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
    }
+   if( parameters.getParameter< bool >( "with-sorted-segments" ) ) {
+      benchmarkSpMV< Real, Index, InputMatrix, Algorithms::Segments::SortedCSR, TestValue, MatrixType >(
+         benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+      benchmarkSpMV< Real, Index, InputMatrix, Algorithms::Segments::SortedAdaptiveCSR, TestValue, MatrixType >(
+         benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+      if( parameters.getParameter< bool >( "with-ellpack-formats" ) ) {
+         benchmarkSpMV< Real, Index, InputMatrix, Algorithms::Segments::SortedEllpack, TestValue, MatrixType >(
+            benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+         benchmarkSpMV< Real, Index, InputMatrix, Algorithms::Segments::SortedSlicedEllpack, TestValue, MatrixType >(
+            benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+         benchmarkSpMV< Real, Index, InputMatrix, Algorithms::Segments::SortedChunkedEllpack, TestValue, MatrixType >(
+            benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+         benchmarkSpMV< Real, Index, InputMatrix, Algorithms::Segments::SortedBiEllpack, TestValue, MatrixType >(
+            benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+      }
+   }
 }
-
 template< typename Real, typename Index, typename InputMatrix >
 void
 dispatchGeneral( BenchmarkType& benchmark,
@@ -293,8 +308,8 @@ benchmarkSpmv( BenchmarkType& benchmark,
    } );
    benchmark.setMetadataWidths( {
       { "matrix name", 32 },
-      { "format", 32 },
-      { "launch cfg.", 40 },
+      { "format", 40 },
+      { "launch cfg.", 30 },
       { "threads", 5 },
    } );
 
