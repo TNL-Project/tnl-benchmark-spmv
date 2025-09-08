@@ -13,6 +13,7 @@ OMP_ENABLED="yes"
 MAX_OMP_THREADS="auto"
 DEBUG="no"
 SIZE_LIMIT=-1 # no size limit
+COUNT_LIMIT=-1 # no count limit
 log_file="sparse-matrix-benchmark.log"
 continue_benchmark="no"
 
@@ -53,6 +54,10 @@ while [[ "$#" -gt 0 ]]; do
             SIZE_LIMIT="$2"
             shift
             ;;
+        -n|--count-limit)  # Count limit for matrices
+            COUNT_LIMIT="$2"
+            shift
+            ;;
         -d|--debug)  # Debug mode
             DEBUG="$2"
             shift
@@ -73,6 +78,7 @@ while [[ "$#" -gt 0 ]]; do
             echo "  -l, --log-file FILE           Log file. Default: sparse-matrix-benchmark.log"
             echo "  -c, --continue yes/no         Continue from a previous run. Default: no"
             echo "  -s, --size-limit SIZE         Size limit for matrices, -1 for no limit. Default: -1"
+            echo "  -n, --count-limit NUM         Maximum number of matrices to benchmark, -1 for no limit. Default: -1"
             echo "  -d, --debug  yes/no           Debug mode. Default: no"
             echo "  -o, --openmp-enabled yes/no   Enable OpenMP. Default: yes"
             echo "  -t, --openmp-max-threads MAX  Maximum number of OpenMP threads. Default: auto"
@@ -119,6 +125,10 @@ if [[ ! -f "input-files" ]]; then
          echo "Matrix $matrix is too large - SKIPPING."
       fi
    done
+   if [[ $COUNT_LIMIT -gt -1 ]]; then
+      head -n $COUNT_LIMIT input-files > input-files-tmp
+      mv input-files-tmp input-files
+   fi
 fi
 
 # set the default number of OpenMP threads to the number of CPU cores
@@ -134,7 +144,7 @@ if [[ "$MAX_OMP_THREADS" == "auto" ]]; then
 fi
 
 # set parameters for the benchmark
-COMMAND=("$BENCHMARK" --precision double --log-file "$log_file" --output-mode append --verbose 1)
+COMMAND=("$BENCHMARK" --precision float --log-file "$log_file" --output-mode append --verbose 1)
 
 if [[ "$OMP_ENABLED" == "yes" ]]; then
     COMMAND+=(--openmp-enabled yes)
