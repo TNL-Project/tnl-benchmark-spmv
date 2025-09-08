@@ -122,7 +122,7 @@ benchmarkSpMV( BenchmarkType& benchmark,
 
    bool allCpuTests = parameters.getParameter< bool >( "with-all-cpu-tests" );
    benchmark.setMetadataElement( { "format", MatrixInfo< TestMatrix >::getFormat() } );
-   benchmark.setMetadataElement( { "launch cfg.", "" } );
+   benchmark.setMetadataElement( { "launch cfg.", "Default" } );
 
    TestMatrix hostMatrix;
    try {
@@ -339,7 +339,10 @@ benchmarkSpmv( BenchmarkType& benchmark,
    while( true ) {
       std::cout << "Benchmarking with " << threads << " threads." << std::endl;
       benchmark.setMetadataElement( { "format", "CSR" } );
-      benchmark.setMetadataElement( { "threads", convertToString( threads ).getString() } );
+      auto launch_config = convertToString( threads ) + " threads";
+      if( threads == 1 )
+         launch_config = "1 thread";
+      benchmark.setMetadataElement( { "launch cfg.", launch_config.getString() } );
       Devices::Host::setMaxThreadsCount( threads );
       benchmark.time< Devices::Host >( resetHostVectors, "CPU", spmvCSRHost, csrBenchmarkResults );
       if( threads == maxThreadsCount )

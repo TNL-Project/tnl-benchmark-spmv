@@ -87,6 +87,7 @@ benchmarkSpMVLegacy( BenchmarkType& benchmark,
 
    bool allCpuTests = parameters.getParameter< bool >( "with-all-cpu-tests" );
    benchmark.setMetadataElement( { "format", MatrixInfo< HostMatrix >::getFormat() } );
+   benchmark.setMetadataElement( { "launch cfg.", "Default" } );
 
    HostMatrix hostMatrix;
    CudaMatrix cudaMatrix;
@@ -242,7 +243,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
    benchmark.setMetadataWidths( {
       { "matrix name", 32 },
       { "format", 46 },
-      { "threads", 5 },
+      { "launch cfg.", 15 },
    } );
 
    HostVector hostInVector( csrHostMatrix.getColumns() );
@@ -264,7 +265,10 @@ benchmarkSpmv( BenchmarkType& benchmark,
    int threads = 1;
    while( true ) {
       benchmark.setMetadataElement( { "format", "CSR Legacy" } );
-      benchmark.setMetadataElement( { "threads", convertToString( threads ).getString() } );
+      auto launch_config = convertToString( threads ) + " threads";
+      if( threads == 1 )
+         launch_config = "1 thread";
+      benchmark.setMetadataElement( { "launch cfg.", launch_config.getString() } );
       Devices::Host::setMaxThreadsCount( threads );
       benchmark.time< Devices::Host >( resetHostVectors, "CPU", spmvCSRHost, csrBenchmarkResults );
       if( threads == maxThreadsCount )

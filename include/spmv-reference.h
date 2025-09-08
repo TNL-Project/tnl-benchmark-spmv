@@ -103,7 +103,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
    benchmark.setMetadataWidths( {
       { "matrix name", 32 },
       { "format", 46 },
-      { "threads", 5 },
+      { "launch cfg.", 25 },
    } );
 
    HostVector hostInVector( csrHostMatrix.getColumns() ), hostOutVector( csrHostMatrix.getRows() );
@@ -174,11 +174,16 @@ benchmarkSpmv( BenchmarkType& benchmark,
       };
 
       SpmvBenchmarkResult< Real, Devices::Host, int > hypreBenchmarkResults( hostOutVector, hostOutVector );
-      const int maxThreadsCount = Devices::Host::getMaxThreadsCount();
+      const int maxThreadsCount =
+         max( 1, Devices::Host::getMaxThreadsCount() );  // TODO: This si workaround for getMaxThreadsCoutn returning 0 if
+                                                         // OpenMP is disabled
       int threads = 1;
       while( true ) {
          benchmark.setMetadataElement( { "format", "Hypre" } );
-         benchmark.setMetadataElement( { "threads", convertToString( threads ).getString() } );
+         auto launch_config = convertToString( threads ) + " threads";
+         if( threads == 1 )
+            launch_config = "1 thread";
+         benchmark.setMetadataElement( { "launch cfg.", launch_config.getString() } );
          Devices::Host::setMaxThreadsCount( threads );
          benchmark.time< Devices::Host >( resetHostVectors, "CPU", spmvHypreCSRHost, hypreBenchmarkResults );
          if( threads == maxThreadsCount )
@@ -206,11 +211,16 @@ benchmarkSpmv( BenchmarkType& benchmark,
    };
 
    SpmvBenchmarkResult< Real, Devices::Host, int > ginkgoHostBenchmarkResults( hostOutVector, hostOutVector );
-   const int maxThreadsCount = Devices::Host::getMaxThreadsCount();
+   const int maxThreadsCount =
+      max( 1, Devices::Host::getMaxThreadsCount() );  // TODO: This si workaround for getMaxThreadsCoutn returning 0 if OpenMP
+                                                      // is disabled
    int threads = 1;
    while( true ) {
       benchmark.setMetadataElement( { "format", "Ginkgo" } );
-      benchmark.setMetadataElement( { "threads", convertToString( threads ).getString() } );
+      auto launch_config = convertToString( threads ) + " threads";
+      if( threads == 1 )
+         launch_config = "1 thread";
+      benchmark.setMetadataElement( { "launch cfg.", launch_config.getString() } );
       Devices::Host::setMaxThreadsCount( threads );
       benchmark.time< Devices::Host >( resetHostVectors, "CPU", spmvGinkgoCSRHost, ginkgoHostBenchmarkResults );
       if( threads == maxThreadsCount )
@@ -248,6 +258,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
 
    SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( hostOutVector, cudaOutVector );
    benchmark.setMetadataElement( { "format", "cusparse" } );
+   benchmark.setMetadataElement( { "launch cfg.", "Default" } );
    benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvCusparse, cudaBenchmarkResults );
 
    #if defined( HAVE_HYPRE ) && defined( HYPRE_USING_CUDA )
@@ -270,6 +281,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
 
       SpmvBenchmarkResult< Real, Devices::Cuda, int > hypreCudaBenchmarkResults( hostOutVector, cudaOutVector );
       benchmark.setMetadataElement( { "format", "Hypre" } );
+      benchmark.setMetadataElement( { "launch cfg.", "Default" } );
       benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvHypreCSRCuda, hypreCudaBenchmarkResults );
    }
    else {
@@ -293,6 +305,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
 
    SpmvBenchmarkResult< Real, Devices::Cuda, int > ginkgoCudaBenchmarkResults( hostOutVector, cudaOutVector );
    benchmark.setMetadataElement( { "format", "Ginkgo" } );
+   benchmark.setMetadataElement( { "launch cfg.", "Default" } );
    benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvGinkgoCSRCuda, ginkgoCudaBenchmarkResults );
    #endif
 
@@ -309,6 +322,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
    };
 
    benchmark.setMetadataElement( { "format", "CSR5" } );
+   benchmark.setMetadataElement( { "launch cfg.", "Default" } );
    benchmark.time< Devices::Cuda >( resetCusparseVectors, "GPU", csr5SpMV, cudaBenchmarkResults );
    std::cerr << "CSR5 error = " << max( abs( cudaOutVector - cudaOutVector2 ) ) << std::endl;
    csrCudaMatrix.reset();
@@ -333,10 +347,12 @@ benchmarkSpmv( BenchmarkType& benchmark,
       lightSpMVBenchmark.vectorProduct();
    };
    benchmark.setMetadataElement( { "format", "LightSpMV Vector" } );
+   benchmark.setMetadataElement( { "launch cfg.", "Default" } );
    benchmark.time< Devices::Cuda >( resetLightSpMVVectors, "GPU", spmvLightSpMV, cudaBenchmarkResults );
 
    lightSpMVBenchmark.setKernelType( LightSpMVBenchmarkKernelWarp );
    benchmark.setMetadataElement( { "format", "LightSpMV Warp" } );
+   benchmark.setMetadataElement( { "launch cfg.", "Default" } );
    benchmark.time< Devices::Cuda >( resetLightSpMVVectors, "GPU", spmvLightSpMV, cudaBenchmarkResults );
    #endif
 #endif
