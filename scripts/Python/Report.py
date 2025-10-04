@@ -2,6 +2,8 @@ import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from sklearn import metrics
+from zmq import device
 import Graphs
 import LatexLabels
 
@@ -21,6 +23,16 @@ heatmap = [
 ]
 
 
+def extract_sorted(df, subset, ascending=False):
+    filtered_df = df.dropna(subset=[subset]).copy()
+    filtered_df.sort_values(
+        by=[subset],
+        inplace=True,
+        ascending=ascending,
+    )
+    return filtered_df[subset].copy()
+
+
 class Report:
     def __init__(self):
         self.df = pd.DataFrame()
@@ -34,7 +46,7 @@ class Report:
         formats,
         latex_labels,
         formats_devices,
-        cpu_threads_numbers,
+        launch_configs,
         legacy_counterparts,
         head_size=10,
     ):
@@ -42,1069 +54,809 @@ class Report:
         self.formats = formats
         self.latex_labels = latex_labels
         self.formats_devices = formats_devices
-        self.cpu_threads_numbers = cpu_threads_numbers
+        self.launch_configs = launch_configs
         self.legacy_counterparts = legacy_counterparts
         self.head_size = head_size
 
-    def effective_bw_profile_cpu(self):
+    def effective_bw_profile(self):
         """
         Writes figures and HTML tables of effective bandwidth profiles on CPU.
+        It creates separate directory "Bandwidth" with subdirectories for CPU and GPU.
+        In each subdirectory, it saves the graphs with effective memory bandwidth
+        together with HTML table with corresponding numbers.
         """
 
-        if not os.path.exists("BW-profile/CPU"):
-            if not os.path.exists("BW-profile"):
-                os.mkdir("BW-profile")
-            os.mkdir("BW-profile/CPU")
+        if not os.path.exists("Bandwidth"):
+            os.mkdir("Bandwidth")
+        if not os.path.exists("Bandwidth/CPU"):
+            os.mkdir("Bandwidth/CPU")
+        if not os.path.exists("Bandwidth/GPU"):
+            os.mkdir("Bandwidth/GPU")
         profiles = {}
         color_idx = 0
         print(self.formats)
         df = self.df
         for format in self.formats:
-            if not (format, "CPU") in self.formats_devices:
-                continue
-            for threads in self.cpu_threads_numbers:
-                df.sort_values(
-                    by=[("CSR", "CPU", f"{threads} threads", "bandwidth")],
-                    inplace=True,
-                    ascending=False,
-                )
-                profiles[format] = df[
-                    ("CSR", "CPU", f"{threads} threads", "bandwidth")
-                ].copy()
-                print(f"Writing BW profile of {format} with {threads} threads")
-                Graphs.draw_graphs(
-                    [format],
-                    profiles,
-                    xlabel=f"Matrix number - sorted w.r.t. {LatexLabels.latex_label(format)} performance",
-                    ylabel="Effective bandwidth in GB/sec",
-                    filename=f"BW-profile/CPU/{format}-{threads}-threads.pdf",
-                    legend_loc="upper right",
-                    bar="none",
-                    yscale="linear",
-                    latex_labels=self.latex_labels,
-                )
-                Graphs.draw_graphs(
-                    [format],
-                    profiles,
-                    xlabel=f"Matrix number - sorted w.r.t. {LatexLabels.latex_label(format)} performance",
-                    ylabel="Effective bandwidth in GB/sec",
-                    filename=f"BW-profile/CPU/{format}-{threads}-threads-log.pdf",
-                    legend_loc="upper right",
-                    bar="none",
-                    yscale="log",
-                    latex_labels=self.latex_labels,
-                )
-                copy_df = df.copy()
-                for f in self.formats:
-                    if not f in ["cusparse", "CSR", format]:
-                        copy_df.drop(labels=f, axis="columns", level=0, inplace=True)
-                copy_df.to_html(f"BW-profile/CPU/{format}-cpu.html")
-
-    def effective_bw_profile_gpu(self):
-        """
-        Writes figures and HTML tables of effective bandwidth profiles on GPU.
-        """
-        if not os.path.exists("BW-profile/GPU"):
-            if not os.path.exists("BW-profile"):
-                os.mkdir("BW-profile")
-            os.mkdir("BW-profile/GPU")
-        profiles = {}
-        color_idx = 0
-        print(self.formats)
-        df = self.df
-        for format in self.formats:
-            if not (format, "GPU") in self.formats_devices:
-                continue
-            df.sort_values(
-                by=[(format, "GPU", "bandwidth", "")], inplace=True, ascending=False
-            )
-            profiles[format] = df[(format, "GPU", "bandwidth", "")].copy()
-            print(f"Writing BW profile of {format}")
-            Graphs.draw_graphs(
-                [format],
-                profiles,
-                xlabel=f"Matrix number - sorted w.r.t. {LatexLabels.latex_label(format)} performance",
-                ylabel="Effective bandwidth in GB/sec",
-                filename=f"BW-profile/GPU/{format}.pdf",
-                legend_loc="upper right",
-                bar="none",
-                yscale="linear",
-                latex_labels=self.latex_labels,
-            )
-            Graphs.draw_graphs(
-                [format],
-                profiles,
-                xlabel=f"Matrix number - sorted w.r.t. {LatexLabels.latex_label(format)} performance",
-                ylabel="Effective bandwidth in GB/sec",
-                filename=f"BW-profile/GPU/{format}-log.pdf",
-                legend_loc="upper right",
-                bar="none",
-                yscale="log",
-                latex_labels=self.latex_labels,
-            )
-            copy_df = df.copy()
-            for f in self.formats:
-                if not f in ["cusparse", "CSR", format]:
-                    copy_df.drop(labels=f, axis="columns", level=0, inplace=True)
-            copy_df.to_html(f"BW-profile/GPU/{format}-gpu.html")
+            for device in ["CPU", "GPU"]:
+                if not (format, device) in self.launch_configs:
+                    continue
+                for launch_config in self.launch_configs[(format, device)]:
+                    label = f"{format} {launch_config}"
+                    profiles[label] = extract_sorted(
+                        df,
+                        (format, device, launch_config, "bandwidth", ""),
+                        ascending=False,
+                    )
+                    print(
+                        f"Writing BW profile of {format} on {device} with '{launch_config}' launch config "
+                    )
+                    Graphs.draw_graphs(
+                        [label],
+                        profiles,
+                        xlabel=f"Matrix number - sorted w.r.t. {format} {launch_config} performance",
+                        ylabel="Effective bandwidth in GB/sec",
+                        filename=f"Bandwidth/{device}/{format}-{launch_config}.pdf",
+                        legend_loc="upper right",
+                        bar="none",
+                        yscale="linear",
+                    )
+                    Graphs.draw_graphs(
+                        [label],
+                        profiles,
+                        xlabel=f"Matrix number - sorted w.r.t. {format} {launch_config} performance",
+                        ylabel="Effective bandwidth in GB/sec",
+                        filename=f"Bandwidth/{device}/{format}-{launch_config}-log.pdf",
+                        legend_loc="upper right",
+                        bar="none",
+                        yscale="log",
+                    )
+                    copy_df = df.copy()
+                    for f in self.formats:
+                        if not f in ["cusparse", "CSR", format]:
+                            copy_df.drop(
+                                labels=f, axis="columns", level=0, inplace=True
+                            )
+                    copy_df.to_html(f"Bandwidth/{device}/{format}-{launch_config}.html")
 
     def ellpack_bw_profiles(self):
         """
-        Draw ellpack formats profiles
+        Draw a graph with all Ellpack based formats and cuSparse for comparison.
         """
         current_formats = []
         profiles = {}
         xlabel = "Matrix number - sorted by particular formats effective bandwidth"
         ylabel = "Effective bandwidth in GB/sec"
         df = self.df
+        print("Writing ellpack profiles")
         for format in self.formats:
-            if (
-                (
-                    "Ellpack" in format
-                    and not "Binary" in format
-                    and not "Symmetric" in format
-                    and not "Legacy" in format
-                )
-                or format == "CSR"
-                or format == "cusparse"
-            ):
-                current_formats.append(format)
-                df.sort_values(
-                    by=[(format, "GPU", "bandwidth", "")], inplace=True, ascending=False
-                )
-                profiles[format] = df[(format, "GPU", "bandwidth", "")].copy()
+            if (format, "GPU") in self.launch_configs:
+                for launch_config in self.launch_configs[(format, "GPU")]:
+                    if (
+                        "Ellpack" in format
+                        and not "Binary" in format
+                        and not "Symmetric" in format
+                        and not "Legacy" in format
+                        and not "Sorted" in format
+                    ) or format == "cusparse":
+                        label = f"{format} {launch_config}"
+                        current_formats.append(label)
+                        profiles[label] = extract_sorted(
+                            df,
+                            (format, "GPU", launch_config, "bandwidth", ""),
+                            ascending=False,
+                        )
 
-        Graphs.draw_graphs(
-            current_formats,
-            profiles,
-            xlabel,
-            ylabel,
-            filename="ellpack-profiles-bw.pdf",
-            legend_loc="lower left",
-            bar="none",
-            yscale="linear",
-            latex_labels=self.latex_labels,
-        )
+            Graphs.draw_graphs(
+                current_formats,
+                profiles,
+                xlabel,
+                ylabel,
+                filename="Ellpack-profiles-bw.pdf",
+                legend_loc="lower left",
+                bar="none",
+                yscale="linear",
+            )
 
     def csr_bw_profiles(self):
         """
-        Draw CSR formats profiles
+        Draw a graph with all launch configurations of the CSR format and compares them with cuSparse.
         """
         current_formats = []
         profiles = {}
         xlabel = "Matrix number - sorted by particular formats effective bandwidth"
         ylabel = "Effective bandwidth in GB/sec"
         df = self.df
+        print("Writing CSR profiles")
         for format in self.formats:
             if (
                 "CSR" in format
                 and not "Binary" in format
                 and not "Symmetric" in format
                 and not "Legacy" in format
-                and not "Hybrid" in format
+                and not "Sorted" in format
+                and not "CSR Best" in format
             ) or format == "cusparse":
-                current_formats.append(format)
-                df.sort_values(
-                    by=[(format, "GPU", "bandwidth", "")], inplace=True, ascending=False
-                )
-                profiles[format] = df[(format, "GPU", "bandwidth", "")].copy()
-
+                print(f"Processing format {format}")
+                if (format, "GPU") in self.launch_configs:
+                    for launch_config in self.launch_configs[(format, "GPU")]:
+                        if (
+                            not "Hybrid" in launch_config
+                            and not "Warp" in launch_config
+                        ):
+                            label = f"{format} {launch_config}"
+                            current_formats.append(label)
+                            profiles[label] = extract_sorted(
+                                df,
+                                (format, "GPU", launch_config, "bandwidth", ""),
+                                ascending=False,
+                            )
         Graphs.draw_graphs(
             current_formats,
             profiles,
             xlabel,
             ylabel,
-            filename="csr-profiles-bw.pdf",
+            filename="CSR-profiles-bw.pdf",
             legend_loc="lower left",
             bar="none",
             yscale="linear",
-            latex_labels=self.latex_labels,
         )
 
-    def cusparse_comparison(self):
+    def comparison_bandwidth(self):
         """
         Writes figures and HTML tables comparing formats with cuSPARSE by the effective bandwidth.
         """
         df = self.df
-        if "cusparse" in self.formats:
-            if not os.path.exists("Cusparse-bw"):
-                os.mkdir("Cusparse-bw")
-            ascend_df = df.copy()
-            df.sort_values(
-                by=[("cusparse", "GPU", "bandwidth", "")], inplace=True, ascending=False
-            )
-            ascend_df.sort_values(
-                by=[("cusparse", "GPU", "bandwidth", "")], inplace=True, ascending=True
-            )
+        if not os.path.exists("Comparison"):
+            os.mkdir("Comparison")
+        if not os.path.exists("Comparison/Bandwidth"):
+            os.mkdir("Comparison/Bandwidth")
+
+        comparisons = [(("cusparse", "GPU"), "Default"), (("CSR", "CPU"), "1 thread")]
+        for (
+            reference_format,
+            reference_device,
+        ), reference_launch_config in comparisons:
+            if not (reference_format, reference_device) in self.launch_configs:
+                continue
+            reference_label = f"{reference_format} {reference_launch_config}"
+            if reference_launch_config == "Default":
+                reference_label = f"{reference_format}"
+
+            if not os.path.exists(f"Comparison/Bandwidth/{reference_label}"):
+                os.mkdir(f"Comparison/Bandwidth/{reference_label}")
             profiles = {}
-            profiles["cusparse"] = df[("cusparse", "GPU", "bandwidth", "")].copy()
+
+            profiles[reference_label] = extract_sorted(
+                df,
+                (
+                    reference_format,
+                    reference_device,
+                    reference_launch_config,
+                    "bandwidth",
+                    "",
+                ),
+                ascending=False,
+            )
             for format in self.formats:
-                if not format in ["cusparse", "CSR"]:
-                    print(f"Writing comparison of {format} and cuSPARSE")
-                    filtered_df = df.dropna(subset=[(format, "GPU", "bandwidth", "")])
-                    filtered_ascend_df = ascend_df.dropna(
-                        subset=[(format, "GPU", "bandwidth", "")]
-                    )
-                    profiles[format] = filtered_df[
-                        (format, "GPU", "bandwidth", "")
-                    ].copy()
-                    Graphs.draw_graphs(
-                        [format, "cusparse"],
-                        profiles,
-                        xlabel=f"Matrix number - sorted w.r.t. cuSPARSE performance",
-                        ylabel="Effective bandwidth in GB/sec",
-                        filename=f"Cusparse-bw/{format}.pdf",
-                        legend_loc="upper right",
-                        bar="none",
-                        yscale="linear",
-                        latex_labels=self.latex_labels,
-                    )
-                    Graphs.draw_graphs(
-                        [format, "cusparse"],
-                        profiles,
-                        xlabel=f"Matrix number - sorted w.r.t. cuSPARSE performance",
-                        ylabel="Effective bandwidth in GB/sec",
-                        filename=f"Cusparse-bw/{format}-log.pdf",
-                        legend_loc="upper right",
-                        bar="none",
-                        yscale="log",
-                        latex_labels=self.latex_labels,
-                    )
-                    copy_df = df.copy()
-                    for f in self.formats:
-                        if not f in ["cusparse", "CSR", format]:
-                            copy_df.drop(
-                                labels=f, axis="columns", level=0, inplace=True
+                if not format in ["cusparse", reference_format]:
+                    if (format, reference_device) in self.launch_configs:
+                        for launch_config in self.launch_configs[
+                            (format, reference_device)
+                        ]:
+                            label = f"{format} {launch_config}"
+                            print(
+                                f"Writing comparison of {format} with '{launch_config}' launch config and cuSPARSE"
                             )
-                    copy_df.sort_index(inplace=True)
-                    copy_df.to_html(f"Cusparse-bw/{format}.html")
-
-    def csr_comparison(self):
-        if not os.path.exists("CSR-bw"):
-            os.mkdir("CSR-bw")
-        df = self.df
-        profiles = {}
-        profiles["CSR"] = df[("CSR", "CPU", "1 threads", "bandwidth")].copy()
-        for device in ["CPU", "GPU"]:
-            for format in self.formats:
-                if not format in ["cusparse", "CSR"]:
-                    print(f"Writing comparison of {format} and CSR on CPU")
-                    try:
-                        df.sort_values(
-                            by=[(format, device, "bandwidth", "")],
-                            inplace=True,
-                            ascending=False,
-                        )
-                    except:
-                        continue
-                    profiles[format] = df[(format, device, "bandwidth", "")].copy()
-                    Graphs.draw_graphs(
-                        [format, "CSR"],
-                        profiles,
-                        xlabel=f"Matrix number - sorted w.r.t. performance of {LatexLabels.latex_label(format)}",
-                        ylabel="Effective bandwidth in GB/sec",
-                        filename=f"CSR-bw/{format}.pdf",
-                        legend_loc="upper right",
-                        bar="none",
-                        yscale="linear",
-                        latex_labels=self.latex_labels,
-                    )
-
-                    Graphs.draw_graphs(
-                        [format, "CSR"],
-                        profiles,
-                        xlabel=f"Matrix number - sorted w.r.t. performance of {LatexLabels.latex_label(format)}",
-                        ylabel="Effective bandwidth in GB/sec",
-                        filename=f"CSR-bw/{format}-log.pdf",
-                        legend_loc="upper right",
-                        bar="none",
-                        yscale="log",
-                        latex_labels=self.latex_labels,
-                    )
-
-                    copy_df = df.copy()
-                    for f in self.formats:
-                        if not f in ["cusparse", "CSR", format]:
-                            copy_df.drop(
-                                labels=f, axis="columns", level=0, inplace=True
+                            profiles[label] = extract_sorted(
+                                df,
+                                (
+                                    format,
+                                    reference_device,
+                                    launch_config,
+                                    "bandwidth",
+                                    "",
+                                ),
+                                ascending=False,
                             )
-                    copy_df.sort_index(inplace=True)
-                    copy_df.to_html(f"CSR-bw/{format}-{device}.html")
+                            Graphs.draw_graphs(
+                                [label, reference_label],
+                                profiles,
+                                xlabel=f"Matrix number - sorted w.r.t. {reference_label} performance",
+                                ylabel="Effective bandwidth in GB/sec",
+                                filename=f"Comparison/Bandwidth/{reference_label}/{reference_label}-{label}-{reference_device}-bw-comparison.pdf",
+                                legend_loc="upper right",
+                                bar="none",
+                                yscale="linear",
+                            )
+                            Graphs.draw_graphs(
+                                [label, reference_label],
+                                profiles,
+                                xlabel=f"Matrix number - sorted w.r.t. {reference_label} performance",
+                                ylabel="Effective bandwidth in GB/sec",
+                                filename=f"Comparison/Bandwidth/{reference_label}/{reference_label}-{label}-{reference_device}-bw-comparison-log.pdf",
+                                legend_loc="upper right",
+                                bar="none",
+                                yscale="log",
+                            )
+                            copy_df = df.copy()
+                            for f in self.formats:
+                                if not f in ["cusparse", reference_format, format]:
+                                    copy_df.drop(
+                                        labels=f, axis="columns", level=0, inplace=True
+                                    )
+                            copy_df.sort_index(inplace=True)
+                            copy_df.to_html(
+                                f"Comparison/Bandwidth/{reference_label}-{label}-{reference_device}-bw.html"
+                            )
 
-    def legacy_formats_comparison(self):
+    def comparison_legacy_formats_bandwidth(self):
         """
         Comparison of legacy formats with new ones by the effective bandwidth.
         """
-        if not os.path.exists("Legacy-bw"):
-            os.mkdir("Legacy-bw")
+
+        if not os.path.exists("Comparison"):
+            os.mkdir("Comparison")
+        if not os.path.exists("Comparison/Bandwidth"):
+            os.mkdir("Comparison/Bandwidth")
+        if not os.path.exists("Comparison/Bandwidth/Legacy"):
+            os.mkdir("Comparison/Bandwidth/Legacy")
         df = self.df
         profiles = {}
-        for ref_format, legacy_format in [
-            ("Ellpack Ellpack", "Ellpack Legacy"),
-            ("SlicedEllpack SlicedEllpack", "SlicedEllpack Legacy"),
-            ("ChunkedEllpack ChunkedEllpack", "ChunkedEllpack Legacy"),
-            ("BiEllpack BiEllpack", "BiEllpack Legacy"),
-            ("CSR Adaptive", "CSR Legacy Adaptive"),
-            ("CSR Scalar", "CSR Legacy Scalar"),
-            ("CSR Vector", "CSR Legacy Vector"),
-        ]:
-            if ref_format in self.formats and legacy_format in self.formats:
-                print(f"Writing comparison of {ref_format} and {legacy_format}")
-                ascend_df = self.df.copy()
-                df.sort_values(
-                    by=[(ref_format, "GPU", "bandwidth", "")],
-                    inplace=True,
-                    ascending=False,
-                )
-                ascend_df.sort_values(
-                    by=[(ref_format, "GPU", "bandwidth", "")],
-                    inplace=True,
-                    ascending=True,
-                )
-                profiles[ref_format] = df[(ref_format, "GPU", "bandwidth", "")].copy()
-                profiles[legacy_format] = df[
-                    (legacy_format, "GPU", "bandwidth", "")
-                ].copy()
+        for ref_format, ref_launch_config in self.legacy_counterparts:
+            legacy_format = self.legacy_counterparts[(ref_format, ref_launch_config)]
+            print(
+                f"Legacy format profiles: {ref_format} with {ref_launch_config} and {legacy_format}"
+            )
+            if (
+                not ref_format in self.formats
+                or not legacy_format in self.formats
+                or not ref_launch_config in self.launch_configs[(ref_format, "GPU")]
+            ):
+                continue
+            legacy_launch_config = "Default"
+            ref_label = f"{ref_format} {ref_launch_config}"
+            legacy_label = f"{legacy_format} {legacy_launch_config}"
+            ascend_df = self.df.copy()
+            df.sort_values(
+                by=[(ref_format, "GPU", ref_launch_config, "bandwidth", "")],
+                inplace=True,
+                ascending=False,
+            )
+            ascend_df.sort_values(
+                by=[(ref_format, "GPU", ref_launch_config, "bandwidth", "")],
+                inplace=True,
+                ascending=True,
+            )
+            profiles[ref_label] = df[
+                (ref_format, "GPU", ref_launch_config, "bandwidth", "")
+            ].copy()
+            profiles[legacy_label] = df[
+                (legacy_format, "GPU", legacy_launch_config, "bandwidth", "")
+            ].copy()
 
-                Graphs.draw_graphs(
-                    [ref_format, legacy_format],
-                    profiles,
-                    xlabel=f"Matrix number - sorted w.r.t. performance of {LatexLabels.latex_label(ref_format)}",
-                    ylabel="Effective bandwidth in GB/sec",
-                    filename=f"Legacy-bw/{ref_format}.pdf",
-                    legend_loc="upper right",
-                    bar="none",
-                    yscale="linear",
-                    latex_labels=self.latex_labels,
-                )
+            Graphs.draw_graphs(
+                [ref_label, legacy_label],
+                profiles,
+                xlabel=f"Matrix number - sorted w.r.t. performance of {ref_format}",
+                ylabel="Effective bandwidth in GB/sec",
+                filename=f"Comparison/Bandwidth/Legacy/{ref_format}-{ref_launch_config}.pdf",
+                legend_loc="upper right",
+                bar="none",
+                yscale="linear",
+            )
 
-                copy_df = df.copy()
-                for f in self.formats:
-                    if not f in ["cusparse", "CSR", legacy_format]:
-                        copy_df.drop(labels=f, axis="columns", level=0, inplace=True)
-                copy_df.sort_index(inplace=True)
-                copy_df.to_html(f"Legacy-bw/{legacy_format}.html")
+            copy_df = df.copy()
+            for f in self.formats:
+                if not f in ["cusparse", "CSR", legacy_format]:
+                    copy_df.drop(labels=f, axis="columns", level=0, inplace=True)
+            copy_df.sort_index(inplace=True)
+            copy_df.to_html(
+                f"Comparison/Bandwidth/Legacy/{ref_format}-{ref_launch_config}.html"
+            )
 
-    def csr_speedup_comparison(self):
+    def comparison_speedup(self):
         """
-        Comparison of speed-up w.r.t. CSR
+        Writes figures and HTML tables comparing formats with cuSPARSE by the effective bandwidth.
         """
-        if not os.path.exists("CSR-speed-up"):
-            os.mkdir("CSR-speed-up")
         df = self.df
-        for device in ["GPU"]:
+        if not os.path.exists("Comparison"):
+            os.mkdir("Comparison")
+        if not os.path.exists("Comparison/Speedup"):
+            os.mkdir("Comparison/Speedup")
+
+        comparisons = ["cusparse", "CSR", "Hypre", "Ginkgo"]
+        for reference_format in comparisons:
+            if not reference_format in self.formats:
+                continue
+
+            speedup = f"{reference_format}"
+            if reference_format == "CSR":
+                speedup = "CSR CPU"
+            reference_label = f"{reference_format}"
+            if reference_format == "CSR":
+                reference_label = "CSR CPU 1 thread"
+            if reference_format in ["Hypre", "Ginkgo"]:
+                reference_label = f"{reference_format} GPU"
+
+            if not os.path.exists(f"Comparison/Speedup/{reference_label}"):
+                os.mkdir(f"Comparison/Speedup/{reference_label}")
+
             for format in self.formats:
-                profiles = {}
-                if not format in ["cusparse", "CSR", ""]:
-                    print(f"Writing comparison of speed-up of {format} compared to CSR")
-                    df["tmp"] = df[(format, device, "bandwidth", "")]
-                    filtered_df = self.df.dropna(subset=[("tmp", "", "", "")])
-                    try:
+                if format == reference_format or format == "cusparse":
+                    continue
+                device = "GPU"
+                if (format, device) in self.launch_configs:
+                    for launch_config in self.launch_configs[(format, device)]:
+                        profiles = {}
+                        label = f"{format} {launch_config}"
+                        print(
+                            f"Writing speedup of {format} with '{launch_config}' launch config compared to {reference_label}"
+                        )
+                        # profiles[label] = extract_sorted(
+                        #    df,
+                        #    (format, device, launch_config, "speed-up", speedup),
+                        #    ascending=False,
+                        # )
+                        df["tmp"] = df[(format, device, launch_config, "bandwidth", "")]
+                        filtered_df = df.dropna(subset=[("tmp", "", "", "", "")]).copy()
                         filtered_df.sort_values(
-                            by=[(format, device, "speed-up", "CSR CPU")],
+                            by=[
+                                (
+                                    format,
+                                    device,
+                                    launch_config,
+                                    "speed-up",
+                                    speedup,
+                                )
+                            ],
                             inplace=True,
                             ascending=False,
                         )
-                    except:
-                        continue
+                        # print(f"Adding format {format}")
+                        profiles[f"{label}"] = filtered_df[
+                            (format, device, launch_config, "speed-up", speedup)
+                        ].copy()
+                        profiles[f"{label} BW"] = filtered_df[
+                            (format, device, launch_config, "bandwidth", "")
+                        ].copy()
 
-                    profiles[format] = filtered_df[
-                        (format, device, "speed-up", "CSR CPU")
-                    ].copy()
-                    Graphs.draw_graphs(
-                        [format],
-                        profiles,
-                        xlabel=f"Matrix number - sorted w.r.t. performance of {LatexLabels.latex_label(format)}",
-                        ylabel="Speedup",
-                        filename=f"CSR-speed-up/{format}.pdf",
-                        legend_loc="upper right",
-                        bar="CSR CPU",
-                        yscale="linear",
-                        latex_labels=self.latex_labels,
-                    )
-                    Graphs.draw_graphs(
-                        [format],
-                        profiles,
-                        xlabel=f"Matrix number - sorted w.r.t. performance of {LatexLabels.latex_label(format)}",
-                        ylabel="Speedup",
-                        filename=f"CSR-speed-up/{format}-log.pdf",
-                        legend_loc="upper right",
-                        bar="CSR CPU 1 thread",
-                        yscale="log",
-                        latex_labels=self.latex_labels,
-                    )
+                        Graphs.draw_graphs(
+                            [label],
+                            profiles,
+                            xlabel=f"Matrix number - sorted w.r.t. performance of {label} on {device}",
+                            ylabel="Speedup",
+                            filename=f"Comparison/Speedup/{reference_label}/{reference_label}-{label}-{device}.pdf",
+                            legend_loc="upper right",
+                            bar=reference_label,
+                            yscale="linear",
+                        )
+                        Graphs.draw_graphs(
+                            [label],
+                            profiles,
+                            xlabel=f"Matrix number - sorted w.r.t. performance of {label} on {device}",
+                            ylabel="Speedup",
+                            filename=f"Comparison/Speedup/{reference_label}/{reference_label}-{label}-{device}-log.pdf",
+                            legend_loc="upper right",
+                            bar=reference_label,
+                            yscale="log",
+                        )
+                        Graphs.draw_dual_graphs(
+                            [label, f"{label} BW"],
+                            profiles,
+                            xlabel=f"Matrix number - sorted w.r.t. performance of {label} on {device}",
+                            ylabels=[f"Speedup vs. {reference_label}", "Bandwidth"],
+                            filename=f"Comparison/Speedup/{reference_label}/{reference_label}-{label}-{device}-bw.pdf",
+                            legend_loc="none",
+                            bar=reference_label,
+                            yscales=["log", "linear"],
+                            left_y_limits=[1.0e-4, 10],
+                            right_y_limits=[0, 3],
+                        )
 
-                    copy_df = df.copy()
-                    for f in self.formats:
-                        if not f in ["cusparse", "CSR", format]:
-                            copy_df.drop(
-                                labels=f, axis="columns", level=0, inplace=True
-                            )
-                    copy_df.sort_index(inplace=True)
-                    copy_df.to_html(f"CSR-speed-up/{format}-{device}.html")
+                        copy_df = df.copy()
+                        for f in self.formats:
+                            if not f in ["cusparse", reference_format, format]:
+                                copy_df.drop(
+                                    labels=f, axis="columns", level=0, inplace=True
+                                )
+                        copy_df.sort_index(inplace=True)
+                        copy_df.to_html(
+                            f"Comparison/Speedup/{reference_label}/{reference_label}-{label}-{device}.html"
+                        )
 
-    def ginkgo_comparison(self):
+    def comparison_speedup_ginkgo_cpu(self):
         """
         Comparison of Ginkgo with CPU formats by the effective bandwidth.
         """
-        if not os.path.exists("Ginkgo-speed-up"):
-            os.mkdir("Ginkgo-speed-up")
+
+        if not os.path.exists("Comparison"):
+            os.mkdir("Comparison")
+        if not os.path.exists("Comparison/Speedup"):
+            os.mkdir("Comparison/Speedup")
+        if not os.path.exists("Comparison/Speedup/Ginkgo CPU"):
+            os.mkdir("Comparison/Speedup/Ginkgo CPU")
         df = self.df
         profiles = {}
-        for threads in self.cpu_threads_numbers:
+        if not ("Ginkgo", "CPU") in self.launch_configs:
+            return
+        for launch_config in self.launch_configs[("Ginkgo", "CPU")]:
+            threads = int(launch_config.split(" ")[0])
             df.sort_values(
-                by=[("Ginkgo", "CPU", f"{threads} threads", "TNL speed-up")],
+                by=[("Ginkgo", "CPU", launch_config, "TNL speed-up", "")],
                 inplace=True,
                 ascending=False,
             )
             profiles["CSR"] = df[
-                ("Ginkgo", "CPU", f"{threads} threads", "TNL speed-up")
+                ("Ginkgo", "CPU", launch_config, "TNL speed-up", "")
             ].copy()
             print(
-                f"Writing speedup of TNL compaared to Ginkgo on CPU with {threads} threads"
+                f"Writing speedup of TNL compared to Ginkgo on CPU with {threads} threads"
             )
             Graphs.draw_graphs(
                 ["CSR"],
                 profiles,
                 xlabel=f"Matrix number - sorted w.r.t. performance of CSR",
                 ylabel="Speedup",
-                filename=f"Ginkgo-speed-up/csr-{threads}-threads.pdf",
+                filename=f"Comparison/Speedup/Ginkgo CPU/Ginkgo-CPU-CSR-{threads}-threads.pdf",
                 legend_loc="upper right",
                 bar="Ginkgo CPU",
                 yscale="linear",
-                latex_labels=self.latex_labels,
             )
             Graphs.draw_graphs(
                 ["CSR"],
                 profiles,
                 xlabel=f"Matrix number - sorted w.r.t. performance of CSR",
                 ylabel="Speedup",
-                filename=f"Ginkgo-speed-up/csr-{threads}-threads-log.pdf",
+                filename=f"Comparison/Speedup/Ginkgo CPU/Ginkgo-CPU-CSR-{threads}-threads-log.pdf",
                 legend_loc="upper right",
                 bar="Ginkgo CPU",
                 yscale="log",
-                latex_labels=self.latex_labels,
             )
+
+    def comparison_speedup_legacy_formats(self):
+        """
+        Comparison of legacy formats based on speedup compared to the current formats
+        """
+        df = self.df
+        if not os.path.exists("Comparison"):
+            os.mkdir("Comparison")
+        if not os.path.exists("Comparison/Speedup"):
+            os.mkdir("Comparison/Speedup")
+        if not os.path.exists("Comparison/Speedup/Legacy"):
+            os.mkdir("Comparison/Speedup/Legacy")
+
+        for ref_format, ref_launch_config in self.legacy_counterparts:
+            legacy_format = self.legacy_counterparts[(ref_format, ref_launch_config)]
+            print(
+                f"Writing comparison of {ref_format} with {ref_launch_config} and {legacy_format}"
+            )
+            for device in ["GPU"]:
+                if (
+                    not (ref_format, device) in self.formats_devices
+                    or not (ref_format, device) in self.launch_configs
+                    or not ref_launch_config
+                    in self.launch_configs[(ref_format, device)]
+                ):
+                    continue
+                ref_label = f"{ref_format} {ref_launch_config}"
+                legacy_label = f"{legacy_format} {ref_launch_config}"
+                profiles = {}
+                df.sort_values(
+                    by=[
+                        (
+                            ref_format,
+                            device,
+                            ref_launch_config,
+                            "speed-up",
+                            legacy_format,
+                        )
+                    ],
+                    inplace=True,
+                    ascending=False,
+                )
+                profiles[ref_label] = df[
+                    (ref_format, device, ref_launch_config, "speed-up", legacy_format)
+                ].copy()
+                # print(
+                #    f"format={format} device={device} legacy_format = {legacy_format} >>> {profiles[format]}"
+                # )
+                Graphs.draw_graphs(
+                    [ref_label],
+                    profiles,
+                    xlabel=f"Matrix number - sorted w.r.t. speed-up of {ref_label}",
+                    ylabel="Speedup",
+                    filename=f"Comparison/Speedup/Legacy/{ref_label}-{device}.pdf",
+                    legend_loc="upper right",
+                    bar=legacy_label,
+                    yscale="linear",
+                )
+                copy_df = df.copy()
+                for f in self.formats:
+                    if not f in [ref_format, legacy_format]:
+                        copy_df.drop(labels=f, axis="columns", level=0, inplace=True)
+                # copy_df.sort_index(inplace=True)
+                copy_df.to_html(f"Comparison/Speedup/Legacy/{ref_label}-{device}.html")
 
     ####
     # Comparison of speed-up w.r.t. Cusparse
-    def cusparse_and_hypre_speedup_comparison(self):
+    def comparison_speedup_groups_vs_reference_formats(self):
         df = self.df
-        for comparison in ["cusparse", "Hypre"]:
+        for comparison in ["cusparse", "Hypre", "Ginkgo"]:
             profiles = {}
+            print(f"Comparison with {comparison}")
             if comparison in self.formats:
-                if not os.path.exists(f"{comparison}-speed-up"):
-                    os.mkdir(f"{comparison}-speed-up")
-
                 for format in self.formats:
-                    if not format in ["cusparse", "CSR", "Hypre"]:
-                        print(
-                            f"Writing comparison of speed-up of {format} ({LatexLabels.latex_label(format)}) compared to {comparison}"
-                        )
-                        df["tmp"] = df[(format, "GPU", "bandwidth", "")]
-                        filtered_df = df.dropna(subset=[("tmp", "", "", "")])
-                        filtered_df.sort_values(
-                            by=[(format, "GPU", "speed-up", comparison)],
-                            inplace=True,
-                            ascending=False,
-                        )
-                        print(f"Adding format {format}")
-                        profiles[format] = filtered_df[
-                            (format, "GPU", "speed-up", comparison)
-                        ].copy()
-                        profiles[f"{format}-bw"] = filtered_df[
-                            (format, "GPU", "bandwidth", "")
-                        ].copy()
+                    print(f"  Processing format {format}")
+                    if (
+                        not format in ["cusparse", "Hypre", "Ginkgo"]
+                        and (format, "GPU") in self.launch_configs
+                    ):
+                        for launch_config in self.launch_configs[(format, "GPU")]:
+                            label = f"{format} {launch_config}"
+                            print(
+                                f"Writing comparison of speed-up of {format} {launch_config} compared to {comparison}"
+                            )
+                            df["tmp"] = df[
+                                (format, "GPU", launch_config, "bandwidth", "")
+                            ]
+                            filtered_df = df.dropna(
+                                subset=[("tmp", "", "", "", "")]
+                            ).copy()
+                            filtered_df.sort_values(
+                                by=[
+                                    (
+                                        format,
+                                        "GPU",
+                                        launch_config,
+                                        "speed-up",
+                                        comparison,
+                                    )
+                                ],
+                                inplace=True,
+                                ascending=False,
+                            )
+                            # print(f"Adding format {format}")
+                            profiles[f"{label}"] = filtered_df[
+                                (format, "GPU", launch_config, "speed-up", comparison)
+                            ].copy()
+                            profiles[f"{label} BW"] = filtered_df[
+                                (format, "GPU", launch_config, "bandwidth", "")
+                            ].copy()
+
+            if not profiles:
+                continue
+
+            # Draw Ellpack and CSR formats profiles
+            xlabel = f"Matrix number - sorted by particular formats speedup compared to {comparison}"
+            ylabel = "Speedup"
+            current_labels = []
+            for format_class in ["Ellpack", "CSR"]:
+                for accepted_class in ["", "Symmetric", "Binary", "Legacy", "Sorted"]:
+                    rejected_classes = ["Symmetric", "Binary", "Legacy", "Sorted"]
+                    if accepted_class in rejected_classes:
+                        rejected_classes.remove(accepted_class)
+
+                    print(f"Processing {format_class} {accepted_class}")
+                    for format in self.formats:
+                        skip = False
+                        for rejected_class in rejected_classes:
+                            if rejected_class in format:
+                                skip = True
+                        if skip:
+                            continue
+
+                        if (
+                            format_class in format
+                            and accepted_class in format
+                            and (format, "GPU") in self.launch_configs
+                        ):
+                            for launch_config in self.launch_configs[(format, "GPU")]:
+                                current_labels.append(f"{format} {launch_config}")
+                    file_name = f"{accepted_class}-{format_class}-profiles-{comparison}-speedup.pdf"
+                    if accepted_class == "":
+                        file_name = f"{format_class}-profiles-{comparison}-speedup.pdf"
+                    if current_labels:
                         Graphs.draw_graphs(
-                            [format],
+                            current_labels,
                             profiles,
-                            xlabel=f"Matrix number - sorted w.r.t. performance of {LatexLabels.latex_label(format)}",
-                            ylabel="Speedup in TB/s",
-                            filename=f"{comparison}-speed-up/{format}.pdf",
+                            xlabel,
+                            ylabel,
+                            filename=file_name,
                             legend_loc="upper right",
                             bar=comparison,
                             yscale="linear",
-                            latex_labels=self.latex_labels,
                         )
+                    current_labels.clear()
 
-                        Graphs.draw_graphs(
-                            [format],
-                            profiles,
-                            xlabel=f"Matrix number - sorted w.r.t. performance of {LatexLabels.latex_label(format)}",
-                            ylabel="Speedup",
-                            filename=f"{comparison}-speed-up/{format}-log.pdf",
-                            legend_loc="upper right",
-                            bar=comparison,
-                            yscale="log",
-                            latex_labels=self.latex_labels,
-                        )
-
-                        Graphs.draw_dual_graphs(
-                            [format, f"{format}-bw"],
-                            profiles,
-                            xlabel=f"{LatexLabels.latex_label(format)}",
-                            ylabels=["Speedup", "Bandwidth"],
-                            filename=f"{comparison}-speed-up/{format}-with-bw.pdf",
-                            legend_loc="none",
-                            bar=comparison,
-                            yscales=["log", "linear"],
-                            left_y_limits=[1.0e-4, 10],
-                            right_y_limits=[0, 3],
-                            latex_labels=self.latex_labels,
-                        )
-
-                        copy_df = df.dropna(
-                            subset=[(format, "GPU", "speed-up", comparison)]
-                        )
-                        for f in self.formats:
-                            if not f in ["cusparse", "CSR", format, "Hypre"]:
-                                copy_df.drop(
-                                    labels=f, axis="columns", level=0, inplace=True
-                                )
-                        copy_df.drop(
-                            labels="tmp", axis="columns", level=0, inplace=True
-                        )
-
-                        # copy_df.sort_index(inplace=True)
-                        copy_df.sort_values(
-                            by=[(format, "GPU", "speed-up", comparison)],
-                            inplace=True,
-                            ascending=False,
-                        )
-                        copy_df.to_html(f"{comparison}-speed-up/{format}.html")
-
-            # Draw Ellpack formats profiles
-            if not profiles:
-                continue
-            xlabel = f"Matrix number - sorted by particular formats speedup compared to {comparison}"
-            ylabel = "Speedup"
-            current_formats = []
-            for format in self.formats:
-                if (
-                    "Ellpack" in format
-                    and not "Symmetric" in format
-                    and not "Binary" in format
-                    and not "Legacy" in format
-                ):
-                    current_formats.append(format)
-            if current_formats:
-                Graphs.draw_graphs(
-                    current_formats,
-                    profiles,
-                    xlabel,
-                    ylabel,
-                    filename=f"ellpack-profiles-{comparison}-speedup.pdf",
-                    legend_loc="upper right",
-                    bar=comparison,
-                    yscale="linear",
-                    latex_labels=self.latex_labels,
-                )
-
-            current_formats.clear()
-            for format in self.formats:
-                if (
-                    "Ellpack" in format
-                    and "Symmetric" in format
-                    and not "Binary" in format
-                    and not "Legacy" in format
-                ):
-                    current_formats.append(format)
-            if current_formats:
-                Graphs.draw_graphs(
-                    current_formats,
-                    profiles,
-                    xlabel,
-                    ylabel,
-                    filename=f"symmetric-ellpack-profiles-{comparison}-speedup.pdf",
-                    legend_loc="upper right",
-                    bar=comparison,
-                    yscale="linear",
-                    latex_labels=self.latex_labels,
-                )
-
-            current_formats.clear()
-            for format in self.formats:
-                if (
-                    "Ellpack" in format
-                    and not "Symmetric" in format
-                    and "Binary" in format
-                    and not "Legacy" in format
-                ):
-                    current_formats.append(format)
-            if current_formats:
-                Graphs.draw_graphs(
-                    current_formats,
-                    profiles,
-                    xlabel,
-                    ylabel,
-                    filename=f"binary-ellpack-profiles-{comparison}-speedup.pdf",
-                    legend_loc="upper right",
-                    bar=comparison,
-                    yscale="linear",
-                    latex_labels=self.latex_labels,
-                )
-
-            current_formats.clear()
-            for format in self.formats:
-                if (
-                    "Ellpack" in format
-                    and "Symmetric" in format
-                    and "Binary" in format
-                    and not "Legacy" in format
-                ):
-                    current_formats.append(format)
-            if current_formats:
-                Graphs.draw_graphs(
-                    current_formats,
-                    profiles,
-                    xlabel,
-                    ylabel,
-                    filename=f"symmetric-binary-ellpack-profiles-{comparison}-speedup.pdf",
-                    legend_loc="upper right",
-                    bar=comparison,
-                    yscale="linear",
-                    latex_labels=self.latex_labels,
-                )
-
-            # Draw CSR formats profiles
-            current_formats.clear()
-            for format in self.formats:
-                if (
-                    "CSR" in format
-                    and not "Symmetric" in format
-                    and not "Binary" in format
-                    and not "Legacy" in format
-                    and not "Hybrid" in format
-                    and format != "CSR"
-                ):
-                    current_formats.append(format)
-            if current_formats:
-                Graphs.draw_graphs(
-                    current_formats,
-                    profiles,
-                    xlabel,
-                    ylabel,
-                    filename=f"csr-profiles-{comparison}-speedup.pdf",
-                    legend_loc="upper right",
-                    bar=comparison,
-                    yscale="linear",
-                    latex_labels=self.latex_labels,
-                )
-            current_formats.clear()
-            for format in self.formats:
-                if (
-                    "CSR" in format
-                    and "Symmetric" in format
-                    and not "Binary" in format
-                    and not "Legacy" in format
-                    and not "Hybrid" in format
-                    and format != "CSR"
-                ):
-                    current_formats.append(format)
-            if current_formats:
-                Graphs.draw_graphs(
-                    current_formats,
-                    profiles,
-                    xlabel,
-                    ylabel,
-                    filename=f"symmetric-csr-profiles-{comparison}-speedup.pdf",
-                    legend_loc="upper right",
-                    bar=comparison,
-                    yscale="linear",
-                    latex_labels=self.latex_labels,
-                )
-            current_formats.clear()
-
-            for format in self.formats:
-                if (
-                    "CSR" in format
-                    and not "Symmetric" in format
-                    and "Binary" in format
-                    and not "Legacy" in format
-                    and not "Hybrid" in format
-                    and format != "CSR"
-                ):
-                    current_formats.append(format)
-            if current_formats:
-                Graphs.draw_graphs(
-                    current_formats,
-                    profiles,
-                    xlabel,
-                    ylabel,
-                    filename=f"binary-csr-profiles-{comparison}-speedup.pdf",
-                    legend_loc="upper right",
-                    bar=comparison,
-                    yscale="linear",
-                    latex_labels=self.latex_labels,
-                )
-            current_formats.clear()
-
-            for format in self.formats:
-                if (
-                    "CSR" in format
-                    and "Symmetric" in format
-                    and "Binary" in format
-                    and not "Legacy" in format
-                    and not "Hybrid" in format
-                    and format != "CSR"
-                ):
-                    current_formats.append(format)
-            if current_formats:
-                Graphs.draw_graphs(
-                    current_formats,
-                    profiles,
-                    xlabel,
-                    ylabel,
-                    filename=f"symmetric-binary-csr-profiles-{comparison}-speedup.pdf",
-                    legend_loc="upper right",
-                    bar=comparison,
-                    yscale="linear",
-                    latex_labels=self.latex_labels,
-                )
-            current_formats.clear()
-
-    def binary_matrices_comparison(self):
+    def comparison_speedup_binary_symmetric_sorted_matrices(self):
         """
         Comparison of binary matrices
         """
         df = self.df
-        if not os.path.exists("binary-speed-up"):
-            os.mkdir("binary-speed-up")
-        for format in self.formats:
-            profiles = {}
-            if "Binary" in format:
-                non_binary_format = format.replace("Binary ", "")
-                print(
-                    f"Writing comparison of speed-up of {format} vs {non_binary_format}"
-                )
-                # df['tmp'] = df[(format, 'GPU','speed-up','non-binary')]
-                filtered_df = df.dropna(
-                    subset=[(format, "GPU", "speed-up", "non-binary")]
-                ).copy()  # ('tmp','','','')])
-                # print( f"{format} -> {filtered_df[(format,'GPU','speed-up','non-binary')]}" )
-                ascend_df = filtered_df.copy()
-                filtered_df.sort_values(
-                    by=[(format, "GPU", "speed-up", "non-binary")],
-                    inplace=True,
-                    ascending=False,
-                )
-                ascend_df.sort_values(
-                    by=[(format, "GPU", "speed-up", "non-binary")],
-                    inplace=True,
-                    ascending=True,
-                )
-                profiles[format] = filtered_df[
-                    (format, "GPU", "speed-up", "non-binary")
-                ].copy()
-                profiles[f"{format}-bw"] = filtered_df[
-                    (format, "GPU", "bandwidth", "")
-                ].copy()
+        if not os.path.exists("Comparison"):
+            os.mkdir("Comparison")
+        if not os.path.exists("Comparison/Speedup"):
+            os.mkdir("Comparison/Speedup")
 
-                Graphs.draw_graphs(
-                    [format],
-                    profiles,
-                    xlabel=f"Matrix number - sorted w.r.t. {LatexLabels.latex_label(format)} speed-up",
-                    ylabel="Speedup",
-                    filename=f"binary-speed-up/{format}.pdf",
-                    legend_loc="upper right",
-                    bar=f"{LatexLabels.latex_label(non_binary_format)}",
-                    yscale="linear",
-                    latex_labels=self.latex_labels,
-                )
-                Graphs.draw_graphs(
-                    [format],
-                    profiles,
-                    xlabel=f"Matrix number - sorted w.r.t. {LatexLabels.latex_label(format)} speed-up",
-                    ylabel="Speedup",
-                    filename=f"binary-speed-up/{format}-log.pdf",
-                    legend_loc="upper right",
-                    bar=f"{LatexLabels.latex_label(non_binary_format)}",
-                    yscale="log",
-                    latex_labels=self.latex_labels,
-                )
+        for analyzed_class in ["Symmetric", "Binary", "Sorted"]:
+            if not os.path.exists(f"Comparison/Speedup/{analyzed_class}"):
+                os.mkdir(f"Comparison/Speedup/{analyzed_class}")
 
-                Graphs.draw_dual_graphs(
-                    [format, f"{format}-bw"],
-                    profiles,
-                    xlabel=f"{LatexLabels.latex_label(format)}",
-                    ylabels=["Speedup", "Bandwidth"],
-                    filename=f"binary-speed-up/{format}-with-bw.pdf",
-                    legend_loc="none",
-                    bar="",
-                    yscales=["log", "linear"],
-                    left_y_limits=[0.4, 10],
-                    right_y_limits=[0, 3],
-                    fig_size=(8, 3),
-                    latex_labels=self.latex_labels,
-                )
+            rejected_classes = ["Symmetric", "Binary", "Sorted"]
+            rejected_classes.remove(analyzed_class)
+            for format in self.formats:
+                profiles = {}
+                if analyzed_class in format and (format, "GPU") in self.launch_configs:
+                    counterpart_format = format.replace(f"{analyzed_class} ", "")
+                    counterpart_label = f"non-{analyzed_class.lower()}"
+                    for launch_config in self.launch_configs[(format, "GPU")]:
+                        print(
+                            f"Writing comparison of speed-up of {format} {launch_config} vs {counterpart_format}"
+                        )
+                        filtered_df = df.dropna(
+                            subset=[
+                                (
+                                    format,
+                                    "GPU",
+                                    launch_config,
+                                    "speed-up",
+                                    counterpart_label,
+                                )
+                            ]
+                        ).copy()
 
-                copy_df = filtered_df.dropna(
-                    subset=[(format, "GPU", "speed-up", "non-binary")]
-                ).copy()
-                for f in self.formats:
-                    if not f in ["cusparse", "CSR", format, "Hypre"]:
-                        copy_df.drop(labels=f, axis="columns", level=0, inplace=True)
-                copy_df.sort_values(
-                    by=[(format, "GPU", "speed-up", "non-binary")],
-                    inplace=True,
-                    ascending=False,
-                )
-                copy_df.to_html(f"binary-speed-up/{format}.html")
+                        ascend_df = filtered_df.copy()
+                        filtered_df.sort_values(
+                            by=[
+                                (
+                                    format,
+                                    "GPU",
+                                    launch_config,
+                                    "speed-up",
+                                    counterpart_label,
+                                )
+                            ],
+                            inplace=True,
+                            ascending=False,
+                        )
+                        ascend_df.sort_values(
+                            by=[
+                                (
+                                    format,
+                                    "GPU",
+                                    launch_config,
+                                    "speed-up",
+                                    counterpart_label,
+                                )
+                            ],
+                            inplace=True,
+                            ascending=True,
+                        )
+                        label = f"{format} {launch_config}"
+                        profiles[label] = filtered_df[
+                            (
+                                format,
+                                "GPU",
+                                launch_config,
+                                "speed-up",
+                                counterpart_label,
+                            )
+                        ].copy()
+                        profiles[f"{label} BW"] = filtered_df[
+                            (format, "GPU", launch_config, "bandwidth", "")
+                        ].copy()
 
-    def symmetric_matrices_comparison(self):
-        """
-        Comparison of symmetric matrices
-        """
-        df = self.df
-        if not os.path.exists("symmetric-speed-up"):
-            os.mkdir("symmetric-speed-up")
-        for format in self.formats:
-            profiles = {}
-            if "Symmetric" in format:
-                non_symmetric_format = format.replace("Symmetric ", "")
-                print(
-                    f"Writing comparison of speed-up of {format} vs {non_symmetric_format}"
-                )
-                # df['tmp'] = df[(format, 'GPU','speed-up','non-symmetric')]
-                filtered_df = df.dropna(
-                    subset=[(format, "GPU", "speed-up", "non-symmetric")]
-                ).copy()  # ('tmp','','','')])
-                # ascend_df = filtered_df.copy()
-                # print( f"{format} -> {filtered_df[(format,'GPU','speed-up','non-symmetric')]}" )
-                filtered_df.sort_values(
-                    by=[(format, "GPU", "speed-up", "non-symmetric")],
-                    inplace=True,
-                    ascending=False,
-                )
-                # ascend_df.sort_values(by=[(format,'GPU','speed-up','non-symmetric')],inplace=True,ascending=True)
+                        Graphs.draw_graphs(
+                            [label],
+                            profiles,
+                            xlabel=f"Matrix number - sorted w.r.t. {label} speed-up",
+                            ylabel="Speedup",
+                            filename=f"Comparison/Speedup/{analyzed_class}/{label}-{counterpart_label}.pdf",
+                            legend_loc="upper right",
+                            bar=f"{counterpart_format} {launch_config}",
+                            yscale="linear",
+                        )
+                        Graphs.draw_graphs(
+                            [label],
+                            profiles,
+                            xlabel=f"Matrix number - sorted w.r.t. {label} speed-up",
+                            ylabel="Speedup",
+                            filename=f"Comparison/Speedup/{analyzed_class}/{label}-{counterpart_label}-log.pdf",
+                            legend_loc="upper right",
+                            bar=f"{counterpart_format} {launch_config}",
+                            yscale="log",
+                        )
 
-                cusparse_filtered_df = df.dropna(
-                    subset=[(format, "GPU", "speed-up", "cusparse")]
-                )  # ('tmp','','','')])
-                cusparse_filtered_df.sort_values(
-                    by=[(format, "GPU", "speed-up", "cusparse")],
-                    inplace=True,
-                    ascending=False,
-                )
-                profiles[format] = filtered_df[
-                    (format, "GPU", "speed-up", "non-symmetric")
-                ]
-                profiles[f"{format}-bw"] = filtered_df[(format, "GPU", "bandwidth", "")]
+                        Graphs.draw_dual_graphs(
+                            [label, f"{label} BW"],
+                            profiles,
+                            xlabel=f"{label}",
+                            ylabels=["Speedup", "Bandwidth"],
+                            filename=f"Comparison/Speedup/{analyzed_class}/{label}-{counterpart_label}-with-bw.pdf",
+                            legend_loc="none",
+                            bar="",
+                            yscales=["log", "linear"],
+                            left_y_limits=[0.4, 10],
+                            right_y_limits=[0, 3],
+                            fig_size=(8, 3),
+                        )
 
-                Graphs.draw_graphs(
-                    [format],
-                    profiles,
-                    xlabel=f"Matrix number - sorted w.r.t. {LatexLabels.latex_label(format)} speed-up",
-                    ylabel="Speedup",
-                    filename=f"symmetric-speed-up/{format}.pdf",
-                    legend_loc="upper right",
-                    bar=f"{LatexLabels.latex_label(non_symmetric_format)}",
-                    yscale="linear",
-                    latex_labels=self.latex_labels,
-                )
-                Graphs.draw_graphs(
-                    [format],
-                    profiles,
-                    xlabel=f"Matrix number - sorted w.r.t. {LatexLabels.latex_label(format)} speed-up",
-                    ylabel="Speedup",
-                    filename=f"symmetric-speed-up/{format}-log.pdf",
-                    legend_loc="upper right",
-                    bar=f"{LatexLabels.latex_label(non_symmetric_format)}",
-                    yscale="log",
-                    latex_labels=self.latex_labels,
-                )
+                    copy_df = filtered_df.dropna(
+                        subset=[
+                            (
+                                format,
+                                "GPU",
+                                launch_config,
+                                "speed-up",
+                                counterpart_label,
+                            )
+                        ]
+                    ).copy()
+                    for f in self.formats:
+                        if not f in ["cusparse", "CSR", format, "Hypre"]:
+                            copy_df.drop(
+                                labels=f, axis="columns", level=0, inplace=True
+                            )
+                    copy_df.sort_values(
+                        by=[
+                            (
+                                format,
+                                "GPU",
+                                launch_config,
+                                "speed-up",
+                                counterpart_label,
+                            )
+                        ],
+                        inplace=True,
+                        ascending=False,
+                    )
+                    copy_df.to_html(
+                        f"Comparison/Speedup/{analyzed_class}/{format}-{launch_config}.html"
+                    )
 
-                Graphs.draw_dual_graphs(
-                    [format, f"{format}-bw"],
-                    profiles,
-                    xlabel=f"{LatexLabels.latex_label(format)}",
-                    ylabels=["Speedup", "Bandwidth"],
-                    filename=f"symmetric-speed-up/{format}-with-bw.pdf",
-                    legend_loc="none",
-                    bar="",
-                    yscales=["log", "linear"],
-                    left_y_limits=[0.01, 100],
-                    right_y_limits=[0, 3],
-                    fig_size=(8, 5),
-                    latex_labels=self.latex_labels,
-                )
-                copy_df = filtered_df.dropna(
-                    subset=[(format, "GPU", "speed-up", "non-symmetric")]
-                ).copy()
-                for f in self.formats:
-                    if not f in [
-                        "cusparse",
-                        "CSR",
-                        format,
-                        "Hypre",
-                        non_symmetric_format,
-                    ]:
-                        copy_df.drop(labels=f, axis="columns", level=0, inplace=True)
-                copy_df.sort_values(
-                    by=[(format, "GPU", "speed-up", "non-symmetric")],
-                    inplace=True,
-                    ascending=False,
-                )
-                copy_df.to_html(f"symmetric-speed-up/{format}.html")
-
-                # copy_df = df.copy()
-
-                # for f in self.formats:
-                #    if not f in ["cusparse", "CSR", format, non_symmetric_format]:
-                #        copy_df.drop(labels=f, axis="columns", level=0, inplace=True)
-                # copy_df.sort_index(inplace=True)
-                # copy_df.sort_values(
-                #    by=[(format, "GPU", "speed-up", "non-symmetric")],
-                #    inplace=True,
-                #    ascending=False,
-                # )
-                # copy_df.to_html(f"symmetric-speed-up/{format}.html")
-
-                profiles[format] = cusparse_filtered_df[
-                    (format, "GPU", "speed-up", "cusparse")
-                ]
-                Graphs.draw_graphs(
-                    [format],
-                    profiles,
-                    xlabel=f"Matrix number - sorted w.r.t. {LatexLabels.latex_label(format)} speed-up",
-                    ylabel="Speedup",
-                    filename=f"symmetric-speed-up/{format}-cusparse.pdf",
-                    legend_loc="upper right",
-                    bar="cuSPARSE",
-                    yscale="linear",
-                    latex_labels=self.latex_labels,
-                )
-
-                Graphs.draw_graphs(
-                    [format],
-                    profiles,
-                    xlabel=f"Matrix number - sorted w.r.t. {LatexLabels.latex_label(format)} speed-up",
-                    ylabel="Speedup",
-                    filename=f"symmetric-speed-up/{format}-cusparse-log.pdf",
-                    legend_loc="upper right",
-                    bar="cuSPARSE",
-                    yscale="log",
-                    latex_labels=self.latex_labels,
-                )
-
-                copy_df = df.copy()
-                for f in self.formats:
-                    if not f in ["cusparse", "CSR", format, non_symmetric_format]:
-                        # print( f"Droping {f}..." )
-                        # head_df.drop( labels=f, axis='columns', level=0, inplace=True )
-                        copy_df.drop(labels=f, axis="columns", level=0, inplace=True)
-                copy_df.sort_index(inplace=True)
-                # head_df.to_html( f"Symmetric-speed-up/{format}-head.html" )
-                copy_df.sort_values(
-                    by=[(format, "GPU", "speed-up", "non-symmetric")],
-                    inplace=True,
-                    ascending=False,
-                )
-                copy_df.to_html(f"symmetric-speed-up/{format}.html")
-                # copy_df.sort_values(by=[(format,'GPU','speed-up','non-symmetric')],inplace=True,descending=True)
-                # copy_df.to_html( f"Symmetric-speed-up/{format}-sort.html" )
-
-    def csr_light_speedup_comparison(self):
+    def comparison_speedup_light_csr(self):
         """
         Comparison of speed-up w.r.t. LightSpMV
         """
         df = self.df
-        format = "CSR Ligh Automatic Light"
-        print(f"Writing comparison of speed-up of CSR Light compared to LightSPMV")
-        if (format, "GPU") in self.formats_devices:
+        if not os.path.exists("Comparison"):
+            os.mkdir("Comparison")
+        if not os.path.exists("Comparison/Speedup"):
+            os.mkdir("Comparison/Speedup")
+
+        print(f"Writing comparison of speed-up of Light CSR compared to LightSPMV")
+        if ("CSR", "GPU") in self.launch_configs and "Light CSR" in self.launch_configs[
+            ("CSR", "GPU")
+        ]:
             profiles = {}
-            profiles[format] = df[
-                (format, "GPU", "speed-up", "LightSpMV Vector")
-            ].copy()
+            profiles["Light CSR"] = extract_sorted(
+                df,
+                ("CSR", "GPU", "Light CSR", "speed-up", "LightSpMV Vector"),
+                ascending=False,
+            )
+
             Graphs.draw_graphs(
-                [format],
+                ["Light CSR"],
                 profiles,
-                xlabel=f"Matrix number - sorted w.r.t. {LatexLabels.latex_label(format)} speed-up",
+                xlabel=f"Matrix number - sorted w.r.t. Light CSR speed-up",
                 ylabel="Speedup",
-                filename="LightSpMV-speed-up.pdf",
+                filename="Comparison/Speedup/LightSpMV-speed-up.pdf",
                 legend_loc="upper right",
                 bar="LightSpMV",
                 yscale="linear",
-                latex_labels=self.latex_labels,
             )
 
             Graphs.draw_graphs(
-                [format],
+                ["Light CSR"],
                 profiles,
-                xlabel=f"Matrix number - sorted w.r.t. {LatexLabels.latex_label(format)} speed-up",
+                xlabel=f"Matrix number - sorted w.r.t. Light CSR speed-up",
                 ylabel="Speedup",
-                filename="LightSpMV-speed-up-log.pdf",
+                filename="Comparison/Speedup/LightSpMV-speed-up-log.pdf",
                 legend_loc="upper right",
                 bar="LightSpMV",
                 yscale="log",
-                latex_labels=self.latex_labels,
             )
 
-            # df["tmp"] = df[(format, "GPU", "bandwidth", "")]
-            # filtered_df = df.dropna(subset=[("tmp", "", "", "")])
-            # ascend_df = filtered_df.copy()
-            # filtered_df.sort_values(
-            #     by=[(format, "GPU", "speed-up", "LightSpMV Vector")],
-            #     inplace=True,
-            #     ascending=False,
-            # )
-            # ascend_df.sort_values(
-            #     by=[(format, "GPU", "speed-up", "LightSpMV Vector")],
-            #     inplace=True,
-            #     ascending=True,
-            # )
-            # fig, axs = plt.subplots(1, 1, figsize=(6, 4))
-            # size = len(filtered_df[(format, "GPU", "speed-up", "LightSpMV Vector")].index)
-            # t = np.arange(size)
-            # bar = np.full(size, 1)
-            # axs.plot(
-            #     t,
-            #     filtered_df[(format, "GPU", "speed-up", "LightSpMV Vector")],
-            #     "-o",
-            #     ms=1,
-            #     lw=1,
-            # )
-            # axs.plot(t, bar, "-", ms=1, lw=1)
-            # axs.legend([LatexLabels.latex_label(format), "LightSpMV"], loc="upper right")
-            # axs.set_ylabel("Speedup")
-            # axs.set_xlabel(
-            #     f"Matrix number - sorted w.r.t. {LatexLabels.latex_label(format)} speed-up"
-            # )
-            # plt.rcParams.update(
-            #     {
-            #         "text.usetex": True,
-            #         "font.family": "sans-serif",
-            #         "font.sans-serif": ["Helvetica"],
-            #     }
-            # )
-            # # for Palatino and other serif fonts use:
-            # # plt.rcParams.update({
-            # #   "text.usetex": True,
-            # #   "font.family": "serif",
-            # #   "font.serif": ["Palatino"],
-            # # })
-            # plt.savefig(f"LightSpMV-speed-up.pdf")
-            # plt.close(fig)
-
-            # fig, axs = plt.subplots(1, 1, figsize=(6, 4))
-            # axs.set_yscale("log")
-            # axs.plot(
-            #     t,
-            #     filtered_df[(format, "GPU", "speed-up", "LightSpMV Vector")],
-            #     "-o",
-            #     ms=1,
-            #     lw=1,
-            # )
-            # axs.plot(t, bar, "-", ms=1, lw=1)
-            # axs.legend([LatexLabels.latex_label(format), "LightSpMV"], loc="lower left")
-            # axs.set_xlabel(
-            #     f"Matrix number - sorted w.r.t. {LatexLabels.latex_label(format)} speed-up"
-            # )
-            # axs.set_ylabel("Speedup")
-            # plt.savefig(f"LightSpMV-speed-up-log.pdf")
-            # plt.close(fig)
-            # head_df = filtered_df.head( head_size )
-            # bottom_df = ascend_df.head( head_size )
             copy_df = df.copy()
             for f in self.formats:
                 if not f in ["cusparse", "CSR", format]:
@@ -1115,142 +867,105 @@ class Report:
             # head_df.to_html( f"LightSpMV-speed-up-head.html" )
             copy_df.to_html(f"LightSpMV-speed-up-bottom.html")
 
-    def csr_hypre_cpu_scalability(self):
+    def cpu_scalability_csr_hypre_ginkgo(self):
         df = self.df
         cpu_formats = ["CSR"]
-        if ("Hypre", "CPU") in self.formats_devices:
+        if ("Hypre", "CPU") in self.launch_configs:
             cpu_formats.append("Hypre")
+        if ("Ginkgo", "CPU") in self.launch_configs:
+            cpu_formats.append("Ginkgo")
+
         for format in cpu_formats:
-            for threads in self.threads_num_list:
+            if (format, "CPU") not in self.launch_configs:
+                continue
+            for launch_config in self.launch_configs[(format, "CPU")]:
+                if launch_config == "Default":
+                    continue
+                threads = int(launch_config.split(" ")[0])
                 if threads == 1:
                     continue
-                for metrics in ["speed-up", "eff."]:
-                    threads_str = str(threads) + " threads"
+                for metrics in ["speed-up", "efficiency"]:
                     print(f"Writing scalability of {format} on CPU")
-                    df["tmp"] = df[(format, "CPU", threads_str, metrics)]
-                    filtered_df = df.dropna(subset=[("tmp", "", "", "")])
-                    try:
-                        filtered_df.sort_values(
-                            by=[(format, "CPU", threads_str, metrics)],
-                            inplace=True,
-                            ascending=False,
-                        )
-                    except:
-                        continue
-                    fig, axs = plt.subplots(1, 1, figsize=(6, 4))
-                    size = len(filtered_df[(format, "CPU", threads_str, metrics)].index)
-                    t = np.arange(size)
-                    bar = np.full(size, 1)
-                    axs.plot(
-                        t,
-                        filtered_df[(format, "CPU", threads_str, metrics)],
-                        "-o",
-                        ms=1,
-                        lw=1,
+                    profiles = {}
+                    profiles[format] = extract_sorted(
+                        df, (format, "CPU", launch_config, metrics, ""), ascending=False
                     )
-                    axs.plot(t, bar, "-", ms=1, lw=1)
-                    axs.legend([LatexLabels.latex_label(format)], loc="upper right")
-                    axs.set_ylabel(metrics)
-                    axs.set_xlabel(
-                        f"Matrix number - sorted w.r.t. {LatexLabels.latex_label(format)} {metrics}"
+                    Graphs.draw_graphs(
+                        [format],
+                        profiles,
+                        xlabel=f"Matrix number - sorted w.r.t. {format} {metrics}",
+                        ylabel=f"{metrics}",
+                        filename=f"CPU-{metrics}-{format}-{launch_config}.pdf",
+                        legend_loc="upper right",
+                        bar="",
+                        yscale="linear",
                     )
-                    plt.rcParams.update(
-                        {
-                            "text.usetex": True,
-                            "font.family": "sans-serif",
-                            # "font.sans-serif": ["Helvetica"],
-                        }
-                    )
-                    plt.savefig(f"{format}-{threads}-threads-{metrics}.pdf")
-                    plt.close(fig)
 
-    def hypre_cpu_tnl_speedup_scalability(self):
+    def comparison_speedup_cpu_hypre_ginkgo(self):
         df = self.df
-        if ("Hypre", "CPU") in self.formats_devices:
-            for threads in self.threads_num_list:
-                threads_str = str(threads) + " threads"
-                print(f"Writing scalability of {format} on CPU")
-                df["tmp"] = df[("Hypre", "CPU", threads_str, "TNL speed-up")]
-                filtered_df = df.dropna(subset=[("tmp", "", "", "")])
-                try:
-                    filtered_df.sort_values(
-                        by=[("Hypre", "CPU", threads_str, "TNL speed-up")],
-                        inplace=True,
-                        ascending=False,
+        for format in ["Ginkgo", "Hypre"]:
+            if (format, "CPU") in self.launch_configs:
+                for launch_config in self.launch_configs[(format, "CPU")]:
+                    print(f"Writing scalability of {format} on CPU")
+                    profiles = {}
+                    profiles[f"CSR {launch_config}"] = extract_sorted(
+                        df,
+                        (format, "CPU", launch_config, "TNL speed-up", ""),
                     )
-                except:
-                    continue
-                fig, axs = plt.subplots(1, 1, figsize=(6, 4))
-                size = len(
-                    filtered_df[("Hypre", "CPU", threads_str, "TNL speed-up")].index
-                )
-                t = np.arange(size)
-                bar = np.full(size, 1)
-                axs.plot(
-                    t,
-                    filtered_df[("Hypre", "CPU", threads_str, "TNL speed-up")],
-                    "-o",
-                    ms=1,
-                    lw=1,
-                )
-                axs.plot(t, bar, "-", ms=1, lw=1)
-                axs.legend(["Hypre"], loc="upper right")
-                axs.set_ylabel("Speedup")
-                axs.set_xlabel(f"Matrix number - sorted w.r.t. Hypre TNL speed-up")
-                plt.rcParams.update(
-                    {
-                        "text.usetex": True,
-                        "font.family": "sans-serif",
-                        # "font.sans-serif": ["Helvetica"],
-                    }
-                )
-                plt.savefig(f"Hypre-{threads}-threads-TNL-speed-up.pdf")
-                plt.close(fig)
+                    Graphs.draw_graphs(
+                        [f"CSR {launch_config}"],
+                        profiles,
+                        xlabel=f"Matrix number - sorted w.r.t. speed-up of CSR {launch_config}",
+                        ylabel=f"speed-up",
+                        filename=f"{format}-{launch_config}-speed-up.pdf",
+                        legend_loc="upper right",
+                        bar=f"{format} {launch_config}",
+                        yscale="linear",
+                    )
 
     def analyze_light_csr(self):
         """
-        Analyze mapping of CUDA thredads in Light CSR
+        Analyze mapping of CUDA threads in Light CSR
         """
         df = self.df
         sort_df = df.sort_values(
             by=[
-                ("CSR Light Best", "GPU", "threads per row", ""),
-                ("nonzeros per row", "", "", ""),
+                ("CSR Best", "GPU", "", "TPS", ""),
+                ("nonzeros per row", "", "", "", ""),
             ],
             inplace=False,
             ascending=True,
-        )
+        ).copy()
         for f in self.formats:
-            if not f in ["CSR Light Best"]:
+            if not f in ["CSR Best"]:
                 sort_df.drop(labels=f, axis="columns", level=0, inplace=True)
         sort_df.sort_index(inplace=True)
         sort_df.to_html(f"LightSpMV-Threads-per-row-best.html")
         # Graphs.draw_graphs(
         #     [format],
         #     profiles,
-        #     xlabel=f"Matrix number - sorted w.r.t. {LatexLabels.latex_label(format)} speed-up",
+        #     xlabel=f"Matrix number - sorted w.r.t. {format} speed-up",
         #     ylabel="Speedup",
         #     filename="LightSpMV-speed-up-log.pdf",
         #     legend_loc="upper right",
         #     bar="LightSpMV",
         #     yscale="log",
-        #     latex_labels=latex_labels,
         # )
 
-        size = len(sort_df[("nonzeros per row", "", "", "")].index)
+        size = len(sort_df[("nonzeros per row", "", "", "", "")].index)
         t = np.arange(size)
         fig, axs = plt.subplots(1, 1)
         axs.set_yticks(np.arange(0, 100, step=10))
-        axs.plot(t, sort_df[("nonzeros per row", "", "", "")], "-o", ms=1, lw=1)
+        axs.plot(t, sort_df[("nonzeros per row", "", "", "", "")], "-o", ms=1, lw=1)
         axs.plot(
             t,
-            sort_df[("CSR Light Best", "GPU", "threads per row", "")],
+            sort_df[("CSR Best", "GPU", "", "TPS", "")],
             "-o",
             ms=1,
             lw=1,
         )
-        axs.legend(["Nonzeros per row", "Threads per row"], loc="upper right")
-        axs.set_ylabel("CSR Light analysis")
+        axs.legend(["Nonzeros per row", "TPS"], loc="upper right")
+        axs.set_ylabel("CSR on GPU analysis")
         axs.set_ylim([0, 200])
         plt.rcParams.update(
             {
@@ -1264,33 +979,36 @@ class Report:
 
         profiles = {}
         sort_df = df.sort_values(
-            by=[("nonzeros per row", "", "", "")], inplace=False, ascending=True
+            by=[("nonzeros per row", "", "", "", "")], inplace=False, ascending=True
         )
-        formats_list = [
-            "CSR Light 1",
-            "CSR Light 2",
-            "CSR Light 4",
-            "CSR Light 8",
-            "CSR Light 16",
-            "CSR Light 32",
-        ]
-        if formats_list in self.formats:
-            for format in formats_list:
+        for format in self.formats:
+            if format != "CSR":
                 sort_df.drop(labels=format, axis="columns", level=0, inplace=True)
-                profiles[format] = df[(format, "GPU", "bandwidth", "")].copy()
-            sort_df.sort_index(inplace=True)
-            sort_df.to_html(f"LightSpMV-Threads-per-row.html")
-            Graphs.draw_graphs(
-                formats_list,
-                profiles,
-                "non-zeros per row",
-                "BW",
-                "nonzeros-bw.pdf",
-                "lower right",
-                "none",
-                "linear",
-                latex_labels=self.latex_labels,
-            )
+
+        # sort_df.sort_index(inplace=True)
+        sort_df.to_html(f"LightSpMV-Threads-per-row.html")
+
+        launch_configs_list = []
+        for launch_config in self.launch_configs[("CSR", "GPU")]:
+            if "thread" in launch_config:
+                # sort_df.drop(labels="CSR", axis="columns", level=0, inplace=True)
+                print(f"Adding {launch_config} to profiles...")
+                profiles[launch_config] = df[
+                    ("CSR", "GPU", launch_config, "bandwidth", "")
+                ].copy()
+                launch_configs_list.append(launch_config)
+        print(launch_configs_list)
+        print(profiles)
+        Graphs.draw_graphs(
+            launch_configs_list,
+            profiles,
+            "non-zeros per row",
+            "BW",
+            "CSR-threads-per-segment-bw.pdf",
+            "upper right",
+            "none",
+            "linear",
+        )
 
     def write_colormap(file, max_bw, size, x_position, y_position, standalone=False):
         if standalone:
@@ -1544,56 +1262,12 @@ class Report:
         with open("color-map.tex", "w") as file:
             self.write_colormap(file, 1200, 5, 13 * scale, 1.5 * scale, standalone=True)
 
-    def legacy_formats_comparison(self):
-        """
-        Comparison of legacy formats
-        """
-        df = self.df
-        if not os.path.exists("legacy-speed-up"):
-            os.mkdir("legacy-speed-up")
-        for format in self.formats:
-            if not self.legacy_counterparts.get(format):
-                continue
-            legacy_format = self.legacy_counterparts.get(format)
-            for device in ["CPU", "GPU"]:
-                if not (format, device) in self.formats_devices:
-                    continue
-                profiles = {}
-                df.sort_values(
-                    by=[(format, device, "speed-up", legacy_format)],
-                    inplace=True,
-                    ascending=False,
-                )
-                profiles[format] = df[
-                    (format, device, "speed-up", legacy_format)
-                ].copy()
-                # print(
-                #    f"format={format} device={device} legacy_format = {legacy_format} >>> {profiles[format]}"
-                # )
-                Graphs.draw_graphs(
-                    [format],
-                    profiles,
-                    xlabel=f"Matrix number - sorted w.r.t. speed-up of {LatexLabels.latex_label(format)}",
-                    ylabel="Speedup",
-                    filename=f"legacy-speed-up/{format}-{device}.pdf",
-                    legend_loc="upper right",
-                    bar=LatexLabels.latex_label(legacy_format),
-                    yscale="linear",
-                    latex_labels=self.latex_labels,
-                )
-                copy_df = df.copy()
-                for f in self.formats:
-                    if not f in [format, legacy_format]:
-                        copy_df.drop(labels=f, axis="columns", level=0, inplace=True)
-                # copy_df.sort_index(inplace=True)
-                copy_df.to_html(f"legacy-speed-up/{format}-{device}.html")
-
     def count_best_kernels(self, filtered_data_frame):
         """
         Count number of matrices for which particular kernels perform the best.
         """
         result = {}
-        best = filtered_data_frame[("TNL Best", "GPU", "format", "")].tolist()
+        best = filtered_data_frame[("TNL Best", "GPU", "format", "", "")].tolist()
         best_kernels = list(set(best))
         for format in best_kernels:
             if (
@@ -1611,8 +1285,9 @@ class Report:
         """
         Write table with best kernels for each matrix
         """
-        best = self.df[("TNL Best", "GPU", "format", "")].tolist()
+        best = self.df[("TNL Best", "GPU", "format", "", "")].tolist()
         best_kernels = list(set(best))
+        print(best_kernels)
         best_kernels_df = pd.DataFrame(
             columns=[
                 "0",
@@ -1628,14 +1303,14 @@ class Report:
         )
         df = self.df
         for drop in [0, 10, 100, 1000, 10000, 100000, 1000000, 10000000]:
-            df.drop(df[df[("rows", "", "", "")] < drop].index, inplace=True)
+            df.drop(df[df[("rows", "", "", "", "")] < drop].index, inplace=True)
             best_kernels_count = self.count_best_kernels(df)
             for kernel in best_kernels:
                 if kernel in best_kernels_count:
                     best_kernels_df.loc[kernel][str(drop)] = best_kernels_count[kernel]
                 else:
                     best_kernels_df.loc[kernel][str(drop)] = 0
-        best_kernels_df.to_html("best-kernels.html")
+        best_kernels_df.to_html("best-results.html")
 
     def write(self):
         """
@@ -1643,26 +1318,24 @@ class Report:
         """
 
         # Generate tables and figures
-        # self.effective_bw_profile_cpu()
-        # self.effective_bw_profile_gpu()
-        # self.ellpack_bw_profiles()
-        # self.csr_bw_profiles()
-        # self.cusparse_comparison()
-        # self.csr_comparison()
-        # self.legacy_formats_comparison()
-        # self.csr_speedup_comparison()
-        # self.ginkgo_comparison()
-        # self.cusparse_and_hypre_speedup_comparison()
-        self.binary_matrices_comparison()
-        self.symmetric_matrices_comparison()
 
-        # self.csr_light_speedup_comparison()
-        # self.csr_hypre_cpu_scalability()
-        # self.hypre_cpu_tnl_speedup_scalability()
+        self.effective_bw_profile()
+        self.ellpack_bw_profiles()
+        self.csr_bw_profiles()
 
-        self.legacy_formats_comparison()
+        self.comparison_bandwidth()
+        self.comparison_legacy_formats_bandwidth()
+
+        self.comparison_speedup()
+        self.comparison_speedup_ginkgo_cpu()
+        self.comparison_speedup_legacy_formats()
+        self.comparison_speedup_groups_vs_reference_formats()
+        self.comparison_speedup_binary_symmetric_sorted_matrices()
+        self.comparison_speedup_light_csr()
+
+        self.cpu_scalability_csr_hypre_ginkgo()
+        self.comparison_speedup_cpu_hypre_ginkgo()
 
         # self.write_performance_circles()
-        self.analyze_light_csr()
-
-        self.best_kernels_table()
+        # self.analyze_light_csr()
+        # self.best_kernels_table()

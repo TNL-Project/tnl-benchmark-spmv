@@ -12,6 +12,7 @@ from TNL.BenchmarkLogs import *
 import MultiindexCreator as mic
 import Speedup
 import Report
+import BestFormats
 import LatexLabels
 
 bw_units = "TB/s"
@@ -19,25 +20,27 @@ bw_units = "TB/s"
 formats_devices = []
 latex_labels = {}
 
-legacy_couterparts = {
-    "BiEllpack BiEllpack": "BiEllpack Legacy",
-    "ChunkedElpack ChunkedElpack": "ChunkedEllpack Legacy",
-    "SlicedEllpack SlicedEllpack": "SlicedEllpack Legacy",
-    "Ellpack Ellpack": "Ellpack Legacy",
-    "CSR Scalar": "CSR Legacy Scalar",
-    "CSR Vector": "CSR Legacy Vector",
-    "CSR Adaptive": "CSR Legacy Adaptive",
-    "CSR Light Automatic Light": "CSR Legacy LightWithoutAtomic",
+launch_configs = {}
+
+legacy_counterparts = {
+    ("BiEllpack", "1 TPS"): "Legacy BiEllpack",
+    ("ChunkedEllpack", "1 TPS"): "Legacy ChunkedEllpack",
+    ("SlicedEllpack", "1 TPS"): "Legacy SlicedEllpack",
+    ("Ellpack", "1 TPS"): "Legacy Ellpack",
+    ("CSR", "1 TPS"): "Legacy CSR Scalar",
+    ("CSR", "Warp per segment"): "Legacy CSR Vector",
+    ("CSR", "Light CSR"): "Legacy CSR LightWithoutAtomic",
+    ("CSR Adaptive", "Default"): "Legacy CSR Adaptive",
 }
 
 """
 The following is a list of formats within which we search for the best performance.
 """
 best_formats_list = [
-    "Ellpack Ellpack",
-    "SlicedEllpack SlicedEllpack",
-    "ChunkedEllpack ChunkedEllpack",
-    "BiEllpack BiEllpack",
+    "Ellpack",
+    "SlicedEllpack",
+    "ChunkedEllpack",
+    "BiEllpack",
     "CSR Scalar",
     "CSR Vector",
     #    "CSR Light 1",
@@ -48,8 +51,6 @@ best_formats_list = [
     #    "CSR Light 32",
     #    "CSR Light 64",
     #    "CSR Light 128",
-    "CSR Light Automatic Light",
-    "CSR Adaptive",
     "cusparse",
     "CSR CPU",
     # "Ginkgo CSR",
@@ -88,56 +89,113 @@ def slugify(s):
     return re.sub(r"(?u)[^-\w.]", "", s)
 
 
-def get_multiindex(input_df, formats, threads_num_list):
+def add_to_multiindex(mc, format, device, launch_config):
+    if (format in ["CSR", "Hypre", "Ginkgo"]) and device == "CPU":
+        # For these formats on CPU we want to compute parallel efficiency
+        if launch_config == "1 threads":
+            bm_data = ["bandwidth", "time"]
+        else:
+            bm_data = ["bandwidth", "time", "speed-up", "eff."]
+        if format in ["Hypre", "Ginkgo"]:
+            bm_data.append("TNL speed-up")
+        for data in bm_data:
+            mc.add_entry([format, "CPU", launch_config, data])
+            print(f"   >>> {format} CPU {launch_config} {data}")
+    else:
+        # Here we add all the other formats
+        if (format, device) in launch_configs:
+            for data in [
+                "bandwidth",
+                "time",
+                "diff.max",
+            ]:
+                mc.add_entry([format, device, launch_config, data])
+                print(f"   >>> {format} {device} {launch_config} {data}")
+        # If there is a legacy counterpart for the format we add speed-up to compare both
+        legacy_format = legacy_counterparts.get(format)
+        if legacy_format:
+            mc.add_entry([format, device, launch_config, "speed-up", legacy_format])
+            print(f"   >>> {format} {device} {launch_config} speed-up {legacy_format}")
+
+        # Here we add speed-up comparisons  with cusparse, CSR on CPU, Hypre and Ginkgo Libraries
+        if device == "GPU" and not format in ["cusparse"]:
+            for speedup in ["cusparse", "CSR CPU", "Hypre", "Ginkgo"]:
+                if speedup != format:
+                    mc.add_entry([format, "GPU", launch_config, "speed-up", speedup])
+                    print(f"   >>> {format} GPU {launch_config} speed-up {speedup}")
+        # Add speedup of CSR Light compared to Light SpMV
+        if format == "CSR" and launch_config == "Light CSR":
+            mc.add_entry(["CSR", "GPU", "Light CSR", "speed-up", "LightSpMV Vector"])
+            print(f"   >>> {format} GPU {launch_config} speed-up LightSpMV Vector")
+
+        # Here we add speed-up comparisons for Binary,Symmetric and Sorted formats
+        if device == "GPU":
+            if "Binary" in format:
+                mc.add_entry([format, "GPU", launch_config, "speed-up", "non-binary"])
+                print(f"   >>> {format} GPU {launch_config} speed-up non-binary")
+            if "Symmetric" in format:
+                mc.add_entry(
+                    [format, "GPU", launch_config, "speed-up", "non-symmetric"]
+                )
+                print(f"   >>> {format} GPU {launch_config} speed-up non-symmetric")
+            if "Sorted" in format:
+                mc.add_entry([format, "GPU", launch_config, "speed-up", "non-sorted"])
+                print(f"   >>> {format} GPU {launch_config} speed-up non-sorted")
+            if (format, launch_config) in legacy_counterparts:
+                mc.add_entry(
+                    [
+                        format,
+                        "GPU",
+                        launch_config,
+                        "speed-up",
+                        legacy_counterparts[(format, launch_config)],
+                    ]
+                )
+                print(
+                    f"   >>> {format} GPU {launch_config} speed-up {legacy_counterparts[(format, launch_config)]}"
+                )
+
+
+def get_multiindex(input_df, formats, launch_configs):
     """
     Create index for the table.
     """
-    mc = mic.MultiindexCreator(4)
+    mc = mic.MultiindexCreator(5)
     mc.add_entries([["Matrix name"], ["rows"], ["columns"], ["nonzeros per row"]])
 
     for format in formats:
         for device in ["CPU", "GPU"]:
-            if (format in ["CSR", "Hypre", "Ginkgo"]) and device == "CPU":
-                for threads in threads_num_list:
-                    if threads == 1:
-                        bm_data = [
-                            "bandwidth",
-                            "time",
-                        ]
-                    else:
-                        bm_data = ["bandwidth", "time", "speed-up", "eff."]
-                    if format in ["Hypre", "Ginkgo"]:
-                        bm_data.append("TNL speed-up")
-                    for (
-                        data
-                    ) in (
-                        bm_data
-                    ):  # ,'time','speed-up','non-zeros','stddev','stddev/time','diff.max','diff.l2']:
-                        mc.add_entry([format, "CPU", str(threads) + " threads", data])
-            else:
-                for data in [
-                    "bandwidth",
-                    "time",
-                    "diff.max",
-                ]:  # ,'time','speed-up','non-zeros','stddev','stddev/time','diff.max','diff.l2']:
-                    mc.add_entry([format, device, data])
-            legacy_format = legacy_couterparts.get(format)
-            if legacy_format:
-                mc.add_entry([format, device, "speed-up", legacy_format])
+            if (format, device) in launch_configs:
+                for launch_config in launch_configs[(format, device)]:
+                    print(f"Adding to multiindex: {format} {device} {launch_config}")
+                    add_to_multiindex(mc, format, device, launch_config)
 
-        if not format in ["cusparse", "CSR"]:
-            for speedup in ["cusparse", "CSR CPU", "Hypre", "Ginkgo"]:
-                mc.add_entry([format, "GPU", "speed-up", speedup])
-        if "Binary" in format:
-            mc.add_entry([format, "GPU", "speed-up", "non-binary"])
-        if "Symmetric" in format:
-            mc.add_entry([format, "GPU", "speed-up", "non-symmetric"])
-        if format == "CSR Light Automatic" or format == "CSR Light Automatic Light":
-            mc.add_entry([format, "GPU", "speed-up", "LightSpMV Vector"])
-        if format == "TNL Best":
-            mc.add_entry([format, "GPU", "format"])
-        if format == "CSR Light Best":
-            mc.add_entry([format, "GPU", "threads per row"])
+            # Finaly we add column with the format exhibiting the best performance for given matrix
+            if format == "CSR Best" and device == "CPU":
+                mc.add_entry(["CSR Best", "CPU", "", "threads"])
+            if format == "CSR Best" and device == "GPU":
+                mc.add_entry(["CSR Best", "GPU", "", "launch cfg."])
+            if (
+                format == "CSR Light Automatic" or format == "CSR Light Automatic Light"
+            ) and device == "GPU":
+                mc.add_entry([format, "GPU", "", "speed-up", "LightSpMV Vector"])
+            if format == "CSR Light Best" and device == "GPU":
+                mc.add_entry(["CSR Light Best", "GPU", "", "TPS"])
+
+    mc.add_entry(["TNL Best", "format", "", "", ""])
+    mc.add_entry(["TNL Best", "device", "", "", ""])
+    mc.add_entry(["TNL Best", "launch cfg.", "", "", ""])
+    mc.add_entry(["TNL Best", "bandwidth", "", "", ""])
+    mc.add_entry(["TNL Best", "time", "", "", ""])
+    mc.add_entry(["TNL Best", "speed-up", "CSR CPU", "", ""])
+    mc.add_entry(["TNL Best", "speed-up", "cusparse", "", ""])
+
+    mc.add_entry(["Total Best", "format", "", "", ""])
+    mc.add_entry(["Total Best", "device", "", "", ""])
+    mc.add_entry(["Total Best", "launch cfg.", "", "", ""])
+    mc.add_entry(["Total Best", "bandwidth", "", "", ""])
+    mc.add_entry(["Total Best", "time", "", "", ""])
+
     return mc.get_multiindex()
 
 
@@ -160,20 +218,17 @@ def convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=-1)
         else:
             print(f"{out_idx} : {in_idx} / {len(input_df.index)} : {matrixName} - SKIP")
         aux_df = pd.DataFrame(df_data, columns=multicolumns, index=[out_idx])
-        best_bw_gpu = 0
-        best_bw_cpu = 0
-        best_csr_light_bw = 0
-        best_csr_light_format = "0"
         for index, row in df_matrix.iterrows():
-            aux_df.iloc[0]["Matrix name"] = row["matrix name"]
-            aux_df.iloc[0]["rows"] = row["rows"]
-            aux_df.iloc[0]["columns"] = row["columns"]
-            aux_df.iloc[0]["nonzeros per row"] = float(row["nonzeros"]) / float(
+            aux_df.loc[out_idx, "Matrix name"] = row["matrix name"]
+            aux_df.loc[out_idx, "rows"] = row["rows"]
+            aux_df.loc[out_idx, "columns"] = row["columns"]
+            aux_df.loc[out_idx, "nonzeros per row"] = float(row["nonzeros"]) / float(
                 row["rows"]
             )
             current_format = row["format"]
             # print(f"current_format = {current_format}")
             current_device = row["performer"]
+            current_launch_config = row["launch cfg."]
             formats_devices.append((current_format, current_device))
             bw = pd.to_numeric(row["bandwidth"], errors="coerce")
             if bw_units == "TB/s":
@@ -183,92 +238,53 @@ def convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=-1)
             if current_device == "CPU" and (
                 current_format in ["CSR", "Ginkgo", "Hypre"]
             ):
-                threads = str(int(row["threads"]))
                 # aux_df.iloc[0][("CSR", "CPU", "1.0 threads", "bandwidth")] = bw
-                aux_df.iloc[0][
+                aux_df.loc[
+                    out_idx,
                     (
                         current_format,
                         current_device,
-                        threads + " threads",
+                        current_launch_config,
                         "bandwidth",
-                    )
+                        "",
+                    ),
                 ] = bw
-                aux_df.iloc[0][
-                    (current_format, current_device, threads + " threads", "time")
+                aux_df.loc[
+                    out_idx,
+                    (current_format, current_device, current_launch_config, "time", ""),
                 ] = time
-                if bw > best_bw_cpu:
-                    best_bw_cpu = bw
-                    best_cpu_threads = threads
             else:
-                aux_df.iloc[0][(current_format, current_device, "bandwidth", "")] = bw
-                aux_df.iloc[0][(current_format, current_device, "time", "")] = time
-                aux_df.iloc[0][
-                    (current_format, current_device, "diff.max", "")
+                aux_df.loc[
+                    out_idx,
+                    (
+                        current_format,
+                        current_device,
+                        current_launch_config,
+                        "bandwidth",
+                        "",
+                    ),
+                ] = bw
+                aux_df.loc[
+                    out_idx,
+                    (current_format, current_device, current_launch_config, "time", ""),
+                ] = time
+                aux_df.loc[
+                    out_idx,
+                    (
+                        current_format,
+                        current_device,
+                        current_launch_config,
+                        "diff.max",
+                        "",
+                    ),
                 ] = diff_max
-            if (
-                current_device == "GPU"
-                and not "Binary" in current_format
-                and not "Symmetric" in current_format
-                and not "Legacy" in current_format
-                and not "cusparse" in current_format
-                and not "LightSpMV" in current_format
-                and not "Hybrid" in current_format
-                and current_format != "CSR Light Automatic"
-                and current_format in best_formats_list
-                and bw > best_bw_gpu
-            ):
-                best_bw_gpu = bw
-                best_format_gpu = current_format
-            if (
-                current_device == "GPU"
-                and (
-                    current_format == "CSR Light 1"
-                    or current_format == "CSR Light 2"
-                    or current_format == "CSR Light 4"
-                    or current_format == "CSR Light 8"
-                    or current_format == "CSR Light 16"
-                    or current_format == "CSR Light 32"
-                    or current_format == "CSR Light 64"
-                    or current_format == "CSR Light 128"
-                )
-                and bw > best_csr_light_bw
-            ):
-                best_csr_light_bw = bw
-                best_csr_light_format = current_format
-            if current_format == "cusparse":
-                cusparse_bw = bw
-            else:
-                cusparse_bw = 0
-            # aux_df.iloc[0][(current_format,current_device,'time')]        = row['time']
-            # aux_df.iloc[0][(current_format,current_device,'speed-up')]    = row['speedup']
-            # aux_df.iloc[0][(current_format,current_device,'non-zeros')]   = row['non-zeros']
-            # aux_df.iloc[0][(current_format,current_device,'stddev')]      = row['stddev']
-            # aux_df.iloc[0][(current_format,current_device,'stddev/time')] = row['stddev/time']
-            # aux_df.iloc[0][(current_format,current_device,'diff.max')]    = row['CSR Diff.Max']
-            # aux_df.iloc[0][(current_format,current_device,'diff.l2')]    = row['CSR Diff.L2']
-        aux_df.iloc[0][("TNL Best", "GPU", "bandwidth", "")] = best_bw_gpu
-        aux_df.iloc[0][("TNL Best", "CPU", "bandwidth", "")] = best_bw_cpu
-        if best_bw_gpu > cusparse_bw and best_bw_gpu > best_bw_cpu:
-            aux_df.iloc[0][("TNL Best", "GPU", "format", "")] = best_format_gpu
-        elif best_bw_cpu > cusparse_bw:
-            aux_df.iloc[0][
-                ("TNL Best", "GPU", "format", "")
-            ] = f"CSR CPU {best_cpu_threads} threads"
-        else:
-            aux_df.iloc[0][("TNL Best", "GPU", "format", "")] = "cusparse"
-        best_count += 1
-        best_threads_per_row = best_csr_light_format.replace("CSR Light ", "")
-        # print( f'best_csr_light_format = {best_csr_light_format} best_threads_per_row = {best_threads_per_row} \n')
-        aux_df.iloc[0][("CSR Light Best", "GPU", "bandwidth", "")] = best_csr_light_bw
-        aux_df.iloc[0][("CSR Light Best", "GPU", "threads per row", "")] = int(
-            best_threads_per_row
-        )
         if out_idx >= begin_idx:
             frames.append(aux_df)
         out_idx = out_idx + 1
         in_idx = in_idx + len(df_matrix.index)
     result = pd.concat(frames)
     result.replace("", float("nan"), inplace=True)
+    result = result.copy()
     return result
 
 
@@ -342,37 +358,55 @@ if "Symmetric CSR Light Automatic" in formats:
     formats.remove("Symmetric CSR Light Automatic")
 if "Symmetric Binary CSR Light Automatic" in formats:
     formats.remove("Symmetric Binary CSR Light Automatic")
-formats.append("TNL Best")
-formats.append("CSR Light Best")
+formats.append("CSR Best")
+formats.sort()
+
+# Detect launch configurations
+in_idx = 0
+while in_idx < len(input_df.index):
+    row = input_df.iloc[in_idx]
+    format = row["format"]
+    device = row["performer"]
+    launch_cfg = row["launch cfg."]
+    if (format, device) not in launch_configs:
+        launch_configs[(format, device)] = []
+    if launch_cfg not in launch_configs[(format, device)]:
+        launch_configs[(format, device)].append(launch_cfg)
+    in_idx += 1
+launch_configs[("CSR Best", "GPU")] = []
+launch_configs[("CSR Best", "GPU")].append("")
+launch_configs[("CSR Best", "CPU")] = []
+launch_configs[("CSR Best", "CPU")].append("")
+
+
 for format in formats:
     latex_labels[format] = LatexLabels.latex_label(format)
 print(f"Formats: {formats}")
+for format in formats:
+    for device in ["CPU", "GPU"]:
+        if (format, device) in launch_configs:
+            print(
+                f"Launch configs for {format} on {device}: {launch_configs[(format, device)]}"
+            )
 print(f"Latex labels: {latex_labels}")
 
-cpu_threads_numbers = list(set(input_df["threads"].values.tolist()))
-cpu_threads_numbers = [
-    int(x) for x in cpu_threads_numbers if str(x) != "nan" and x != 0
-]
-# if 0 in threads_num_list:
-#    threads_num_list.remove(0)
-print(f"CPU threads: {cpu_threads_numbers}")
 
 accepted_formats = ["CSR"]
-multicolumns, df_data = get_multiindex(
-    input_df,
-    formats,
-    cpu_threads_numbers,
-)
+multicolumns, df_data = get_multiindex(input_df, formats, launch_configs)
 aux_df = pd.DataFrame(df_data, columns=multicolumns, index=[0])
 aux_df.to_html("index.html")
 
 print("Converting data...")
-result = convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=-1)
-result.to_html("sparse-matrix-benchmark-test-processed.html")
+result = convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=5)
+# result.to_html("sparse-matrix-benchmark-test-processed.html")
+
 
 Speedup.compute_speedup(
-    result, formats, cpu_threads_numbers, formats_devices, legacy_couterparts
+    result, formats, launch_configs, formats_devices, legacy_counterparts
 )
+# Speedup.get_best_csr(result, launch_configs)
+# Speedup.get_best_tnl_format(result, formats, launch_configs)
+# Speedup.get_total_best_format(result, formats, launch_configs)
 result.replace(to_replace=" ", value=np.nan, inplace=True)
 
 print("Writting to file sparse-matrix-benchmark-test-processed.html ... ")
@@ -394,11 +428,11 @@ report = Report.Report(
     formats,
     latex_labels,
     formats_devices,
-    cpu_threads_numbers,
-    legacy_couterparts,
+    launch_configs,
+    legacy_counterparts,
     head_size,
 )
-report.write()
+# report.write()
 os.chdir("..")
 
 # for rows_count in [ 10, 100, 1000, 10000, 100000, 1000000, 10000000 ]:
@@ -416,3 +450,7 @@ os.chdir("..")
 #   os.chdir( f'rows-ge-{rows_count}')
 #   processDf( filtered_df, formats, head_size )
 #   os.chdir( '..' )
+
+bestFormats = BestFormats.BestFormats(result, formats, launch_configs)
+bestFormats.write()
+bestFormats.count_best_formats()
