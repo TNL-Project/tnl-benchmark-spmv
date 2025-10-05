@@ -17,9 +17,6 @@ import LatexLabels
 
 bw_units = "TB/s"
 
-formats_devices = []
-latex_labels = {}
-
 launch_configs = {}
 
 legacy_counterparts = {
@@ -33,60 +30,31 @@ legacy_counterparts = {
     ("CSR Adaptive", "Default"): "Legacy CSR Adaptive",
 }
 
-"""
-The following is a list of formats within which we search for the best performance.
-"""
-best_formats_list = [
-    "Ellpack",
-    "SlicedEllpack",
-    "ChunkedEllpack",
-    "BiEllpack",
-    "CSR Scalar",
-    "CSR Vector",
-    #    "CSR Light 1",
-    #    "CSR Light 2",
-    #    "CSR Light 4",
-    #    "CSR Light 8",
-    #    "CSR Light 16",
-    #    "CSR Light 32",
-    #    "CSR Light 64",
-    #    "CSR Light 128",
-    "cusparse",
-    "CSR CPU",
-    # "Ginkgo CSR",
-]
-
-
-def gaussian(x, a, b, c, d=0):
-    return a * math.exp(-((x - b) ** 2) / (2 * c**2)) + d
-
-
-def color_map(x, width=100, map=[], spread=1):
-    width = float(width)
-    r = sum(
-        [gaussian(x, p[1][0], p[0] * width, width / (spread * len(map))) for p in map]
-    )
-    g = sum(
-        [gaussian(x, p[1][1], p[0] * width, width / (spread * len(map))) for p in map]
-    )
-    b = sum(
-        [gaussian(x, p[1][2], p[0] * width, width / (spread * len(map))) for p in map]
-    )
-    return min(1.0, r), min(1.0, g), min(1.0, b)
-
-
-# for x in range(im.size[0]):
-#    r, g, b = pixel(x, width=im.size[0], map=heatmap)
-#    r, g, b = [int(256*v) for v in (r, g, b)]
-#    for y in range(im.size[1]):
-#        ld[x, y] = r, g, b
-
-
-####
-# Helper function
-def slugify(s):
-    s = str(s).strip().replace(" ", "_")
-    return re.sub(r"(?u)[^-\w.]", "", s)
+parser = argparse.ArgumentParser(
+    description="Script for parsing log files from tnl-benchmark-spmv."
+)
+parser.add_argument(
+    "-i",
+    "--input",
+    nargs="+",
+    help="Input files",
+    default=["sparse-matrix-benchmark.log"],
+)
+parser.add_argument(
+    "-v", "--verbose", help="Zobrazit více informací", action="store_true"
+)
+parser.add_argument(
+    "-o",
+    "--output-dir",
+    help="Output directory for generated files",
+    default="spmv-benchmark-report",
+)
+parser.add_argument(
+    "--max-rows",
+    type=int,
+    default=-1,
+    help="Maximum number of rows to process from the input files",
+)
 
 
 def add_to_multiindex(mc, format, device, launch_config):
@@ -171,30 +139,12 @@ def get_multiindex(input_df, formats, launch_configs):
                     add_to_multiindex(mc, format, device, launch_config)
 
             # Finaly we add column with the format exhibiting the best performance for given matrix
-            if format == "CSR Best" and device == "CPU":
-                mc.add_entry(["CSR Best", "CPU", "", "threads"])
-            if format == "CSR Best" and device == "GPU":
-                mc.add_entry(["CSR Best", "GPU", "", "launch cfg."])
             if (
                 format == "CSR Light Automatic" or format == "CSR Light Automatic Light"
             ) and device == "GPU":
                 mc.add_entry([format, "GPU", "", "speed-up", "LightSpMV Vector"])
             if format == "CSR Light Best" and device == "GPU":
                 mc.add_entry(["CSR Light Best", "GPU", "", "TPS"])
-
-    mc.add_entry(["TNL Best", "format", "", "", ""])
-    mc.add_entry(["TNL Best", "device", "", "", ""])
-    mc.add_entry(["TNL Best", "launch cfg.", "", "", ""])
-    mc.add_entry(["TNL Best", "bandwidth", "", "", ""])
-    mc.add_entry(["TNL Best", "time", "", "", ""])
-    mc.add_entry(["TNL Best", "speed-up", "CSR CPU", "", ""])
-    mc.add_entry(["TNL Best", "speed-up", "cusparse", "", ""])
-
-    mc.add_entry(["Total Best", "format", "", "", ""])
-    mc.add_entry(["Total Best", "device", "", "", ""])
-    mc.add_entry(["Total Best", "launch cfg.", "", "", ""])
-    mc.add_entry(["Total Best", "bandwidth", "", "", ""])
-    mc.add_entry(["Total Best", "time", "", "", ""])
 
     return mc.get_multiindex()
 
@@ -229,7 +179,6 @@ def convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=-1)
             # print(f"current_format = {current_format}")
             current_device = row["performer"]
             current_launch_config = row["launch cfg."]
-            formats_devices.append((current_format, current_device))
             bw = pd.to_numeric(row["bandwidth"], errors="coerce")
             if bw_units == "TB/s":
                 bw = bw / 1024
@@ -309,10 +258,6 @@ def parse(file_name):
     # drop comments and blank lines
     lines = [line for line in lines if line.strip() and not line.startswith("#")]
 
-    # drop anything before the first metadata block
-    # while len(lines) > 0 and not lines[0].startswith(":"):
-    #   lines.pop(0)
-
     df = pd.DataFrame
     # print( lines )
     while len(lines) > 0:
@@ -321,20 +266,6 @@ def parse(file_name):
         df.join(pd.read_json(line))
     df.to_html("orig-pandas.html")
 
-
-parser = argparse.ArgumentParser(
-    description="Script for parsing log files from tnl-benchmark-spmv."
-)
-parser.add_argument(
-    "-i",
-    "--input",
-    nargs="+",
-    help="Input files",
-    default=["sparse-matrix-benchmark.log"],
-)
-parser.add_argument(
-    "-v", "--verbose", help="Zobrazit více informací", action="store_true"
-)
 
 args = parser.parse_args()
 
@@ -379,8 +310,6 @@ launch_configs[("CSR Best", "CPU")] = []
 launch_configs[("CSR Best", "CPU")].append("")
 
 
-for format in formats:
-    latex_labels[format] = LatexLabels.latex_label(format)
 print(f"Formats: {formats}")
 for format in formats:
     for device in ["CPU", "GPU"]:
@@ -388,36 +317,28 @@ for format in formats:
             print(
                 f"Launch configs for {format} on {device}: {launch_configs[(format, device)]}"
             )
-print(f"Latex labels: {latex_labels}")
 
 
-accepted_formats = ["CSR"]
 multicolumns, df_data = get_multiindex(input_df, formats, launch_configs)
 aux_df = pd.DataFrame(df_data, columns=multicolumns, index=[0])
 aux_df.to_html("index.html")
 
 print("Converting data...")
-result = convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=5)
-# result.to_html("sparse-matrix-benchmark-test-processed.html")
-
-
-Speedup.compute_speedup(
-    result, formats, launch_configs, formats_devices, legacy_counterparts
+result = convert_data_frame(
+    input_df, multicolumns, df_data, begin_idx=0, end_idx=args.max_rows
 )
-# Speedup.get_best_csr(result, launch_configs)
-# Speedup.get_best_tnl_format(result, formats, launch_configs)
-# Speedup.get_total_best_format(result, formats, launch_configs)
+
+Speedup.compute_speedup(result, formats, launch_configs, legacy_counterparts)
 result.replace(to_replace=" ", value=np.nan, inplace=True)
 
 print("Writting to file sparse-matrix-benchmark-test-processed.html ... ")
 result.sort_index(inplace=True)
 result.to_html("sparse-matrix-benchmark-test-processed.html")
 
-
-head_size = 25
-if not os.path.exists("general"):
-    os.mkdir("general")
-os.chdir("general")
+output_dir = args.output_dir
+if not os.path.exists(output_dir):
+    os.mkdir(output_dir)
+os.chdir(output_dir)
 
 print("Writting to HTML file...")
 result.sort_index(inplace=True)
@@ -426,13 +347,15 @@ result.to_html(f"output.html")
 report = Report.Report(
     result,
     formats,
-    latex_labels,
-    formats_devices,
     launch_configs,
     legacy_counterparts,
-    head_size,
 )
-# report.write()
+report.write()
+
+bestFormats = BestFormats.BestFormats(result, formats, launch_configs)
+bestFormats.write()
+bestFormats.count_best_formats("best-formats-report_txt")
+
 os.chdir("..")
 
 # for rows_count in [ 10, 100, 1000, 10000, 100000, 1000000, 10000000 ]:
@@ -450,7 +373,3 @@ os.chdir("..")
 #   os.chdir( f'rows-ge-{rows_count}')
 #   processDf( filtered_df, formats, head_size )
 #   os.chdir( '..' )
-
-bestFormats = BestFormats.BestFormats(result, formats, launch_configs)
-bestFormats.write()
-bestFormats.count_best_formats()

@@ -69,7 +69,7 @@ def compute_csr_cpu_speedup(df, formats, launch_configs):
             )
 
 
-def compute_cusparse_speedup(df, formats, launch_configs, formats_devices):
+def compute_cusparse_speedup(df, formats, launch_configs):
     """
     Compute speed-up of particular formats compared to Cusparse on GPU
     """
@@ -90,7 +90,7 @@ def compute_cusparse_speedup(df, formats, launch_configs, formats_devices):
                             )
 
 
-def compute_hypre_and_ginkgo_speedup(df, formats, formats_devices, launch_configs):
+def compute_hypre_and_ginkgo_speedup(df, formats, launch_configs):
     """
     Compute speed-up of particular formats compared to Hypre and Ginkgo on GPU and CSR on CPU
     """
@@ -99,7 +99,7 @@ def compute_hypre_and_ginkgo_speedup(df, formats, formats_devices, launch_config
             for device in ["GPU"]:
                 for format in formats:
                     if not format in ["cusparse", "CSR", "Ginkgo", "Hypre"]:
-                        if (format, device) in formats_devices and (
+                        if (format, device) in launch_configs and (
                             format,
                             device,
                         ) in launch_configs:
@@ -155,12 +155,12 @@ def compute_csr_light_speedup(df, formats, launch_configs):
                 )
 
 
-def compute_binary_speedup(df, formats, formats_devices, launch_configs):
+def compute_binary_speedup(df, formats, launch_configs):
     """
     Compute speed-up of Binary formats compared to their non-binary counterparts
     """
     for format in formats:
-        if "Binary" in format and (format, "GPU") in formats_devices:
+        if "Binary" in format and (format, "GPU") in launch_configs:
             for launch_config in launch_configs[(format, "GPU")]:
                 non_binary_format = format.replace("Binary ", "")
                 divide_columns(
@@ -171,13 +171,13 @@ def compute_binary_speedup(df, formats, formats_devices, launch_configs):
                 )
 
 
-def compute_symmetric_speedup(df, formats, formats_devices, launch_configs):
+def compute_symmetric_speedup(df, formats, launch_configs):
     """
     Compute speed-up of Symmetric formats compared to their non-symmetric counterparts
     """
     for format in formats:
         if "Symmetric" in format:
-            if (format, "GPU") in formats_devices:
+            if (format, "GPU") in launch_configs:
                 for launch_config in launch_configs[(format, "GPU")]:
                     non_symmetric_format = format.replace("Symmetric ", "")
                     divide_columns(
@@ -188,13 +188,13 @@ def compute_symmetric_speedup(df, formats, formats_devices, launch_configs):
                     )
 
 
-def compute_sorted_speedup(df, formats, formats_devices, launch_configs):
+def compute_sorted_speedup(df, formats, launch_configs):
     """
     Compute speed-up of Sorted formats compared to their non-sorted counterparts
     """
     for format in formats:
         if "Sorted" in format:
-            if (format, "GPU") in formats_devices:
+            if (format, "GPU") in launch_configs:
                 for launch_config in launch_configs[(format, "GPU")]:
                     non_symmetric_format = format.replace("Sorted ", "")
                     divide_columns(
@@ -205,9 +205,7 @@ def compute_sorted_speedup(df, formats, formats_devices, launch_configs):
                     )
 
 
-def compute_legacy_speedup(
-    df, formats, formats_devices, launch_configs, legacy_counterparts
-):
+def compute_legacy_speedup(df, formats, launch_configs, legacy_counterparts):
     """
     Compute speed-up of formats compared to their legacy counterparts
     """
@@ -221,37 +219,25 @@ def compute_legacy_speedup(
                 # )
                 legacy_format = legacy_counterparts[(format, launch_config)]
                 if legacy_format in formats:
-                    if (format, "GPU") in formats_devices and (
+                    if (format, "GPU") in launch_configs and (
                         legacy_format,
                         "GPU",
-                    ) in formats_devices:
+                    ) in launch_configs:
                         divide_columns(
                             df,
                             (legacy_format, "GPU", "Default", "time", ""),
                             (format, "GPU", launch_config, "time", ""),
                             (format, "GPU", launch_config, "speed-up", legacy_format),
                         )
-                    # if (format, "CPU") in formats_devices and (
-                    #    legacy_format,
-                    #    "CPU",
-                    # ) in formats_devices:
-                    #    divide_columns(
-                    #        df,
-                    #        (legacy_format, "CPU", "Default", "time"),
-                    #        (format, "CPU", "time"),
-                    #        (format, "CPU", "speed-up", legacy_format),
-                    #    )
 
 
-def compute_speedup(df, formats, launch_configs, formats_devices, legacy_counterparts):
+def compute_speedup(df, formats, launch_configs, legacy_counterparts):
 
     compute_csr_cpu_speedup(df, formats, launch_configs)
-    compute_cusparse_speedup(df, formats, launch_configs, formats_devices)
-    compute_hypre_and_ginkgo_speedup(df, formats, formats_devices, launch_configs)
+    compute_cusparse_speedup(df, formats, launch_configs)
+    compute_hypre_and_ginkgo_speedup(df, formats, launch_configs)
     compute_csr_light_speedup(df, formats, launch_configs)
-    compute_binary_speedup(df, formats, formats_devices, launch_configs)
-    compute_symmetric_speedup(df, formats, formats_devices, launch_configs)
-    compute_sorted_speedup(df, formats, formats_devices, launch_configs)
-    compute_legacy_speedup(
-        df, formats, formats_devices, launch_configs, legacy_counterparts
-    )
+    compute_binary_speedup(df, formats, launch_configs)
+    compute_symmetric_speedup(df, formats, launch_configs)
+    compute_sorted_speedup(df, formats, launch_configs)
+    compute_legacy_speedup(df, formats, launch_configs, legacy_counterparts)

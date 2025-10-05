@@ -1,4 +1,5 @@
 import os
+import math
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -37,26 +38,18 @@ class Report:
     def __init__(self):
         self.df = pd.DataFrame()
         self.formats = []
-        self.latex_labels = []
-        self.head_size = 10
 
     def __init__(
         self,
         df,
         formats,
-        latex_labels,
-        formats_devices,
         launch_configs,
         legacy_counterparts,
-        head_size=10,
     ):
         self.df = df
         self.formats = formats
-        self.latex_labels = latex_labels
-        self.formats_devices = formats_devices
         self.launch_configs = launch_configs
         self.legacy_counterparts = legacy_counterparts
-        self.head_size = head_size
 
     def effective_bw_profile(self):
         """
@@ -532,7 +525,7 @@ class Report:
             )
             for device in ["GPU"]:
                 if (
-                    not (ref_format, device) in self.formats_devices
+                    not (ref_format, device) in self.launch_configs
                     or not (ref_format, device) in self.launch_configs
                     or not ref_launch_config
                     in self.launch_configs[(ref_format, device)]
@@ -884,7 +877,7 @@ class Report:
                 threads = int(launch_config.split(" ")[0])
                 if threads == 1:
                     continue
-                for metrics in ["speed-up", "efficiency"]:
+                for metrics in ["speed-up", "eff."]:
                     print(f"Writing scalability of {format} on CPU")
                     profiles = {}
                     profiles[format] = extract_sorted(
@@ -1010,277 +1003,6 @@ class Report:
             "linear",
         )
 
-    def write_colormap(file, max_bw, size, x_position, y_position, standalone=False):
-        if standalone:
-            file.write("\\documentclass{standalone}\n")
-            file.write("\\usepackage[utf8]{inputenc}\n")
-            file.write("\\usepackage{tikz}\n")
-            file.write("\\begin{document}\n")
-            file.write("\\begin{tikzpicture}\n")
-        i = 0
-        x = x_position
-        while i <= max_bw:
-            y = y_position + i / max_bw * size
-            r, g, b = color_map(i, max_bw, map=heatmap)
-            file.write(f"\\definecolor{{color_hm_{i}}}{{rgb}}{{ {r}, {g}, {b} }}; \n")
-            file.write(f"\\filldraw[color_hm_{i}] ({x},{y}) circle (2pt); \n")
-            i = i + 5
-        i = 0
-        while i <= max_bw:
-            y = y_position + i / max_bw * size
-            file.write(
-                f"\\filldraw[black] ({x},{y}) circle (1pt) node[anchor=west] {{{i}}}; \n"
-            )
-            i = i + 400
-
-        if standalone:
-            file.write("\\end{tikzpicture}\n")
-            file.write("\\end{document}\n")
-
-    def write_performance_circle_latex_base(file_name):
-        file = open(f"{file_name}-base.tex", "w")
-        file.write("\\documentclass{standalone}\n")
-        file.write("\\usepackage[utf8]{inputenc}\n")
-        file.write("\\usepackage{tikz}\n")
-        file.write("\\begin{document}\n")
-        file.write("\\begin{tikzpicture}\n")
-        file.write(f"\\input{{{file_name}.tex}}\n")
-        file.write("\\end{tikzpicture}\n")
-        file.write("\\end{document}\n")
-
-    #####
-    # Draw performance circle in tikz
-    def write_performance_circle(
-        self, circle_formats, file_name, scale=1, with_color_map=False
-    ):
-        df = self.df
-        self.write_performance_circle_latex_base(file_name)
-        file = open(f"{file_name}.tex", "w")
-        formats_number = 0
-        for format in circle_formats:
-            if format in self.formats:
-                formats_number += 1
-
-        format_idx = 0
-        pos_x = 5 * scale
-        pos_y = 5 * scale
-        rad = 5 * scale
-        formats_pos_x = {}
-        formats_pos_y = {}
-        for format in circle_formats:
-            if format in self.formats:
-                format_angle = (
-                    math.pi / 2
-                    - 2 * math.pi / formats_number * format_idx
-                    - math.pi / formats_number
-                )
-                if format_angle < 0:
-                    format_angle = 2 * math.pi + format_angle
-                x = pos_x + rad * math.cos(format_angle)
-                y = pos_y + rad * math.sin(format_angle)
-                formats_pos_x[format] = x
-                formats_pos_y[format] = y
-                anchor = ""
-                if format_angle <= math.pi * 1 / 4 or format_angle > math.pi * 7 / 4:
-                    anchor = "west"
-                if format_angle <= math.pi * 3 / 4 and format_angle > math.pi * 1 / 4:
-                    anchor = "south"
-                if format_angle <= math.pi * 5 / 4 and format_angle > math.pi * 3 / 4:
-                    anchor = "east"
-                if format_angle <= math.pi * 7 / 4 and format_angle > math.pi * 5 / 4:
-                    anchor = "north"
-                # print( f'{format_angle} : {format} -> {anchor} \n' )
-                file.write(
-                    f"\\filldraw[black] ({x},{y}) circle (2pt) node[anchor={anchor}]{{{LatexLabels.latex_label(format)}}}; \n"
-                )
-                div_angle = format_angle + math.pi / formats_number
-                div_x = pos_x + rad * math.cos(div_angle)
-                div_y = pos_y + rad * math.sin(div_angle)
-                file.write(
-                    f"\\draw [dashed] ({div_x},{div_y}) -- ({pos_x},{pos_y}); \n"
-                )
-                format_idx += 1
-        formats_count = format_idx
-        line_idx = 0
-        elim = 0
-        while line_idx < len(df.index):
-            # matrixName = df.iloc[line_idx]['Matrix name']
-            sum_bw = 0
-            formats_bw = {}
-            max_bw = 0
-            for format in circle_formats:
-                if format in self.formats:
-                    format_bw = df.iloc[line_idx][(format, "GPU", "bandwidth", "")]
-                    formats_bw[format] = format_bw
-                    # print( f'{matrixName} {format} -> {format_bw}')
-                    # if format_bw > max_bw:
-                    sum_bw = sum_bw + format_bw
-                    if format_bw > max_bw:
-                        max_bw = format_bw
-            for format in circle_formats:
-                if format in self.formats:
-                    formats_bw[format] = formats_bw[format] / sum_bw
-            format_pos_x = 0
-            format_pos_y = 0
-            for format in circle_formats:
-                if format in self.formats:
-                    format_pos_x = (
-                        format_pos_x + formats_pos_x[format] * formats_bw[format]
-                    )
-                    format_pos_y = (
-                        format_pos_y + formats_pos_y[format] * formats_bw[format]
-                    )
-            if (
-                format_pos_x == format_pos_x and format_pos_y == format_pos_y
-            ):  # check for NaN
-                r, g, b = color_map(max_bw, 1200, map=heatmap)
-                file.write(
-                    f"\\definecolor{{color_{line_idx}}}{{rgb}}{{ {r}, {g}, {b} }} \n"
-                )
-                file.write(
-                    f"\\filldraw[color_{line_idx},opacity=0.75] ({format_pos_x},{format_pos_y}) circle (1pt); \n"
-                )
-            else:
-                elim = elim + 1
-            line_idx += 1
-        if with_color_map:
-            self.write_colormap(
-                file, 1200, 5, 13 * scale, 1.5 * scale, standalone=False
-            )
-        os.system(f"pdflatex {file_name}-base.tex")
-        print(f"Eliminated formats: {elim}")
-
-    def write_performance_circles(self):
-        df = self.df
-        self.write_performance_circle(
-            df,
-            self.formats,
-            [
-                "cusparse",
-                "Ellpack",
-                "SlicedEllpack",
-                "ChunkedEllpack",
-                "BiEllpack",
-                "CSR< Scalar >",
-                "CSR< Adaptive >",
-                "CSR< Vector >",
-                "CSR< Light > Automatic Light",
-            ],
-            "performance-graph",
-        )
-
-        scale = 0.6
-        aux_df = df
-        aux_df.sort_values(
-            by=[("SlicedEllpack", "GPU", "bandwidth")], inplace=True, ascending=True
-        )
-        self.write_performance_circle(
-            aux_df,
-            formats,
-            ["Ellpack", "ChunkedEllpack", "SlicedEllpack"],
-            "performance-graph-ellpacks-1",
-            scale,
-            with_color_map=False,
-        )
-        self.write_performance_circle(
-            aux_df,
-            formats,
-            [
-                "BiEllpack",
-                "ChunkedEllpack",
-                "SlicedEllpack",
-            ],
-            "performance-graph-ellpacks-2",
-            scale,
-            with_color_map=False,
-        )
-        # write_performance_circle( df, formats, ['CSR< Scalar >', 'CSR< Adaptive >', 'CSR< Vector >', 'CSR< Light > Automatic Light'], 'performance-graph-csr-1' )
-        aux_df.sort_values(
-            by=[("CSR< Light > Automatic Light", "GPU", "bandwidth")],
-            inplace=True,
-            ascending=True,
-        )
-        self.write_performance_circle(
-            aux_df,
-            self.formats,
-            ["CSR< Scalar >", "CSR< Vector >", "CSR< Light > Automatic Light"],
-            "performance-graph-csr-1",
-            scale,
-            with_color_map=False,
-        )
-        self.write_performance_circle(
-            aux_df,
-            self.formats,
-            ["CSR< Adaptive >", "CSR< Vector >", "CSR< Light > Automatic Light"],
-            "performance-graph-csr-2",
-            scale,
-            with_color_map=False,
-        )
-        aux_df.sort_values(
-            by=[("cusparse", "GPU", "bandwidth")], inplace=True, ascending=True
-        )
-        self.write_performance_circle(
-            aux_df,
-            self.formats,
-            ["cusparse", "SlicedEllpack", "ChunkedEllpack"],
-            "performance-graph-cusparse-ellpacks",
-            scale,
-            with_color_map=False,
-        )
-        self.write_performance_circle(
-            aux_df,
-            self.formats,
-            ["cusparse", "CSR< Vector >", "CSR< Light > Automatic Light"],
-            "performance-graph-cusparse-csr-1",
-            scale,
-            with_color_map=False,
-        )
-        self.write_performance_circle(
-            aux_df,
-            self.formats,
-            ["cusparse", "CSR< Adaptive >", "CSR< Light > Automatic Light"],
-            "performance-graph-cusparse-csr-2",
-            scale,
-            with_color_map=False,
-        )
-        self.write_performance_circle(
-            aux_df,
-            self.formats,
-            ["cusparse", "CSR< Scalar >", "CSR< Light > Automatic Light"],
-            "performance-graph-cusparse-csr-3",
-            scale,
-            with_color_map=False,
-        )
-        self.write_performance_circle(
-            aux_df,
-            self.formats,
-            ["cusparse", "SlicedEllpack", "CSR< Light > Automatic Light"],
-            "performance-graph-cusparse-csr-ellpack",
-            scale,
-            with_color_map=False,
-        )
-        with open("color-map.tex", "w") as file:
-            self.write_colormap(file, 1200, 5, 13 * scale, 1.5 * scale, standalone=True)
-
-    def count_best_kernels(self, filtered_data_frame):
-        """
-        Count number of matrices for which particular kernels perform the best.
-        """
-        result = {}
-        best = filtered_data_frame[("TNL Best", "GPU", "format", "", "")].tolist()
-        best_kernels = list(set(best))
-        for format in best_kernels:
-            if (
-                not "Binary" in format
-                and not "Symmetric" in format
-                and not "Legacy" in format
-                and not "LightSpMV" in format
-                and not "TNL Best" in format
-            ):
-                cases = best.count(format)
-                result[format] = cases
-        return result
-
     def best_kernels_table(self):
         """
         Write table with best kernels for each matrix
@@ -1336,6 +1058,4 @@ class Report:
         self.cpu_scalability_csr_hypre_ginkgo()
         self.comparison_speedup_cpu_hypre_ginkgo()
 
-        # self.write_performance_circles()
         # self.analyze_light_csr()
-        # self.best_kernels_table()
