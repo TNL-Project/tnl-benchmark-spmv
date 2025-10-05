@@ -17,7 +17,7 @@ import LatexLabels
 
 bw_units = "TB/s"
 
-launch_configs = {}
+# launch_configs = {}
 
 legacy_counterparts = {
     ("BiEllpack", "1 TPS"): "Legacy BiEllpack",
@@ -30,34 +30,37 @@ legacy_counterparts = {
     ("CSR Adaptive", "Default"): "Legacy CSR Adaptive",
 }
 
-parser = argparse.ArgumentParser(
-    description="Script for parsing log files from tnl-benchmark-spmv."
-)
-parser.add_argument(
-    "-i",
-    "--input",
-    nargs="+",
-    help="Input files",
-    default=["sparse-matrix-benchmark.log"],
-)
-parser.add_argument(
-    "-v", "--verbose", help="Zobrazit více informací", action="store_true"
-)
-parser.add_argument(
-    "-o",
-    "--output-dir",
-    help="Output directory for generated files",
-    default="spmv-benchmark-report",
-)
-parser.add_argument(
-    "--max-rows",
-    type=int,
-    default=-1,
-    help="Maximum number of rows to process from the input files",
-)
+
+def get_arg_parser():
+    parser = argparse.ArgumentParser(
+        description="Script for parsing log files from tnl-benchmark-spmv."
+    )
+    parser.add_argument(
+        "-i",
+        "--input",
+        nargs="+",
+        help="Input files",
+        default=["sparse-matrix-benchmark.log"],
+    )
+    parser.add_argument(
+        "-v", "--verbose", help="Set verbose output.", action="store_true", default=True
+    )
+    parser.add_argument(
+        "-o",
+        "--output-dir",
+        help="Output directory for generated files",
+        default="spmv-benchmark-report",
+    )
+    parser.add_argument(
+        "--max-rows",
+        type=int,
+        default=-1,
+        help="Maximum number of rows to process from the input files",
+    )
+    return parser
 
 
-def add_to_multiindex(mc, format, device, launch_config):
+def add_to_multiindex(mc, format, device, launch_config, launch_configs):
     if (format in ["CSR", "Hypre", "Ginkgo"]) and device == "CPU":
         # For these formats on CPU we want to compute parallel efficiency
         if launch_config == "1 threads":
@@ -136,7 +139,7 @@ def get_multiindex(input_df, formats, launch_configs):
             if (format, device) in launch_configs:
                 for launch_config in launch_configs[(format, device)]:
                     print(f"Adding to multiindex: {format} {device} {launch_config}")
-                    add_to_multiindex(mc, format, device, launch_config)
+                    add_to_multiindex(mc, format, device, launch_config, launch_configs)
 
             # Finaly we add column with the format exhibiting the best performance for given matrix
             if (
@@ -237,139 +240,151 @@ def convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=-1)
     return result
 
 
-####
-# Parse legacy input file
-def parse_legacy(file_name):
-    with open(file_name) as f:
-        d = json.load(f)
-    input_df = json_normalize(d, record_path=["results"])
-    # input_df.to_html( "orig-pandas.html" )
-    return d
+def parse_input_files(file_list):
+    """
+    Parse input files and return a single dataframe
+    """
+    input_df = pd.DataFrame()
+    for file in file_list:
+        df = get_benchmark_dataframe(file)
+        input_df = pd.concat([input_df, df])
+    return input_df
 
 
-####
-# Parse input file
-def parse(file_name):
-    logFile = open(file_name, "r")
-
-    # read file by lines
-    lines = logFile.readlines()
-
-    # drop comments and blank lines
-    lines = [line for line in lines if line.strip() and not line.startswith("#")]
-
-    df = pd.DataFrame
-    # print( lines )
-    while len(lines) > 0:
-        line = lines.pop(0)
-        print(line)
-        df.join(pd.read_json(line))
-    df.to_html("orig-pandas.html")
-
-
-args = parser.parse_args()
-
-print("Parsing input files....")
-# d = parse_legacy('sparse-matrix-benchmark.log')
-input_df = pd.DataFrame()
-for file in args.input:
-    df = get_benchmark_dataframe(file)
-    input_df = pd.concat([input_df, df])
-input_df.to_html("sparse-matrix-benchmark-test.html")
+def get_formats(input_df):
+    """
+    Get list of formats from the input dataframe
+    """
+    formats = list(
+        set(input_df["format"].values.tolist())
+    )  # list of all formats in the benchmark results
+    if "CSR Light Automatic" in formats:
+        formats.remove("CSR Light Automatic")
+    if "Binary CSR Light Automatic" in formats:
+        formats.remove("Binary CSR Light Automatic")
+    if "Symmetric CSR Light Automatic" in formats:
+        formats.remove("Symmetric CSR Light Automatic")
+    if "Symmetric Binary CSR Light Automatic" in formats:
+        formats.remove("Symmetric Binary CSR Light Automatic")
+    formats.append("CSR Best")
+    formats.sort()
+    return formats
 
 
-formats = list(
-    set(input_df["format"].values.tolist())
-)  # list of all formats in the benchmark results
-if "CSR Light Automatic" in formats:
-    formats.remove("CSR Light Automatic")
-if "Binary CSR Light Automatic" in formats:
-    formats.remove("Binary CSR Light Automatic")
-if "Symmetric CSR Light Automatic" in formats:
-    formats.remove("Symmetric CSR Light Automatic")
-if "Symmetric Binary CSR Light Automatic" in formats:
-    formats.remove("Symmetric Binary CSR Light Automatic")
-formats.append("CSR Best")
-formats.sort()
-
-# Detect launch configurations
-in_idx = 0
-while in_idx < len(input_df.index):
-    row = input_df.iloc[in_idx]
-    format = row["format"]
-    device = row["performer"]
-    launch_cfg = row["launch cfg."]
-    if (format, device) not in launch_configs:
-        launch_configs[(format, device)] = []
-    if launch_cfg not in launch_configs[(format, device)]:
-        launch_configs[(format, device)].append(launch_cfg)
-    in_idx += 1
-launch_configs[("CSR Best", "GPU")] = []
-launch_configs[("CSR Best", "GPU")].append("")
-launch_configs[("CSR Best", "CPU")] = []
-launch_configs[("CSR Best", "CPU")].append("")
+def get_launch_configs(input_df):
+    """
+    Get list of launch configurations from the input dataframe
+    """
+    launch_configs = {}
+    in_idx = 0
+    while in_idx < len(input_df.index):
+        row = input_df.iloc[in_idx]
+        format = row["format"]
+        device = row["performer"]
+        launch_cfg = row["launch cfg."]
+        if (format, device) not in launch_configs:
+            launch_configs[(format, device)] = []
+        if launch_cfg not in launch_configs[(format, device)]:
+            launch_configs[(format, device)].append(launch_cfg)
+        in_idx += 1
+    launch_configs[("CSR Best", "GPU")] = []
+    launch_configs[("CSR Best", "GPU")].append("")
+    launch_configs[("CSR Best", "CPU")] = []
+    launch_configs[("CSR Best", "CPU")].append("")
+    return launch_configs
 
 
-print(f"Formats: {formats}")
-for format in formats:
-    for device in ["CPU", "GPU"]:
-        if (format, device) in launch_configs:
-            print(
-                f"Launch configs for {format} on {device}: {launch_configs[(format, device)]}"
-            )
+def print_formats_and_launch_configs(formats, launch_configs):
+    """
+    Print formats and their launch configurations.
+    """
+    print(f"Formats: {formats}")
+    for format in formats:
+        for device in ["CPU", "GPU"]:
+            if (format, device) in launch_configs:
+                print(
+                    f"Launch configs for {format} on {device}: {launch_configs[(format, device)]}"
+                )
 
 
+def analyze_df(df):
+    """
+    Analyze the dataframe and generate reports.
+    """
+    print("Writting to file sparse-matrix-benchmark-test-processed.html ... ")
+    df.sort_index(inplace=True)
+    df.to_html("sparse-matrix-benchmark-test-processed.html")
+
+    print("Writting to HTML file...")
+    df.sort_index(inplace=True)
+    df.to_html(f"output.html")
+
+    report = Report.Report(
+        df,
+        formats,
+        launch_configs,
+        legacy_counterparts,
+    )
+    report.write()
+
+    bestFormats = BestFormats.BestFormats(df, formats, launch_configs)
+    bestFormats.write()
+    bestFormats.count_best_formats("best-formats-report_txt")
+
+
+argparser = get_arg_parser()
+args = argparser.parse_args()
+
+print(f"Parsing input files: {args.input}")
+input_df = parse_input_files(args.input)
+formats = get_formats(input_df)
+launch_configs = get_launch_configs(input_df)
+if args.verbose:
+    print_formats_and_launch_configs(formats, launch_configs)
+
+
+print("Converting data...")
 multicolumns, df_data = get_multiindex(input_df, formats, launch_configs)
 aux_df = pd.DataFrame(df_data, columns=multicolumns, index=[0])
 aux_df.to_html("index.html")
-
-print("Converting data...")
 result = convert_data_frame(
     input_df, multicolumns, df_data, begin_idx=0, end_idx=args.max_rows
 )
 
-Speedup.compute_speedup(result, formats, launch_configs, legacy_counterparts)
+print("Computing speed-ups...")
+speedup_getter = Speedup.Speedup(result, formats, launch_configs, legacy_counterparts)
+result = speedup_getter.compute_speedup()
 result.replace(to_replace=" ", value=np.nan, inplace=True)
-
-print("Writting to file sparse-matrix-benchmark-test-processed.html ... ")
-result.sort_index(inplace=True)
-result.to_html("sparse-matrix-benchmark-test-processed.html")
 
 output_dir = args.output_dir
 if not os.path.exists(output_dir):
     os.mkdir(output_dir)
 os.chdir(output_dir)
 
-print("Writting to HTML file...")
-result.sort_index(inplace=True)
-result.to_html(f"output.html")
+analyze_df(result)
 
-report = Report.Report(
-    result,
-    formats,
-    launch_configs,
-    legacy_counterparts,
-)
-report.write()
+for rows_count in [10, 100, 1000, 10000, 100000, 1000000, 10000000]:
+    print(f"Filtering for rows <= {rows_count}")
+    filtered_df = result[result["rows"].astype("int32") <= rows_count]
+    if filtered_df.empty:
+        print(f"No data for rows <= {rows_count}, skipping analysis.")
+        continue
+    if not os.path.exists(f"rows-le-{rows_count}"):
+        os.mkdir(f"rows-le-{rows_count}")
+    os.chdir(f"rows-le-{rows_count}")
+    analyze_df(filtered_df)
+    os.chdir("..")
 
-bestFormats = BestFormats.BestFormats(result, formats, launch_configs)
-bestFormats.write()
-bestFormats.count_best_formats("best-formats-report_txt")
+for rows_count in [10, 100, 1000, 10000, 100000, 1000000, 10000000]:
+    print(f"Filtering for rows >= {rows_count}")
+    filtered_df = result[result["rows"].astype("int32") >= rows_count]
+    if filtered_df.empty:
+        print(f"No data for rows >= {rows_count}, skipping analysis.")
+        continue
+    if not os.path.exists(f"rows-ge-{rows_count}"):
+        os.mkdir(f"rows-ge-{rows_count}")
+    os.chdir(f"rows-ge-{rows_count}")
+    analyze_df(filtered_df)
+    os.chdir("..")
 
 os.chdir("..")
-
-# for rows_count in [ 10, 100, 1000, 10000, 100000, 1000000, 10000000 ]:
-#   filtered_df = result[ result['rows'].astype('int32') <= rows_count ]
-#   if not os.path.exists(f'rows-le-{rows_count}'):
-#      os.mkdir( f'rows-le-{rows_count}')
-#   os.chdir( f'rows-le-{rows_count}')
-#   processDf( filtered_df, formats, head_size )
-#   os.chdir( '..' )
-
-# for rows_count in [ 10, 100, 1000, 10000, 100000, 1000000, 10000000 ]:
-#   filtered_df = result[ result['rows'].astype('int32') >= rows_count ]
-#   if not os.path.exists(f'rows-ge-{rows_count}'):
-#      os.mkdir( f'rows-ge-{rows_count}')
-#   os.chdir( f'rows-ge-{rows_count}')
-#   processDf( filtered_df, formats, head_size )
-#   os.chdir( '..' )

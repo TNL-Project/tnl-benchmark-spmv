@@ -390,7 +390,9 @@ class Report:
                         #    (format, device, launch_config, "speed-up", speedup),
                         #    ascending=False,
                         # )
-                        df["tmp"] = df[(format, device, launch_config, "bandwidth", "")]
+                        df.loc[:, "tmp"] = df[
+                            (format, device, launch_config, "bandwidth", "")
+                        ]
                         filtered_df = df.dropna(subset=[("tmp", "", "", "", "")]).copy()
                         filtered_df.sort_values(
                             by=[
