@@ -41,13 +41,90 @@ template< typename Device, typename Index, typename IndexAllocator >
 using EllpackSegments = Algorithms::Segments::Ellpack< Device, Index, IndexAllocator >;
 
 template< typename Device, typename Index, typename IndexAllocator >
-using SlicedEllpackSegments = Algorithms::Segments::SlicedEllpack< Device, Index, IndexAllocator >;
+using RowMajorSlicedEllpackSegments_SliceSize_2 =
+   Algorithms::Segments::RowMajorSlicedEllpack< Device, Index, IndexAllocator, 2 >;
+
+template< typename Device, typename Index, typename IndexAllocator >
+using RowMajorSlicedEllpackSegments_SliceSize_4 =
+   Algorithms::Segments::RowMajorSlicedEllpack< Device, Index, IndexAllocator, 4 >;
+
+template< typename Device, typename Index, typename IndexAllocator >
+using RowMajorSlicedEllpackSegments_SliceSize_8 =
+   Algorithms::Segments::RowMajorSlicedEllpack< Device, Index, IndexAllocator, 8 >;
+
+template< typename Device, typename Index, typename IndexAllocator >
+using RowMajorSlicedEllpackSegments_SliceSize_16 =
+   Algorithms::Segments::RowMajorSlicedEllpack< Device, Index, IndexAllocator, 16 >;
+
+template< typename Device, typename Index, typename IndexAllocator >
+using RowMajorSlicedEllpackSegments_SliceSize_32 =
+   Algorithms::Segments::RowMajorSlicedEllpack< Device, Index, IndexAllocator, 32 >;
+
+template< typename Device, typename Index, typename IndexAllocator >
+using ColumnMajorSlicedEllpackSegments_SliceSize_2 =
+   Algorithms::Segments::ColumnMajorSlicedEllpack< Device, Index, IndexAllocator, 2 >;
+
+template< typename Device, typename Index, typename IndexAllocator >
+using ColumnMajorSlicedEllpackSegments_SliceSize_4 =
+   Algorithms::Segments::ColumnMajorSlicedEllpack< Device, Index, IndexAllocator, 4 >;
+
+template< typename Device, typename Index, typename IndexAllocator >
+using ColumnMajorSlicedEllpackSegments_SliceSize_8 =
+   Algorithms::Segments::ColumnMajorSlicedEllpack< Device, Index, IndexAllocator, 8 >;
+
+template< typename Device, typename Index, typename IndexAllocator >
+using ColumnMajorSlicedEllpackSegments_SliceSize_16 =
+   Algorithms::Segments::ColumnMajorSlicedEllpack< Device, Index, IndexAllocator, 16 >;
+
+template< typename Device, typename Index, typename IndexAllocator >
+using ColumnMajorSlicedEllpackSegments_SliceSize_32 =
+   Algorithms::Segments::ColumnMajorSlicedEllpack< Device, Index, IndexAllocator, 32 >;
 
 template< typename Device, typename Index, typename IndexAllocator >
 using ChunkedEllpackSegments = Algorithms::Segments::ChunkedEllpack< Device, Index, IndexAllocator >;
 
 template< typename Device, typename Index, typename IndexAllocator >
 using BiEllpackSegments = Algorithms::Segments::BiEllpack< Device, Index, IndexAllocator >;
+
+template< typename Device, typename Index, typename IndexAllocator >
+using SortedRowMajorSlicedEllpackSegments_SliceSize_2 =
+   Algorithms::Segments::RowMajorSlicedEllpack< Device, Index, IndexAllocator, 2 >;
+
+template< typename Device, typename Index, typename IndexAllocator >
+using SortedRowMajorSlicedEllpackSegments_SliceSize_4 =
+   Algorithms::Segments::RowMajorSlicedEllpack< Device, Index, IndexAllocator, 4 >;
+
+template< typename Device, typename Index, typename IndexAllocator >
+using SortedRowMajorSlicedEllpackSegments_SliceSize_8 =
+   Algorithms::Segments::RowMajorSlicedEllpack< Device, Index, IndexAllocator, 8 >;
+
+template< typename Device, typename Index, typename IndexAllocator >
+using SortedRowMajorSlicedEllpackSegments_SliceSize_16 =
+   Algorithms::Segments::RowMajorSlicedEllpack< Device, Index, IndexAllocator, 16 >;
+
+template< typename Device, typename Index, typename IndexAllocator >
+using SortedRowMajorSlicedEllpackSegments_SliceSize_32 =
+   Algorithms::Segments::RowMajorSlicedEllpack< Device, Index, IndexAllocator, 32 >;
+
+template< typename Device, typename Index, typename IndexAllocator >
+using SortedColumnMajorSlicedEllpackSegments_SliceSize_2 =
+   Algorithms::Segments::ColumnMajorSlicedEllpack< Device, Index, IndexAllocator, 2 >;
+
+template< typename Device, typename Index, typename IndexAllocator >
+using SortedColumnMajorSlicedEllpackSegments_SliceSize_4 =
+   Algorithms::Segments::ColumnMajorSlicedEllpack< Device, Index, IndexAllocator, 4 >;
+
+template< typename Device, typename Index, typename IndexAllocator >
+using SortedColumnMajorSlicedEllpackSegments_SliceSize_8 =
+   Algorithms::Segments::ColumnMajorSlicedEllpack< Device, Index, IndexAllocator, 8 >;
+
+template< typename Device, typename Index, typename IndexAllocator >
+using SortedColumnMajorSlicedEllpackSegments_SliceSize_16 =
+   Algorithms::Segments::ColumnMajorSlicedEllpack< Device, Index, IndexAllocator, 16 >;
+
+template< typename Device, typename Index, typename IndexAllocator >
+using SortedColumnMajorSlicedEllpackSegments_SliceSize_32 =
+   Algorithms::Segments::ColumnMajorSlicedEllpack< Device, Index, IndexAllocator, 32 >;
 
 /////
 // Main benchmarking
@@ -184,7 +261,25 @@ dispatchSpMV( BenchmarkType& benchmark,
    if( parameters.getParameter< bool >( "with-ellpack-formats" ) ) {
       benchmarkSpMV< Real, Index, InputMatrix, EllpackSegments, TestValue, MatrixType >(
          benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-      benchmarkSpMV< Real, Index, InputMatrix, SlicedEllpackSegments, TestValue, MatrixType >(
+      benchmarkSpMV< Real, Index, InputMatrix, RowMajorSlicedEllpackSegments_SliceSize_2, TestValue, MatrixType >(
+         benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+      benchmarkSpMV< Real, Index, InputMatrix, RowMajorSlicedEllpackSegments_SliceSize_4, TestValue, MatrixType >(
+         benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+      benchmarkSpMV< Real, Index, InputMatrix, RowMajorSlicedEllpackSegments_SliceSize_8, TestValue, MatrixType >(
+         benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+      benchmarkSpMV< Real, Index, InputMatrix, RowMajorSlicedEllpackSegments_SliceSize_16, TestValue, MatrixType >(
+         benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+      benchmarkSpMV< Real, Index, InputMatrix, RowMajorSlicedEllpackSegments_SliceSize_32, TestValue, MatrixType >(
+         benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+      benchmarkSpMV< Real, Index, InputMatrix, ColumnMajorSlicedEllpackSegments_SliceSize_2, TestValue, MatrixType >(
+         benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+      benchmarkSpMV< Real, Index, InputMatrix, ColumnMajorSlicedEllpackSegments_SliceSize_4, TestValue, MatrixType >(
+         benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+      benchmarkSpMV< Real, Index, InputMatrix, ColumnMajorSlicedEllpackSegments_SliceSize_8, TestValue, MatrixType >(
+         benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+      benchmarkSpMV< Real, Index, InputMatrix, ColumnMajorSlicedEllpackSegments_SliceSize_16, TestValue, MatrixType >(
+         benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+      benchmarkSpMV< Real, Index, InputMatrix, ColumnMajorSlicedEllpackSegments_SliceSize_32, TestValue, MatrixType >(
          benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
       benchmarkSpMV< Real, Index, InputMatrix, ChunkedEllpackSegments, TestValue, MatrixType >(
          benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
@@ -199,7 +294,25 @@ dispatchSpMV( BenchmarkType& benchmark,
       if( parameters.getParameter< bool >( "with-ellpack-formats" ) ) {
          benchmarkSpMV< Real, Index, InputMatrix, Algorithms::Segments::SortedEllpack, TestValue, MatrixType >(
             benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-         benchmarkSpMV< Real, Index, InputMatrix, Algorithms::Segments::SortedSlicedEllpack, TestValue, MatrixType >(
+         benchmarkSpMV< Real, Index, InputMatrix, SortedRowMajorSlicedEllpackSegments_SliceSize_2, TestValue, MatrixType >(
+            benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+         benchmarkSpMV< Real, Index, InputMatrix, SortedRowMajorSlicedEllpackSegments_SliceSize_4, TestValue, MatrixType >(
+            benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+         benchmarkSpMV< Real, Index, InputMatrix, SortedRowMajorSlicedEllpackSegments_SliceSize_8, TestValue, MatrixType >(
+            benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+         benchmarkSpMV< Real, Index, InputMatrix, SortedRowMajorSlicedEllpackSegments_SliceSize_16, TestValue, MatrixType >(
+            benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+         benchmarkSpMV< Real, Index, InputMatrix, SortedRowMajorSlicedEllpackSegments_SliceSize_32, TestValue, MatrixType >(
+            benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+         benchmarkSpMV< Real, Index, InputMatrix, SortedColumnMajorSlicedEllpackSegments_SliceSize_2, TestValue, MatrixType >(
+            benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+         benchmarkSpMV< Real, Index, InputMatrix, SortedColumnMajorSlicedEllpackSegments_SliceSize_4, TestValue, MatrixType >(
+            benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+         benchmarkSpMV< Real, Index, InputMatrix, SortedColumnMajorSlicedEllpackSegments_SliceSize_8, TestValue, MatrixType >(
+            benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+         benchmarkSpMV< Real, Index, InputMatrix, SortedColumnMajorSlicedEllpackSegments_SliceSize_16, TestValue, MatrixType >(
+            benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+         benchmarkSpMV< Real, Index, InputMatrix, SortedColumnMajorSlicedEllpackSegments_SliceSize_32, TestValue, MatrixType >(
             benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
          benchmarkSpMV< Real, Index, InputMatrix, Algorithms::Segments::SortedChunkedEllpack, TestValue, MatrixType >(
             benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
@@ -221,8 +334,8 @@ dispatchGeneral( BenchmarkType& benchmark,
       benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
 
    // Dispatch binary SpMV for general matrices
-   dispatchSpMV< Real, Index, bool, TNL::Matrices::GeneralMatrix >(
-      benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+   //dispatchSpMV< Real, Index, bool, TNL::Matrices::GeneralMatrix >(
+   //   benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
 }
 
 template< typename Real, typename Index >
@@ -352,8 +465,8 @@ benchmarkSpmv( BenchmarkType& benchmark,
 
    dispatchGeneral< Real, Index >( benchmark, csrHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
 
-   if( parameters.getParameter< bool >( "with-symmetric-matrices" ) )
-      dispatchSymmetric< Real, Index >( benchmark, hostOutVector, inputFileName, parameters, verboseMR );
+   //if( parameters.getParameter< bool >( "with-symmetric-matrices" ) )
+   //   dispatchSymmetric< Real, Index >( benchmark, hostOutVector, inputFileName, parameters, verboseMR );
 }
 
 }  // namespace TNL::Benchmarks::SpMV

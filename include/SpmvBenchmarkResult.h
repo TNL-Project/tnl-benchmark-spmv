@@ -21,7 +21,8 @@ struct SpmvBenchmarkResult : public BenchmarkResult
    using typename BenchmarkResult::RowElements;
 
    SpmvBenchmarkResult( const HostVector& csrResult, const BenchmarkVector& benchmarkResult )
-   : csrResult( csrResult ), benchmarkResult( benchmarkResult )
+   : csrResult( csrResult ),
+     benchmarkResult( benchmarkResult )
    {}
 
    virtual HeaderElements
@@ -58,6 +59,7 @@ struct SpmvBenchmarkResult : public BenchmarkResult
       else
          elements << "N/A";
       elements << bandwidth << max( abs( diff ) ) << lpNorm( diff, 2.0 ) << time_stddev << time_stddev / time << loops;
+      std::cerr << argMax( abs( diff ) ).second << std::endl;
       return elements;
    }
 
