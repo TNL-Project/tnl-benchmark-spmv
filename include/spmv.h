@@ -88,43 +88,43 @@ using BiEllpackSegments = Algorithms::Segments::BiEllpack< Device, Index, IndexA
 
 template< typename Device, typename Index, typename IndexAllocator >
 using SortedRowMajorSlicedEllpackSegments_SliceSize_2 =
-   Algorithms::Segments::RowMajorSlicedEllpack< Device, Index, IndexAllocator, 2 >;
+   Algorithms::Segments::SortedSegments< Algorithms::Segments::RowMajorSlicedEllpack< Device, Index, IndexAllocator, 2 > >;
 
 template< typename Device, typename Index, typename IndexAllocator >
 using SortedRowMajorSlicedEllpackSegments_SliceSize_4 =
-   Algorithms::Segments::RowMajorSlicedEllpack< Device, Index, IndexAllocator, 4 >;
+   Algorithms::Segments::SortedSegments< Algorithms::Segments::RowMajorSlicedEllpack< Device, Index, IndexAllocator, 4 > >;
 
 template< typename Device, typename Index, typename IndexAllocator >
 using SortedRowMajorSlicedEllpackSegments_SliceSize_8 =
-   Algorithms::Segments::RowMajorSlicedEllpack< Device, Index, IndexAllocator, 8 >;
+   Algorithms::Segments::SortedSegments< Algorithms::Segments::RowMajorSlicedEllpack< Device, Index, IndexAllocator, 8 > >;
 
 template< typename Device, typename Index, typename IndexAllocator >
 using SortedRowMajorSlicedEllpackSegments_SliceSize_16 =
-   Algorithms::Segments::RowMajorSlicedEllpack< Device, Index, IndexAllocator, 16 >;
+   Algorithms::Segments::SortedSegments< Algorithms::Segments::RowMajorSlicedEllpack< Device, Index, IndexAllocator, 16 > >;
 
 template< typename Device, typename Index, typename IndexAllocator >
 using SortedRowMajorSlicedEllpackSegments_SliceSize_32 =
-   Algorithms::Segments::RowMajorSlicedEllpack< Device, Index, IndexAllocator, 32 >;
+   Algorithms::Segments::SortedSegments< Algorithms::Segments::RowMajorSlicedEllpack< Device, Index, IndexAllocator, 32 > >;
 
 template< typename Device, typename Index, typename IndexAllocator >
 using SortedColumnMajorSlicedEllpackSegments_SliceSize_2 =
-   Algorithms::Segments::ColumnMajorSlicedEllpack< Device, Index, IndexAllocator, 2 >;
+   Algorithms::Segments::SortedSegments< Algorithms::Segments::ColumnMajorSlicedEllpack< Device, Index, IndexAllocator, 2 > >;
 
 template< typename Device, typename Index, typename IndexAllocator >
 using SortedColumnMajorSlicedEllpackSegments_SliceSize_4 =
-   Algorithms::Segments::ColumnMajorSlicedEllpack< Device, Index, IndexAllocator, 4 >;
+   Algorithms::Segments::SortedSegments< Algorithms::Segments::ColumnMajorSlicedEllpack< Device, Index, IndexAllocator, 4 > >;
 
 template< typename Device, typename Index, typename IndexAllocator >
 using SortedColumnMajorSlicedEllpackSegments_SliceSize_8 =
-   Algorithms::Segments::ColumnMajorSlicedEllpack< Device, Index, IndexAllocator, 8 >;
+   Algorithms::Segments::SortedSegments< Algorithms::Segments::ColumnMajorSlicedEllpack< Device, Index, IndexAllocator, 8 > >;
 
 template< typename Device, typename Index, typename IndexAllocator >
 using SortedColumnMajorSlicedEllpackSegments_SliceSize_16 =
-   Algorithms::Segments::ColumnMajorSlicedEllpack< Device, Index, IndexAllocator, 16 >;
+   Algorithms::Segments::SortedSegments< Algorithms::Segments::ColumnMajorSlicedEllpack< Device, Index, IndexAllocator, 16 > >;
 
 template< typename Device, typename Index, typename IndexAllocator >
 using SortedColumnMajorSlicedEllpackSegments_SliceSize_32 =
-   Algorithms::Segments::ColumnMajorSlicedEllpack< Device, Index, IndexAllocator, 32 >;
+   Algorithms::Segments::SortedSegments< Algorithms::Segments::ColumnMajorSlicedEllpack< Device, Index, IndexAllocator, 32 > >;
 
 /////
 // Main benchmarking
