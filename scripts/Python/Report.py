@@ -383,7 +383,7 @@ class Report:
                         profiles = {}
                         label = f"{format} {launch_config}"
                         print(
-                            f"Writing speedup of {format} with '{launch_config}' launch config compared to {reference_label}"
+                            f"Writing speedup: {reference_label} vs {format} with '{launch_config}'"
                         )
                         # profiles[label] = extract_sorted(
                         #    df,
@@ -454,7 +454,20 @@ class Report:
                                 copy_df.drop(
                                     labels=f, axis="columns", level=0, inplace=True
                                 )
-                        copy_df.sort_index(inplace=True)
+                        # copy_df.sort_index(inplace=True)
+                        copy_df.sort_values(
+                            by=[
+                                (
+                                    format,
+                                    device,
+                                    launch_config,
+                                    "speed-up",
+                                    speedup,
+                                )
+                            ],
+                            inplace=True,
+                            ascending=False,
+                        )
                         copy_df.to_html(
                             f"Comparison/Speedup/{reference_label}/{reference_label}-{label}-{device}.html"
                         )
@@ -484,9 +497,7 @@ class Report:
             profiles["CSR"] = df[
                 ("Ginkgo", "CPU", launch_config, "TNL speed-up", "")
             ].copy()
-            print(
-                f"Writing speedup of TNL compared to Ginkgo on CPU with {threads} threads"
-            )
+            print(f"Writing speedup: Ginkgo vs. TNL on CPU with {threads} threads")
             Graphs.draw_graphs(
                 ["CSR"],
                 profiles,
@@ -523,7 +534,7 @@ class Report:
         for ref_format, ref_launch_config in self.legacy_counterparts:
             legacy_format = self.legacy_counterparts[(ref_format, ref_launch_config)]
             print(
-                f"Writing comparison of {ref_format} with {ref_launch_config} and {legacy_format}"
+                f"Writing comparison: {ref_format} with {ref_launch_config} vs {legacy_format}"
             )
             for device in ["GPU"]:
                 if (
@@ -589,7 +600,7 @@ class Report:
                         for launch_config in self.launch_configs[(format, "GPU")]:
                             label = f"{format} {launch_config}"
                             print(
-                                f"Writing comparison of speed-up of {format} {launch_config} compared to {comparison}"
+                                f"Writing speed-up: {comparison} vs. {format} {launch_config}"
                             )
                             df["tmp"] = df[
                                 (format, "GPU", launch_config, "bandwidth", "")
@@ -686,7 +697,7 @@ class Report:
                     counterpart_label = f"non-{analyzed_class.lower()}"
                     for launch_config in self.launch_configs[(format, "GPU")]:
                         print(
-                            f"Writing comparison of speed-up of {format} {launch_config} vs {counterpart_format}"
+                            f"Writing speed-up: {format} {launch_config} vs {counterpart_format}"
                         )
                         filtered_df = df.dropna(
                             subset=[
@@ -819,7 +830,7 @@ class Report:
         if not os.path.exists("Comparison/Speedup"):
             os.mkdir("Comparison/Speedup")
 
-        print(f"Writing comparison of speed-up of Light CSR compared to LightSPMV")
+        print(f"Writing speed-up: Light CSR vs. LightSPMV")
         if ("CSR", "GPU") in self.launch_configs and "Light CSR" in self.launch_configs[
             ("CSR", "GPU")
         ]:

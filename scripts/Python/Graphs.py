@@ -71,11 +71,11 @@ def draw_graphs(
         {
             "text.usetex": True,
             "font.family": "sans-serif",
-            #"font.sans-serif": ["Helvetica"],
+            # "font.sans-serif": ["Helvetica"],
             "font.size": 22,
         }
     )
-    plt.savefig(filename)
+    plt.savefig(filename, bbox_inches="tight")
     plt.close(fig)
 
 
@@ -87,9 +87,9 @@ def draw_dual_graphs(
     filename,
     legend_loc="upper right",
     bar="none",
-    yscales=["linear","linear"],
-    left_y_limits =[0,0],
-    right_y_limits=[0,0],
+    yscales=["linear", "linear"],
+    left_y_limits=[0, 0],
+    right_y_limits=[0, 0],
     fig_size=(8, 5),
     latex_labels={},
 ):

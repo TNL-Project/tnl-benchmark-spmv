@@ -2,6 +2,13 @@ def divide_columns(df, in_colA, in_colB, out_col):
     """
     Compute out_col = in_colA / in_colB
     """
+    if not in_colA in df.columns:
+        raise Exception(f"Column {in_colA} not found in the dataframe")
+    if not in_colB in df.columns:
+        raise Exception(f"Column {in_colB} not found in the dataframe")
+    if not out_col in df.columns:
+        raise Exception(f"Column {out_col} not found in the dataframe")
+
     in_colA_list = df[in_colA]
     in_colB_list = df[in_colB]
     out_col_list = []
@@ -20,6 +27,11 @@ def divide_column_by_number(df, in_colA, number, out_col):
     """
     Compute out_col = in_colA / number
     """
+    if not in_colA in df.columns:
+        raise Exception(f"Column {in_colA} not found in the dataframe")
+    if not out_col in df.columns:
+        raise Exception(f"Column {out_col} not found in the dataframe")
+
     in_colA_list = df[in_colA]
     out_col_list = []
 
@@ -122,18 +134,25 @@ class Speedup:
                                 for launch_config in self.launch_configs[
                                     (format, device)
                                 ]:
-                                    divide_columns(
-                                        self.df,
-                                        (ref_format, "GPU", "Default", "time", ""),
-                                        (format, device, launch_config, "time", ""),
-                                        (
-                                            format,
-                                            device,
-                                            launch_config,
-                                            "speed-up",
-                                            ref_format,
-                                        ),
-                                    )
+                                    if (
+                                        ref_format,
+                                        "GPU",
+                                        "Default",
+                                        "time",
+                                        "",
+                                    ) in self.df.columns:
+                                        divide_columns(
+                                            self.df,
+                                            (ref_format, "GPU", "Default", "time", ""),
+                                            (format, device, launch_config, "time", ""),
+                                            (
+                                                format,
+                                                device,
+                                                launch_config,
+                                                "speed-up",
+                                                ref_format,
+                                            ),
+                                        )
 
                 for launch_config in self.launch_configs[(ref_format, "CPU")]:
                     divide_columns(
