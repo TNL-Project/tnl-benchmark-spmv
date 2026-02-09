@@ -57,6 +57,12 @@ def get_arg_parser():
         default=-1,
         help="Maximum number of rows to process from the input files",
     )
+    parser.add_argument(
+        "--draw-graphs",
+        help="Flag to draw graphs",
+        action="store_true",
+        default=False
+    )
     return parser
 
 
@@ -307,7 +313,7 @@ def print_formats_and_launch_configs(formats, launch_configs):
                 )
 
 
-def analyze_df(df):
+def analyze_df(df, args):
     """
     Analyze the dataframe and generate reports.
     """
@@ -319,13 +325,14 @@ def analyze_df(df):
     df.sort_index(inplace=True)
     df.to_html(f"output.html")
 
-    report = Report.Report(
-        df,
-        formats,
-        launch_configs,
-        legacy_counterparts,
-    )
-    report.write()
+    if args.draw_graphs:
+        report = Report.Report(
+            df,
+            formats,
+            launch_configs,
+            legacy_counterparts,
+        )
+        report.write()
 
     bestFormats = BestFormats.BestFormats(df, formats, launch_configs)
     bestFormats.write()
@@ -361,7 +368,7 @@ if not os.path.exists(output_dir):
     os.mkdir(output_dir)
 os.chdir(output_dir)
 
-analyze_df(result)
+analyze_df(result, args)
 
 for rows_count in [10, 100, 1000, 10000, 100000, 1000000, 10000000]:
     print(f"Filtering for rows <= {rows_count}")
@@ -372,7 +379,7 @@ for rows_count in [10, 100, 1000, 10000, 100000, 1000000, 10000000]:
     if not os.path.exists(f"rows-le-{rows_count}"):
         os.mkdir(f"rows-le-{rows_count}")
     os.chdir(f"rows-le-{rows_count}")
-    analyze_df(filtered_df)
+    analyze_df(filtered_df, args)
     os.chdir("..")
 
 for rows_count in [10, 100, 1000, 10000, 100000, 1000000, 10000000]:
@@ -384,7 +391,7 @@ for rows_count in [10, 100, 1000, 10000, 100000, 1000000, 10000000]:
     if not os.path.exists(f"rows-ge-{rows_count}"):
         os.mkdir(f"rows-ge-{rows_count}")
     os.chdir(f"rows-ge-{rows_count}")
-    analyze_df(filtered_df)
+    analyze_df(filtered_df, args)
     os.chdir("..")
 
 os.chdir("..")
