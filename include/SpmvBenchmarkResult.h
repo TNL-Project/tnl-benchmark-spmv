@@ -15,7 +15,7 @@ struct SpmvBenchmarkResult : public BenchmarkResult
 
    using BenchmarkResult::bandwidth;
    using BenchmarkResult::speedup;
-   using BenchmarkResult::time;
+   using BenchmarkResult::time_median;
    using BenchmarkResult::time_stddev;
    using typename BenchmarkResult::HeaderElements;
    using typename BenchmarkResult::RowElements;
@@ -28,20 +28,17 @@ struct SpmvBenchmarkResult : public BenchmarkResult
    virtual HeaderElements
    getTableHeader() const override
    {
-      return HeaderElements(
-         { "time", "speedup", "bandwidth", "CSR Diff.Max", "CSR Diff.L2", "time_stddev", "time_stddev/time", "loops" } );
+      return HeaderElements( { "time", "speedup", "bandwidth", "CSR Diff.Max", "CSR Diff.L2", "loops" } );
    }
 
    virtual std::vector< int >
    getColumnWidthHints() const override
    {
-      return std::vector< int >( { 14,     // time
+      return std::vector< int >( { 14,     // time_median
                                    8,      // speedup
                                    14,     // bandwidth
                                    14,     // CSR Diff.Max
                                    14,     // CSR Diff. L2,
-                                   16,     // time_stddev
-                                   18,     // time_stddev/time
                                    6 } );  // loops
    }
 
@@ -53,13 +50,12 @@ struct SpmvBenchmarkResult : public BenchmarkResult
       auto diff = csrResult - benchmarkResultCopy;
       RowElements elements;
       // write in scientific format to avoid precision loss
-      elements << std::scientific << time;
+      elements << std::scientific << time_median;
       if( speedup != 0.0 )
          elements << speedup;
       else
          elements << "N/A";
-      elements << bandwidth << max( abs( diff ) ) << lpNorm( diff, 2.0 ) << time_stddev << time_stddev / time << loops;
-      std::cerr << argMax( abs( diff ) ).second << std::endl;
+      elements << bandwidth << max( abs( diff ) ) << lpNorm( diff, 2.0 ) << loops;
       return elements;
    }
 
