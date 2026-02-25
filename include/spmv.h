@@ -147,6 +147,14 @@ benchmarkSpMVWithDevice( BenchmarkType& benchmark,
    using DeviceMatrix = Matrices::SparseMatrix< TestValue, Device, Index, MatrixType, SegmentsType, Real >;
    using DeviceVector = Containers::Vector< Real, Device, Index >;
 
+#ifdef __CUDACC__
+   const char* deviceName = "CUDA";
+#elif defined( __HIP__ )
+   const char* deviceName = "HIP";
+#else
+   const char* deviceName = "Unknown device";
+#endif
+
    DeviceMatrix deviceMatrix;
    try {
       deviceMatrix = inputMatrix;
@@ -173,7 +181,7 @@ benchmarkSpMVWithDevice( BenchmarkType& benchmark,
          deviceMatrix.vectorProduct( deviceInVector, deviceOutVector, launch_config_ );
       };
       SpmvBenchmarkResult< Real, Device, Index > deviceBenchmarkResults( csrResultVector, deviceOutVector );
-      benchmark.time< Device >( resetDeviceVectors, "GPU", spmvDevice, deviceBenchmarkResults );
+      benchmark.time< Device >( resetDeviceVectors, deviceName, spmvDevice, deviceBenchmarkResults );
    }
 }
 

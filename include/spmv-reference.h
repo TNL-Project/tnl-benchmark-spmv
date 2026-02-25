@@ -259,7 +259,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
    SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( hostOutVector, cudaOutVector );
    benchmark.setMetadataElement( { "format", "cusparse" } );
    benchmark.setMetadataElement( { "launch cfg.", "Default" } );
-   benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvCusparse, cudaBenchmarkResults );
+   benchmark.time< Devices::Cuda >( resetCudaVectors, "CUDA", spmvCusparse, cudaBenchmarkResults );
 
    #if defined( HAVE_HYPRE ) && defined( HYPRE_USING_CUDA )
    // Initialize HYPRE and set some global options, notably HYPRE_SetSpGemmUseCusparse(0);
@@ -282,7 +282,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
       SpmvBenchmarkResult< Real, Devices::Cuda, int > hypreCudaBenchmarkResults( hostOutVector, cudaOutVector );
       benchmark.setMetadataElement( { "format", "Hypre" } );
       benchmark.setMetadataElement( { "launch cfg.", "Default" } );
-      benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvHypreCSRCuda, hypreCudaBenchmarkResults );
+      benchmark.time< Devices::Cuda >( resetCudaVectors, "CUDA", spmvHypreCSRCuda, hypreCudaBenchmarkResults );
    }
    else {
       std::cerr << "Current Real or Index type does not agree with HYPRE_Real or HYPRE_Index." << std::endl;
@@ -306,7 +306,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
    SpmvBenchmarkResult< Real, Devices::Cuda, int > ginkgoCudaBenchmarkResults( hostOutVector, cudaOutVector );
    benchmark.setMetadataElement( { "format", "Ginkgo" } );
    benchmark.setMetadataElement( { "launch cfg.", "Default" } );
-   benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvGinkgoCSRCuda, ginkgoCudaBenchmarkResults );
+   benchmark.time< Devices::Cuda >( resetCudaVectors, "CUDA", spmvGinkgoCSRCuda, ginkgoCudaBenchmarkResults );
    #endif
 
    #ifdef HAVE_CSR5
@@ -323,7 +323,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
 
    benchmark.setMetadataElement( { "format", "CSR5" } );
    benchmark.setMetadataElement( { "launch cfg.", "Default" } );
-   benchmark.time< Devices::Cuda >( resetCusparseVectors, "GPU", csr5SpMV, cudaBenchmarkResults );
+   benchmark.time< Devices::Cuda >( resetCusparseVectors, "CUDA", csr5SpMV, cudaBenchmarkResults );
    std::cerr << "CSR5 error = " << max( abs( cudaOutVector - cudaOutVector2 ) ) << std::endl;
    csrCudaMatrix.reset();
    #endif
@@ -348,12 +348,12 @@ benchmarkSpmv( BenchmarkType& benchmark,
    };
    benchmark.setMetadataElement( { "format", "LightSpMV Vector" } );
    benchmark.setMetadataElement( { "launch cfg.", "Default" } );
-   benchmark.time< Devices::Cuda >( resetLightSpMVVectors, "GPU", spmvLightSpMV, cudaBenchmarkResults );
+   benchmark.time< Devices::Cuda >( resetLightSpMVVectors, "CUDA", spmvLightSpMV, cudaBenchmarkResults );
 
    lightSpMVBenchmark.setKernelType( LightSpMVBenchmarkKernelWarp );
    benchmark.setMetadataElement( { "format", "LightSpMV Warp" } );
    benchmark.setMetadataElement( { "launch cfg.", "Default" } );
-   benchmark.time< Devices::Cuda >( resetLightSpMVVectors, "GPU", spmvLightSpMV, cudaBenchmarkResults );
+   benchmark.time< Devices::Cuda >( resetLightSpMVVectors, "CUDA", spmvLightSpMV, cudaBenchmarkResults );
    #endif
 #endif
 
@@ -386,7 +386,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
 
    SpmvBenchmarkResult< Real, Devices::Hip, int > hipBenchmarkResults( hostOutVector, hipOutVector );
    benchmark.setMetadataElement( { "format", "hipsparse" } );
-   benchmark.time< Devices::Hip >( resetHipVectors, "GPU", spmvHipsparse, hipBenchmarkResults );
+   benchmark.time< Devices::Hip >( resetHipVectors, "HIP", spmvHipsparse, hipBenchmarkResults );
 
    #ifdef HAVE_GINKGO
    // Create a Ginkgo Csr view
@@ -404,7 +404,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
 
    SpmvBenchmarkResult< Real, Devices::Hip, int > ginkgoHipBenchmarkResults( hostOutVector, hipOutVector );
    benchmark.setMetadataElement( { "format", "Ginkgo CSR" } );
-   benchmark.time< Devices::Hip >( resetHipVectors, "GPU", spmvGinkgoCSRHip, ginkgoCudaBenchmarkResults );
+   benchmark.time< Devices::Hip >( resetHipVectors, "HIP", spmvGinkgoCSRHip, ginkgoHipBenchmarkResults );
    #endif
 
 #endif
