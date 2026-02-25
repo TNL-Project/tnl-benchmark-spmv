@@ -11,74 +11,111 @@ class BestFormats:
         self.formats = formats
         self.launch_configs = launch_configs
 
-        mc = mic.MultiindexCreator(4)
-        mc.add_entries([["Matrix name"], ["rows"], ["columns"], ["nonzeros per row"]])
-        mc.add_entry(["CSR Best", "CPU", "threads", ""])
-        mc.add_entry(["CSR Best", "CPU", "bandwidth", ""])
-        mc.add_entry(["CSR Best", "CPU", "time", ""])
-        mc.add_entry(["CSR Best", "GPU", "launch cfg.", ""])
-        mc.add_entry(["CSR Best", "GPU", "bandwidth", ""])
-        mc.add_entry(["CSR Best", "GPU", "time", ""])
-        mc.add_entry(["CSR Best", "GPU", "diff.max", ""])
-        mc.add_entry(["CSR Best", "GPU", "speed-up", "cusparse"])
-        mc.add_entry(["CSR Best", "GPU", "speed-up", "CSR CPU"])
-        mc.add_entry(["CSR Best", "GPU", "speed-up", "Hypre"])
-        mc.add_entry(["CSR Best", "GPU", "speed-up", "Ginkgo"])
-        mc.add_entry(["CSR Best", "GPU", "speed-up", "2nd best"])
+        mc_csr = mic.MultiindexCreator(4)
+        mc_csr.add_entries([["Matrix name"], ["rows"], ["columns"], ["nonzeros per row"]])
+        mc_csr.add_entry(["CSR Best", "CPU", "threads", ""])
+        mc_csr.add_entry(["CSR Best", "CPU", "bandwidth", ""])
+        mc_csr.add_entry(["CSR Best", "CPU", "time", ""])
+        mc_csr.add_entry(["CSR Best", "GPU", "launch cfg.", ""])
+        mc_csr.add_entry(["CSR Best", "GPU", "bandwidth", ""])
+        mc_csr.add_entry(["CSR Best", "GPU", "time", ""])
+        mc_csr.add_entry(["CSR Best", "GPU", "diff.max", ""])
+        mc_csr.add_entry(["CSR Best", "GPU", "speed-up", "cusparse"])
+        mc_csr.add_entry(["CSR Best", "GPU", "speed-up", "CSR CPU"])
+        mc_csr.add_entry(["CSR Best", "GPU", "speed-up", "Hypre"])
+        mc_csr.add_entry(["CSR Best", "GPU", "speed-up", "Ginkgo"])
+        mc_csr.add_entry(["CSR Best", "GPU", "speed-up", "2nd best"])
 
-        mc.add_entry(["CSR 2nd Best", "GPU", "launch cfg.", ""])
-        mc.add_entry(["CSR 2nd Best", "GPU", "bandwidth", ""])
-        mc.add_entry(["CSR 2nd Best", "GPU", "time", ""])
-        mc.add_entry(["CSR 2nd Best", "GPU", "diff.max", ""])
-        mc.add_entry(["CSR 2nd Best", "GPU", "speed-up", "cusparse"])
-        mc.add_entry(["CSR 2nd Best", "GPU", "speed-up", "CSR CPU"])
-        mc.add_entry(["CSR 2nd Best", "GPU", "speed-up", "Hypre"])
-        mc.add_entry(["CSR 2nd Best", "GPU", "speed-up", "Ginkgo"])
+        mc_csr.add_entry(["CSR 2nd Best", "GPU", "launch cfg.", ""])
+        mc_csr.add_entry(["CSR 2nd Best", "GPU", "bandwidth", ""])
+        mc_csr.add_entry(["CSR 2nd Best", "GPU", "time", ""])
+        mc_csr.add_entry(["CSR 2nd Best", "GPU", "diff.max", ""])
+        mc_csr.add_entry(["CSR 2nd Best", "GPU", "speed-up", "cusparse"])
+        mc_csr.add_entry(["CSR 2nd Best", "GPU", "speed-up", "CSR CPU"])
+        mc_csr.add_entry(["CSR 2nd Best", "GPU", "speed-up", "Hypre"])
+        mc_csr.add_entry(["CSR 2nd Best", "GPU", "speed-up", "Ginkgo"])
 
-        mc.add_entry(["TNL Best", "format", "", ""])
-        mc.add_entry(["TNL Best", "device", "", ""])
-        mc.add_entry(["TNL Best", "launch cfg.", "", ""])
-        mc.add_entry(["TNL Best", "bandwidth", "", ""])
-        mc.add_entry(["TNL Best", "time", "", ""])
-        mc.add_entry(["TNL Best", "speed-up", "CSR CPU", ""])
-        mc.add_entry(["TNL Best", "speed-up", "cusparse", ""])
-        mc.add_entry(["TNL Best", "speed-up", "2nd best", ""])
-
-        mc.add_entry(["TNL 2nd Best", "format", "", ""])
-        mc.add_entry(["TNL 2nd Best", "device", "", ""])
-        mc.add_entry(["TNL 2nd Best", "launch cfg.", "", ""])
-        mc.add_entry(["TNL 2nd Best", "bandwidth", "", ""])
-        mc.add_entry(["TNL 2nd Best", "time", "", ""])
-        mc.add_entry(["TNL 2nd Best", "speed-up", "CSR CPU", ""])
-        mc.add_entry(["TNL 2nd Best", "speed-up", "cusparse", ""])
-
-        mc.add_entry(["Total Best", "format", "", ""])
-        mc.add_entry(["Total Best", "device", "", ""])
-        mc.add_entry(["Total Best", "launch cfg.", "", ""])
-        mc.add_entry(["Total Best", "bandwidth", "", ""])
-        mc.add_entry(["Total Best", "time", "", ""])
-        mc.add_entry(["Total Best", "speed-up", "2nd best", ""])
-
-        mc.add_entry(["Total 2nd Best", "format", "", ""])
-        mc.add_entry(["Total 2nd Best", "device", "", ""])
-        mc.add_entry(["Total 2nd Best", "launch cfg.", "", ""])
-        mc.add_entry(["Total 2nd Best", "bandwidth", "", ""])
-        mc.add_entry(["Total 2nd Best", "time", "", ""])
-
-        multicolumns, df_data = mc.get_multiindex()
-        self.best_df = pd.DataFrame(
+        multicolumns, df_data = mc_csr.get_multiindex()
+        self.best_csr_df = pd.DataFrame(
             df_data, columns=multicolumns, index=range(len(self.df))
         )
-        self.best_df.loc[:, ("Matrix name", "", "", "")] = self.df.loc[
+        self.best_csr_df.loc[:, ("Matrix name", "", "", "")] = self.df.loc[
             :, ("Matrix name", "", "", "")
         ]
-        self.best_df.loc[:, ("rows", "", "", "")] = self.df.loc[:, ("rows", "", "", "")]
-        self.best_df.loc[:, ("columns", "", "", "")] = self.df.loc[
+        self.best_csr_df.loc[:, ("rows", "", "", "")] = self.df.loc[:, ("rows", "", "", "")]
+        self.best_csr_df.loc[:, ("columns", "", "", "")] = self.df.loc[
             :, ("columns", "", "", "")
         ]
-        self.best_df.loc[:, ("nonzeros per row", "", "", "")] = self.df.loc[
+        self.best_csr_df.loc[:, ("nonzeros per row", "", "", "")] = self.df.loc[
             :, ("nonzeros per row", "", "", "")
         ]
+
+
+        mc_tnl_best = mic.MultiindexCreator(4)
+        mc_tnl_best.add_entries([["Matrix name"], ["rows"], ["columns"], ["nonzeros per row"]])
+        mc_tnl_best.add_entry(["TNL Best", "format", "", ""])
+        mc_tnl_best.add_entry(["TNL Best", "device", "", ""])
+        mc_tnl_best.add_entry(["TNL Best", "launch cfg.", "", ""])
+        mc_tnl_best.add_entry(["TNL Best", "bandwidth", "", ""])
+        mc_tnl_best.add_entry(["TNL Best", "time", "", ""])
+        mc_tnl_best.add_entry(["TNL Best", "speed-up", "CSR CPU", ""])
+        mc_tnl_best.add_entry(["TNL Best", "speed-up", "cusparse", ""])
+        mc_tnl_best.add_entry(["TNL Best", "speed-up", "2nd best", ""])
+
+        mc_tnl_best.add_entry(["TNL 2nd Best", "format", "", ""])
+        mc_tnl_best.add_entry(["TNL 2nd Best", "device", "", ""])
+        mc_tnl_best.add_entry(["TNL 2nd Best", "launch cfg.", "", ""])
+        mc_tnl_best.add_entry(["TNL 2nd Best", "bandwidth", "", ""])
+        mc_tnl_best.add_entry(["TNL 2nd Best", "time", "", ""])
+        mc_tnl_best.add_entry(["TNL 2nd Best", "speed-up", "CSR CPU", ""])
+        mc_tnl_best.add_entry(["TNL 2nd Best", "speed-up", "cusparse", ""])
+
+        multicolumns, df_data = mc_tnl_best.get_multiindex()
+        self.best_tnl_df = pd.DataFrame(
+            df_data, columns=multicolumns, index=range(len(self.df))
+        )
+        self.best_tnl_df.loc[:, ("Matrix name", "", "", "")] = self.df.loc[
+            :, ("Matrix name", "", "", "")
+        ]
+        self.best_tnl_df.loc[:, ("rows", "", "", "")] = self.df.loc[:, ("rows", "", "", "")]
+        self.best_tnl_df.loc[:, ("columns", "", "", "")] = self.df.loc[
+            :, ("columns", "", "", "")
+        ]
+        self.best_tnl_df.loc[:, ("nonzeros per row", "", "", "")] = self.df.loc[
+            :, ("nonzeros per row", "", "", "")
+        ]
+
+        mc_total_best = mic.MultiindexCreator(4)
+        mc_total_best.add_entries([["Matrix name"], ["rows"], ["columns"], ["nonzeros per row"]])
+        mc_total_best.add_entry(["Total Best", "format", "", ""])
+        mc_total_best.add_entry(["Total Best", "device", "", ""])
+        mc_total_best.add_entry(["Total Best", "launch cfg.", "", ""])
+        mc_total_best.add_entry(["Total Best", "bandwidth", "", ""])
+        mc_total_best.add_entry(["Total Best", "time", "", ""])
+        mc_total_best.add_entry(["Total Best", "speed-up", "2nd best", ""])
+
+        mc_total_best.add_entry(["Total 2nd Best", "format", "", ""])
+        mc_total_best.add_entry(["Total 2nd Best", "device", "", ""])
+        mc_total_best.add_entry(["Total 2nd Best", "launch cfg.", "", ""])
+        mc_total_best.add_entry(["Total 2nd Best", "bandwidth", "", ""])
+        mc_total_best.add_entry(["Total 2nd Best", "time", "", ""])
+
+        multicolumns, df_data = mc_total_best.get_multiindex()
+        self.best_total_df = pd.DataFrame(
+            df_data, columns=multicolumns, index=range(len(self.df))
+        )
+        self.best_total_df.loc[:, ("Matrix name", "", "", "")] = self.df.loc[
+            :, ("Matrix name", "", "", "")
+        ]
+        self.best_total_df.loc[:, ("rows", "", "", "")] = self.df.loc[:, ("rows", "", "", "")]
+        self.best_total_df.loc[:, ("columns", "", "", "")] = self.df.loc[
+            :, ("columns", "", "", "")
+        ]
+        self.best_total_df.loc[:, ("nonzeros per row", "", "", "")] = self.df.loc[
+            :, ("nonzeros per row", "", "", "")
+        ]
+
+        self.best_csr_df.to_html("best_csr_formats_empty.html")
 
     def get_best_csr(self):
         """
@@ -104,9 +141,9 @@ class BestFormats:
                 launch_config_list.append(best_config)
                 bandwidth_list.append(max_bandwidth)
                 time_list.append(time)
-            self.best_df[("CSR Best", "CPU", "threads", "")] = launch_config_list
-            self.best_df[("CSR Best", "CPU", "bandwidth", "")] = bandwidth_list
-            self.best_df[("CSR Best", "CPU", "time", "")] = time_list
+            self.best_csr_df[("CSR Best", "CPU", "threads", "")] = launch_config_list
+            self.best_csr_df[("CSR Best", "CPU", "bandwidth", "")] = bandwidth_list
+            self.best_csr_df[("CSR Best", "CPU", "time", "")] = time_list
 
         if ("CSR", "GPU") in self.launch_configs:
             launch_config_list = [[], []]
@@ -181,43 +218,43 @@ class BestFormats:
                 speedup_ginkgo_list[1].append(speedup_ginkgo[1])
 
             # 1st best
-            self.best_df[("CSR Best", "GPU", "launch cfg.", "")] = launch_config_list[0]
-            self.best_df[("CSR Best", "GPU", "bandwidth", "")] = bandwidth_list[0]
-            self.best_df[("CSR Best", "GPU", "time", "")] = time_list[0]
-            self.best_df[("CSR Best", "GPU", "diff.max", "")] = diff_max_list[0]
-            self.best_df[("CSR Best", "GPU", "speed-up", "cusparse")] = (
+            self.best_csr_df[("CSR Best", "GPU", "launch cfg.", "")] = launch_config_list[0]
+            self.best_csr_df[("CSR Best", "GPU", "bandwidth", "")] = bandwidth_list[0]
+            self.best_csr_df[("CSR Best", "GPU", "time", "")] = time_list[0]
+            self.best_csr_df[("CSR Best", "GPU", "diff.max", "")] = diff_max_list[0]
+            self.best_csr_df[("CSR Best", "GPU", "speed-up", "cusparse")] = (
                 speedup_cusparse_list[0]
             )
-            self.best_df[("CSR Best", "GPU", "speed-up", "CSR CPU")] = (
+            self.best_csr_df[("CSR Best", "GPU", "speed-up", "CSR CPU")] = (
                 speedup_csr_cpu_list[0]
             )
-            self.best_df[("CSR Best", "GPU", "speed-up", "Hypre")] = speedup_hypre_list[
+            self.best_csr_df[("CSR Best", "GPU", "speed-up", "Hypre")] = speedup_hypre_list[
                 0
             ]
-            self.best_df[("CSR Best", "GPU", "speed-up", "Ginkgo")] = (
+            self.best_csr_df[("CSR Best", "GPU", "speed-up", "Ginkgo")] = (
                 speedup_ginkgo_list[0]
             )
-            self.best_df[("CSR Best", "GPU", "speed-up", "2nd best")] = (
+            self.best_csr_df[("CSR Best", "GPU", "speed-up", "2nd best")] = (
                 speedup_second_best_list[0]
             )
 
             # 2nd best
-            self.best_df[("CSR 2nd Best", "GPU", "launch cfg.", "")] = (
+            self.best_csr_df[("CSR 2nd Best", "GPU", "launch cfg.", "")] = (
                 launch_config_list[1]
             )
-            self.best_df[("CSR 2nd Best", "GPU", "bandwidth", "")] = bandwidth_list[1]
-            self.best_df[("CSR 2nd Best", "GPU", "time", "")] = time_list[1]
-            self.best_df[("CSR 2nd Best", "GPU", "diff.max", "")] = diff_max_list[1]
-            self.best_df[("CSR 2nd Best", "GPU", "speed-up", "cusparse")] = (
+            self.best_csr_df[("CSR 2nd Best", "GPU", "bandwidth", "")] = bandwidth_list[1]
+            self.best_csr_df[("CSR 2nd Best", "GPU", "time", "")] = time_list[1]
+            self.best_csr_df[("CSR 2nd Best", "GPU", "diff.max", "")] = diff_max_list[1]
+            self.best_csr_df[("CSR 2nd Best", "GPU", "speed-up", "cusparse")] = (
                 speedup_cusparse_list[1]
             )
-            self.best_df[("CSR 2nd Best", "GPU", "speed-up", "CSR CPU")] = (
+            self.best_csr_df[("CSR 2nd Best", "GPU", "speed-up", "CSR CPU")] = (
                 speedup_csr_cpu_list[1]
             )
-            self.best_df[("CSR 2nd Best", "GPU", "speed-up", "Hypre")] = (
+            self.best_csr_df[("CSR 2nd Best", "GPU", "speed-up", "Hypre")] = (
                 speedup_hypre_list[1]
             )
-            self.best_df[("CSR 2nd Best", "GPU", "speed-up", "Ginkgo")] = (
+            self.best_csr_df[("CSR 2nd Best", "GPU", "speed-up", "Ginkgo")] = (
                 speedup_ginkgo_list[1]
             )
 
@@ -321,29 +358,29 @@ class BestFormats:
             speedup_csr_cpu_list[1].append(speedup_csr_cpu[1])
             speedup_cusparse_list[1].append(speedup_cusparse[1])
         # 1st best
-        self.best_df[("TNL Best", "format", "", "")] = format_list[0]
-        self.best_df[("TNL Best", "device", "", "")] = device_list[0]
-        self.best_df[("TNL Best", "launch cfg.", "", "")] = launch_config_list[0]
-        self.best_df[("TNL Best", "bandwidth", "", "")] = bandwidth_list[0]
-        self.best_df[("TNL Best", "time", "", "")] = time_list[0]
-        self.best_df[("TNL Best", "speed-up", "CSR CPU", "")] = speedup_csr_cpu_list[0]
-        self.best_df[("TNL Best", "speed-up", "cusparse", "")] = speedup_cusparse_list[
+        self.best_tnl_df[("TNL Best", "format", "", "")] = format_list[0]
+        self.best_tnl_df[("TNL Best", "device", "", "")] = device_list[0]
+        self.best_tnl_df[("TNL Best", "launch cfg.", "", "")] = launch_config_list[0]
+        self.best_tnl_df[("TNL Best", "bandwidth", "", "")] = bandwidth_list[0]
+        self.best_tnl_df[("TNL Best", "time", "", "")] = time_list[0]
+        self.best_tnl_df[("TNL Best", "speed-up", "CSR CPU", "")] = speedup_csr_cpu_list[0]
+        self.best_tnl_df[("TNL Best", "speed-up", "cusparse", "")] = speedup_cusparse_list[
             0
         ]
-        self.best_df[("TNL Best", "speed-up", "2nd best", "")] = (
+        self.best_tnl_df[("TNL Best", "speed-up", "2nd best", "")] = (
             speedup_second_best_list
         )
         # 2nd best
         print("2nd best speed-ups:")
-        self.best_df[("TNL 2nd Best", "format", "", "")] = format_list[1]
-        self.best_df[("TNL 2nd Best", "device", "", "")] = device_list[1]
-        self.best_df[("TNL 2nd Best", "launch cfg.", "", "")] = launch_config_list[1]
-        self.best_df[("TNL 2nd Best", "bandwidth", "", "")] = bandwidth_list[1]
-        self.best_df[("TNL 2nd Best", "time", "", "")] = time_list[1]
-        self.best_df[("TNL 2nd Best", "speed-up", "CSR CPU", "")] = (
+        self.best_tnl_df[("TNL 2nd Best", "format", "", "")] = format_list[1]
+        self.best_tnl_df[("TNL 2nd Best", "device", "", "")] = device_list[1]
+        self.best_tnl_df[("TNL 2nd Best", "launch cfg.", "", "")] = launch_config_list[1]
+        self.best_tnl_df[("TNL 2nd Best", "bandwidth", "", "")] = bandwidth_list[1]
+        self.best_tnl_df[("TNL 2nd Best", "time", "", "")] = time_list[1]
+        self.best_tnl_df[("TNL 2nd Best", "speed-up", "CSR CPU", "")] = (
             speedup_csr_cpu_list[1]
         )
-        self.best_df[("TNL 2nd Best", "speed-up", "cusparse", "")] = (
+        self.best_tnl_df[("TNL 2nd Best", "speed-up", "cusparse", "")] = (
             speedup_cusparse_list[1]
         )
 
@@ -407,27 +444,29 @@ class BestFormats:
             time_list[1].append(time[1])
 
         # 1st best
-        self.best_df[("Total Best", "format", "", "")] = format_list[0]
-        self.best_df[("Total Best", "device", "", "")] = device_list[0]
-        self.best_df[("Total Best", "launch cfg.", "", "")] = launch_config_list[0]
-        self.best_df[("Total Best", "bandwidth", "", "")] = bandwidth_list[0]
-        self.best_df[("Total Best", "time", "", "")] = time_list[0]
-        self.best_df[("Total Best", "speed-up", "2nd best", "")] = (
+        self.best_total_df[("Total Best", "format", "", "")] = format_list[0]
+        self.best_total_df[("Total Best", "device", "", "")] = device_list[0]
+        self.best_total_df[("Total Best", "launch cfg.", "", "")] = launch_config_list[0]
+        self.best_total_df[("Total Best", "bandwidth", "", "")] = bandwidth_list[0]
+        self.best_total_df[("Total Best", "time", "", "")] = time_list[0]
+        self.best_total_df[("Total Best", "speed-up", "2nd best", "")] = (
             speedup_second_best_list
         )
         # 2nd best
-        self.best_df[("Total 2nd Best", "format", "", "")] = format_list[1]
-        self.best_df[("Total 2nd Best", "device", "", "")] = device_list[1]
-        self.best_df[("Total 2nd Best", "launch cfg.", "", "")] = launch_config_list[1]
-        self.best_df[("Total 2nd Best", "bandwidth", "", "")] = bandwidth_list[1]
-        self.best_df[("Total 2nd Best", "time", "", "")] = time_list[1]
+        self.best_total_df[("Total 2nd Best", "format", "", "")] = format_list[1]
+        self.best_total_df[("Total 2nd Best", "device", "", "")] = device_list[1]
+        self.best_total_df[("Total 2nd Best", "launch cfg.", "", "")] = launch_config_list[1]
+        self.best_total_df[("Total 2nd Best", "bandwidth", "", "")] = bandwidth_list[1]
+        self.best_total_df[("Total 2nd Best", "time", "", "")] = time_list[1]
 
     def write(self):
         self.get_best_csr()
         self.get_best_tnl_format()
         self.get_total_best_format()
         print("Writing best formats to best_formats.html")
-        self.best_df.to_html("best_formats.html")
+        self.best_csr_df.to_html("best_csr_formats.html")
+        self.best_tnl_df.to_html("best_tnl_formats.html")
+        self.best_total_df.to_html("best_total_formats.html")
 
     def count_best_formats(self, file_name):
         """
@@ -437,7 +476,7 @@ class BestFormats:
         best_sorted = 0
         best_gpu = 0
         total = 0
-        for idx, row in self.best_df.iterrows():
+        for idx, row in self.best_total_df.iterrows():
             best_format = row[("Total Best", "format", "", "")]
             best_device = row[("Total Best", "device", "", "")]
             best_launch_config = row[("Total Best", "launch cfg.", "", "")]
