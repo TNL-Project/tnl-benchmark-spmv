@@ -15,6 +15,7 @@ struct SpmvBenchmarkResult : public BenchmarkResult
 
    using BenchmarkResult::bandwidth;
    using BenchmarkResult::speedup;
+   using BenchmarkResult::time_mean;
    using BenchmarkResult::time_median;
    using BenchmarkResult::time_stddev;
    using typename BenchmarkResult::HeaderElements;
@@ -28,18 +29,21 @@ struct SpmvBenchmarkResult : public BenchmarkResult
    virtual HeaderElements
    getTableHeader() const override
    {
-      return HeaderElements( { "time", "speedup", "bandwidth", "CSR Diff.Max", "CSR Diff.L2", "loops" } );
+      return HeaderElements(
+         { "time median", "speedup", "bandwidth", "CSR Diff.Max", "CSR Diff.L2", "time mean", "time stddev", "loops" } );
    }
 
    virtual std::vector< int >
    getColumnWidthHints() const override
    {
-      return std::vector< int >( { 14,     // time_median
-                                   8,      // speedup
-                                   14,     // bandwidth
-                                   14,     // CSR Diff.Max
-                                   14,     // CSR Diff. L2,
-                                   6 } );  // loops
+      return std::vector< int >( { 16,      // time_median
+                                   16,      // speedup
+                                   16,      // bandwidth
+                                   16,      // CSR Diff.Max
+                                   16,      // CSR Diff. L2,
+                                   16,      // time mean
+                                   16,      // time stddev
+                                   10 } );  // loops
    }
 
    virtual RowElements
@@ -55,7 +59,7 @@ struct SpmvBenchmarkResult : public BenchmarkResult
          elements << speedup;
       else
          elements << "N/A";
-      elements << bandwidth << max( abs( diff ) ) << lpNorm( diff, 2.0 ) << loops;
+      elements << bandwidth << max( abs( diff ) ) << lpNorm( diff, 2.0 ) << time_mean << time_stddev << loops;
       return elements;
    }
 

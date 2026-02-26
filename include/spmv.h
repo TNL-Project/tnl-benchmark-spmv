@@ -22,6 +22,8 @@
 #include <TNL/Matrices/MatrixType.h>
 #include <TNL/Matrices/SparseMatrix.h>
 
+#include "MatrixStatistics.h"
+
 using namespace TNL::Matrices;
 
 namespace TNL::Benchmarks::SpMV {
@@ -342,8 +344,8 @@ dispatchGeneral( BenchmarkType& benchmark,
       benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
 
    // Dispatch binary SpMV for general matrices
-   //dispatchSpMV< Real, Index, bool, TNL::Matrices::GeneralMatrix >(
-   //   benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+   dispatchSpMV< Real, Index, bool, TNL::Matrices::GeneralMatrix >(
+      benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
 }
 
 template< typename Real, typename Index >
@@ -401,38 +403,52 @@ benchmarkSpmv( BenchmarkType& benchmark,
    TNL::Containers::Vector< Index > nonzerosPerRow( csrHostMatrix.getRows() );
    TNL::Containers::Vector< double > aux;
    csrHostMatrix.getCompressedRowLengths( nonzerosPerRow );
-   double average = sum( nonzerosPerRow ) / nonzerosPerRow.getSize();
-   aux = nonzerosPerRow - average;
-   double std_dev = lpNorm( aux, 2.0 ) / nonzerosPerRow.getSize();
-   TNL::Algorithms::ascendingSort( nonzerosPerRow );
-   double percentile_25 = nonzerosPerRow[ nonzerosPerRow.getSize() * 0.25 ];
-   double percentile_50 = nonzerosPerRow[ nonzerosPerRow.getSize() * 0.5 ];
-   double percentile_75 = nonzerosPerRow[ nonzerosPerRow.getSize() * 0.75 ];
+   MatrixStatistics< CSRHostMatrix > matrixStats( csrHostMatrix );
 
    ////
    // Perform benchmark on host with CSR as a reference CPU format
    //
-   benchmark.setMetadataColumns( {
-      { "matrix name", inputFileName },
-      { "precision", getType< Real >() },
-      { "rows", convertToString( csrHostMatrix.getRows() ) },
-      { "columns", convertToString( csrHostMatrix.getColumns() ) },
-      { "nonzeros", convertToString( nonzeros ) },
-      { "nonzeros per row std_dev", convertToString( std_dev ) },
-      { "nonzeros per row percentile 25", convertToString( percentile_25 ) },
-      { "nonzeros per row percentile 50", convertToString( percentile_50 ) },
-      { "nonzeros per row percentile 75", convertToString( percentile_75 ) },
-      { "format", "" },
-      { "launch cfg.", "" },
-      { "threads", "1" }  // NOTE: 'nonzeros per row average' can be easily
-                          // calculated with Pandas based on the other metadata
-   } );
+   benchmark.setMetadataColumns( { { "matrix name", inputFileName },
+                                   { "precision", getType< Real >() },
+                                   { "rows", convertToString( csrHostMatrix.getRows() ) },
+                                   { "columns", convertToString( csrHostMatrix.getColumns() ) },
+                                   { "nonzeros", convertToString( nonzeros ) },
+                                   { "nonzeros/row average", convertToString( matrixStats.getAverage() ) },
+                                   { "nonzeros/row std_dev", convertToString( matrixStats.getStddev() ) },
+                                   { "nonzeros/row P50", convertToString( matrixStats.getP50() ) },
+                                   { "nonzeros/row P95", convertToString( matrixStats.getP95() ) },
+                                   { "nonzeros/row P99", convertToString( matrixStats.getP99() ) },
+                                   { "nonzeros/row R50", convertToString( matrixStats.getR50() ) },
+                                   { "nonzeros/row R95", convertToString( matrixStats.getR95() ) },
+                                   { "nonzeros/row R99", convertToString( matrixStats.getR99() ) },
+                                   { "warps/row average", convertToString( matrixStats.getAverageWarpsPerRow() ) },
+                                   { "rho ELL", convertToString( matrixStats.getRhoELL() ) },
+                                   { "rho SELL 2", convertToString( matrixStats.getRhoSELL()[ 0 ] ) },
+                                   { "rho SELL 4", convertToString( matrixStats.getRhoSELL()[ 1 ] ) },
+                                   { "rho SELL 8", convertToString( matrixStats.getRhoSELL()[ 2 ] ) },
+                                   { "rho SELL 16", convertToString( matrixStats.getRhoSELL()[ 3 ] ) },
+                                   { "rho SELL 32", convertToString( matrixStats.getRhoSELL()[ 4 ] ) },
+                                   { "eta SELL 2", convertToString( matrixStats.getEtaSELL()[ 0 ] ) },
+                                   { "eta SELL 4", convertToString( matrixStats.getEtaSELL()[ 1 ] ) },
+                                   { "eta SELL 8", convertToString( matrixStats.getEtaSELL()[ 2 ] ) },
+                                   { "eta SELL 16", convertToString( matrixStats.getEtaSELL()[ 3 ] ) },
+                                   { "eta SELL 32", convertToString( matrixStats.getEtaSELL()[ 4 ] ) },
+                                   { "entropy", convertToString( matrixStats.getEntropy() ) },
+                                   { "Gini", convertToString( matrixStats.getGini() ) },
+                                   { "format", "" },
+                                   { "launch cfg.", "" },
+                                   { "threads", "1" } } );
+
+   benchmark.setCommonMetadataCount(
+      27 );  // The first 27 metadata elements will be printed in the prolog of the terminal output
    benchmark.setMetadataWidths( {
       { "matrix name", 32 },
-      { "format", 40 },
+      { "format", 55 },
       { "launch cfg.", 30 },
-      { "threads", 5 },
+      { "threads", 10 },
    } );
+   auto warmupLoops = benchmark.getWarmupLoops();
+   std::cout << "Warm-up loops before each benchmark: " << warmupLoops << ".\n";
 
    HostVector hostInVector( csrHostMatrix.getColumns() ), hostOutVector( csrHostMatrix.getRows() );
 
@@ -458,7 +474,6 @@ benchmarkSpmv( BenchmarkType& benchmark,
 #endif
    int threads = 1;
    while( true ) {
-      std::cout << "Benchmarking with " << threads << " threads." << std::endl;
       benchmark.setMetadataElement( { "format", "CSR" } );
       auto launch_config = convertToString( threads ) + " threads";
       if( threads == 1 )
@@ -473,8 +488,8 @@ benchmarkSpmv( BenchmarkType& benchmark,
 
    dispatchGeneral< Real, Index >( benchmark, csrHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
 
-   //if( parameters.getParameter< bool >( "with-symmetric-matrices" ) )
-   //   dispatchSymmetric< Real, Index >( benchmark, hostOutVector, inputFileName, parameters, verboseMR );
+   if( parameters.getParameter< bool >( "with-symmetric-matrices" ) )
+      dispatchSymmetric< Real, Index >( benchmark, hostOutVector, inputFileName, parameters, verboseMR );
 }
 
 }  // namespace TNL::Benchmarks::SpMV
