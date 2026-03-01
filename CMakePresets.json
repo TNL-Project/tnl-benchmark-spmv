@@ -1,0 +1,24 @@
+{
+   "version": 6,
+   "configurePresets": [
+      {
+         "name": "cluster",
+         "generator": "Ninja",
+         "binaryDir": "${sourceDir}/build/cluster",
+         "cacheVariables": {
+            "CMAKE_BUILD_TYPE": "Release",
+            "TNL_ENABLE_NATIVE": "OFF",
+            "TNL_CPU_ARCH": "x86-64-v3"
+         }
+      },
+      {
+         "name": "local-native",
+         "generator": "Ninja",
+         "binaryDir": "${sourceDir}/build/local-native",
+         "cacheVariables": {
+            "CMAKE_BUILD_TYPE": "Release",
+            "TNL_ENABLE_NATIVE": "ON"
+         }
+      }
+   ]
+}

@@ -8,19 +8,6 @@
 #
 #include( cmake/BuildCSR5.cmake )
 
-# PETSc requires MPI
-#if( TNL_BUILD_MPI AND TNL_USE_PETSC )
-#   find_package( PETSc COMPONENTS CXX )
-#endif()
-
-#if( PETSC_FOUND )
-#   message( "PETSC library found: ${PETSC_VERSION}")
-#   set( PETSC_CXX_FLAGS -DHAVE_PETSC ${PETSC_DEFINITIONS} )
-#   message( "   PETSC_INCLUDES  = ${PETSC_INCLUDES}" )
-#   message( "   PETSC_CXX_FLAGS = ${PETSC_CXX_FLAGS}" )
-#   message( "   PETSC_LIBRARIES = ${PETSC_LIBRARIES}" )
-#endif()
-
 find_package(MPI COMPONENTS CXX)
 if( MPI_CXX_FOUND )
    find_package(Hypre)
@@ -30,16 +17,16 @@ endif()
 # host binaries
 add_executable( tnl-benchmark-spmv tnl-benchmark-spmv.cpp )
 target_link_libraries( tnl-benchmark-spmv PUBLIC TNL::TNL )
+tnl_set_host_arch(tnl-benchmark-spmv)
 
 add_executable( tnl-benchmark-spmv-legacy tnl-benchmark-spmv-legacy.cpp )
 target_link_libraries( tnl-benchmark-spmv-legacy PUBLIC TNL::TNL )
+tnl_set_host_arch(tnl-benchmark-spmv-legacy)
 
 if( NOT HYPRE_FOUND OR NOT HYPRE_WITH_CUDA )
    add_executable( tnl-benchmark-spmv-reference tnl-benchmark-spmv-reference.cpp )
    target_link_libraries( tnl-benchmark-spmv-reference PUBLIC TNL::TNL )
-   #target_compile_options( tnl-benchmark-spmv-reference PRIVATE ${PETSC_CXX_FLAGS} )
-   #target_include_directories( tnl-benchmark-spmv-reference PRIVATE ${PETSC_INCLUDES} )
-   #target_link_libraries( tnl-benchmark-spmv-reference ${PETSC_LIBRARIES} )
+   tnl_set_host_arch(tnl-benchmark-spmv-reference)
 else()
    message( "Hypre was built with CUDA on this system and so tnl-benchmark-spmv-reference cannot be built." )
 endif()

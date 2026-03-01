@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.24)
 
+option(TNL_ENABLE_NATIVE "Use -march=native/-mtune=native for host code" OFF)
+set(TNL_CPU_ARCH "" CACHE STRING "Explicit -march=... value (e.g. haswell, skylake, znver3, x86-64-v3). Empty = default")
+
 # Set CUDA architectures for which the executables will be compiled.
 # See https://cmake.org/cmake/help/latest/prop_tgt/CUDA_ARCHITECTURES.html
 if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
@@ -26,6 +29,18 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -Wall -Werror=vla")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELEASE} ${CMAKE_CXX_FLAGS_DEBUG}")
+
+function(tnl_set_host_arch target)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        if(TNL_ENABLE_NATIVE)
+            target_compile_options(${target} PRIVATE -march=native -mtune=native)
+        elseif(NOT TNL_CPU_ARCH STREQUAL "")
+            target_compile_options(${target} PRIVATE -march=${TNL_CPU_ARCH})
+            target_compile_options(${target} PRIVATE -mtune=${TNL_CPU_ARCH})
+        endif()
+    endif()
+endfunction()
+
 
 # Settings for debug build
 if( CMAKE_BUILD_TYPE STREQUAL "Debug")
