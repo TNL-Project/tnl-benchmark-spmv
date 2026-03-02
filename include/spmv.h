@@ -394,7 +394,9 @@ benchmarkSpmv( BenchmarkType& benchmark,
    const Index compressedSize = csrHostMatrix.getValues().getSize();
    std::cout << "Compression ratio: " << (double) uncompressedSize / compressedSize << std::endl;
    const Index nonzeros = csrHostMatrix.getNonzeroElementsCount();
-   const double datasetSize = (double) nonzeros * ( 2 * sizeof( Real ) + sizeof( Index ) ) / oneGB;
+   const double datasetSize = (double) ( nonzeros * ( 2 * sizeof( Real ) + sizeof( Index ) )
+                                         + ( csrHostMatrix.getRows() + csrHostMatrix.getColumns() ) * sizeof( Index ) )
+                            / oneGB;
    benchmark.setDatasetSize( datasetSize );
 
    ////
