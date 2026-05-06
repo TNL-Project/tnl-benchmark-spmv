@@ -68,8 +68,8 @@ class Speedup:
             threads = int(launch_config.split(" ")[0])
             divide_columns(
                 self.df,
-                ("CSR", "CPU", "1 thread", "time", ""),
-                ("CSR", "CPU", launch_config, "time", ""),
+                ("CSR", "CPU", "1 thread", "time mean", ""),
+                ("CSR", "CPU", launch_config, "time mean", ""),
                 ("CSR", "CPU", launch_config, "speed-up", ""),
             )
             divide_column_by_number(
@@ -87,8 +87,8 @@ class Speedup:
             for launch_config in self.launch_configs[(format, "GPU")]:
                 divide_columns(
                     self.df,
-                    ("CSR", "CPU", "1 thread", "time", ""),
-                    (format, "GPU", launch_config, "time", ""),
+                    ("CSR", "CPU", "1 thread", "time mean", ""),
+                    (format, "GPU", launch_config, "time mean", ""),
                     (format, "GPU", launch_config, "speed-up", "CSR CPU"),
                 )
 
@@ -107,8 +107,8 @@ class Speedup:
                             for launch_config in self.launch_configs[(format, device)]:
                                 divide_columns(
                                     self.df,
-                                    ("cusparse", "GPU", "Default", "time", ""),
-                                    (format, device, launch_config, "time", ""),
+                                    ("cusparse", "GPU", "Default", "time mean", ""),
+                                    (format, device, launch_config, "time mean", ""),
                                     (
                                         format,
                                         device,
@@ -138,13 +138,13 @@ class Speedup:
                                         ref_format,
                                         "GPU",
                                         "Default",
-                                        "time",
+                                        "time mean",
                                         "",
                                     ) in self.df.columns:
                                         divide_columns(
                                             self.df,
-                                            (ref_format, "GPU", "Default", "time", ""),
-                                            (format, device, launch_config, "time", ""),
+                                            (ref_format, "GPU", "Default", "time mean", ""),
+                                            (format, device, launch_config, "time mean", ""),
                                             (
                                                 format,
                                                 device,
@@ -157,16 +157,16 @@ class Speedup:
                 for launch_config in self.launch_configs[(ref_format, "CPU")]:
                     divide_columns(
                         self.df,
-                        (ref_format, "CPU", launch_config, "time", ""),
-                        ("CSR", "CPU", launch_config, "time", ""),
+                        (ref_format, "CPU", launch_config, "time mean", ""),
+                        ("CSR", "CPU", launch_config, "time mean", ""),
                         (ref_format, "CPU", launch_config, "TNL speed-up", ""),
                     )
                     threads = int(launch_config.split(" ")[0])
                     if threads != 1:
                         divide_columns(
                             self.df,
-                            (ref_format, "CPU", "1 thread", "time", ""),
-                            (ref_format, "CPU", launch_config, "time", ""),
+                            (ref_format, "CPU", "1 thread", "time mean", ""),
+                            (ref_format, "CPU", launch_config, "time mean", ""),
                             (ref_format, "CPU", launch_config, "speed-up", ""),
                         )
                         divide_column_by_number(
@@ -200,8 +200,8 @@ class Speedup:
                     non_binary_format = format.replace("Binary ", "")
                     divide_columns(
                         self.df,
-                        (non_binary_format, "GPU", launch_config, "time", ""),
-                        (format, "GPU", launch_config, "time", ""),
+                        (non_binary_format, "GPU", launch_config, "time mean", ""),
+                        (format, "GPU", launch_config, "time mean", ""),
                         (format, "GPU", launch_config, "speed-up", "non-binary"),
                     )
 
@@ -216,8 +216,8 @@ class Speedup:
                         non_symmetric_format = format.replace("Symmetric ", "")
                         divide_columns(
                             self.df,
-                            (non_symmetric_format, "GPU", launch_config, "time", ""),
-                            (format, "GPU", launch_config, "time", ""),
+                            (non_symmetric_format, "GPU", launch_config, "time mean", ""),
+                            (format, "GPU", launch_config, "time mean", ""),
                             (format, "GPU", launch_config, "speed-up", "non-symmetric"),
                         )
 
@@ -232,8 +232,8 @@ class Speedup:
                         non_symmetric_format = format.replace("Sorted ", "")
                         divide_columns(
                             self.df,
-                            (non_symmetric_format, "GPU", launch_config, "time", ""),
-                            (format, "GPU", launch_config, "time", ""),
+                            (non_symmetric_format, "GPU", launch_config, "time mean", ""),
+                            (format, "GPU", launch_config, "time mean", ""),
                             (format, "GPU", launch_config, "speed-up", "non-sorted"),
                         )
 
@@ -254,8 +254,8 @@ class Speedup:
                         ) in self.launch_configs:
                             divide_columns(
                                 self.df,
-                                (legacy_format, "GPU", "Default", "time", ""),
-                                (format, "GPU", launch_config, "time", ""),
+                                (legacy_format, "GPU", "Default", "time mean", ""),
+                                (format, "GPU", launch_config, "time mean", ""),
                                 (
                                     format,
                                     "GPU",

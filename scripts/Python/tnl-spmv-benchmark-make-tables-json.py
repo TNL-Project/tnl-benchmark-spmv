@@ -70,9 +70,9 @@ def add_to_multiindex(mc, format, device, launch_config, launch_configs):
     if (format in ["CSR", "Hypre", "Ginkgo"]) and device == "CPU":
         # For these formats on CPU we want to compute parallel efficiency
         if launch_config == "1 threads":
-            bm_data = ["bandwidth", "time"]
+            bm_data = ["bandwidth", "time mean"]
         else:
-            bm_data = ["bandwidth", "time", "speed-up", "eff."]
+            bm_data = ["bandwidth", "time mean", "speed-up", "eff."]
         if format in ["Hypre", "Ginkgo"]:
             bm_data.append("TNL speed-up")
         for data in bm_data:
@@ -83,7 +83,7 @@ def add_to_multiindex(mc, format, device, launch_config, launch_configs):
         if (format, device) in launch_configs:
             for data in [
                 "bandwidth",
-                "time",
+                "time mean",
                 "diff.max",
             ]:
                 mc.add_entry([format, device, launch_config, data])
@@ -191,7 +191,7 @@ def convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=-1)
             bw = pd.to_numeric(row["bandwidth"], errors="coerce")
             if bw_units == "TB/s":
                 bw = bw / 1024
-            time = pd.to_numeric(row["time"], errors="coerce")
+            time = pd.to_numeric(row["time mean"], errors="coerce")
             diff_max = pd.to_numeric(row["CSR Diff.Max"], errors="coerce")
             if current_device == "CPU" and (
                 current_format in ["CSR", "Ginkgo", "Hypre"]
@@ -209,7 +209,7 @@ def convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=-1)
                 ] = bw
                 aux_df.loc[
                     out_idx,
-                    (current_format, current_device, current_launch_config, "time", ""),
+                    (current_format, current_device, current_launch_config, "time mean", ""),
                 ] = time
             else:
                 aux_df.loc[
@@ -224,7 +224,7 @@ def convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=-1)
                 ] = bw
                 aux_df.loc[
                     out_idx,
-                    (current_format, current_device, current_launch_config, "time", ""),
+                    (current_format, current_device, current_launch_config, "time mean", ""),
                 ] = time
                 aux_df.loc[
                     out_idx,
