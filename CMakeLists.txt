@@ -110,7 +110,7 @@ include_directories(include)
 include(FetchContent)
 FetchContent_Declare(TNL
     GIT_REPOSITORY https://gitlab.com/tnl-project/tnl.git
-    GIT_TAG TO/bfs-sssp
+    GIT_TAG main
     EXCLUDE_FROM_ALL
 )
 set(TNL_EXPORT_INTERFACE_TARGETS ON)  # needed for adding to the interface target
