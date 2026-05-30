@@ -2,8 +2,7 @@
 
 #include <cstdint>
 
-#include <TNL/Benchmarks/Benchmarks.h>
-#include <TNL/Benchmarks/JsonLogging.h>
+#include <TNL/Benchmarks/Benchmark.h>
 #include "SpmvBenchmarkResult.h"
 
 #include <TNL/Matrices/MatrixReader.h>
@@ -35,7 +34,7 @@
 
 namespace TNL::Benchmarks::SpMV {
 
-using BenchmarkType = TNL::Benchmarks::Benchmark< JsonLogging >;
+using BenchmarkType = TNL::Benchmarks::Benchmark;
 
 template< typename Real = double, typename Index = int >
 void
@@ -99,11 +98,6 @@ benchmarkSpmv( BenchmarkType& benchmark,
       { "nonzeros per row percentile 50", convertToString( percentile_50 ) },
       { "nonzeros per row percentile 75", convertToString( percentile_75 ) }
       // NOTE: 'nonzeros per row average' can be easily calculated with Pandas based on the other metadata
-   } );
-   benchmark.setMetadataWidths( {
-      { "matrix name", 32 },
-      { "format", 46 },
-      { "launch cfg.", 25 },
    } );
 
    HostVector hostInVector( csrHostMatrix.getColumns() ), hostOutVector( csrHostMatrix.getRows() );

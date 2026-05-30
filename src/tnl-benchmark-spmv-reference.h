@@ -13,16 +13,14 @@
 using namespace TNL::Matrices;
 
 #include <exception>
-#include <ctime> // Used for file naming, so logs don't get overwritten.
-#include <filesystem> // check file existence
 
 using namespace TNL;
 using namespace TNL::Benchmarks;
 
 template< typename Real >
 void
-runSpMVBenchmarks( TNL::Benchmarks::SpMV::BenchmarkType & benchmark,
-                   const String & inputFileName,
+runSpMVBenchmarks( Benchmark& benchmark,
+                   const String& inputFileName,
                    const Config::ParameterContainer& parameters,
                    bool verboseMR = false )
 {
@@ -35,34 +33,17 @@ runSpMVBenchmarks( TNL::Benchmarks::SpMV::BenchmarkType & benchmark,
    }
 }
 
-// Get current date time to have different log files names and avoid overwriting.
-std::string getCurrDateTime()
-{
-   time_t rawtime;
-   struct tm * timeinfo;
-   char buffer[ 80 ];
-   time( &rawtime );
-   timeinfo = localtime( &rawtime );
-   strftime( buffer, sizeof( buffer ), "%Y-%m-%d--%H:%M:%S", timeinfo );
-   std::string curr_date_time( buffer );
-   return curr_date_time;
-}
-
 void
-setupConfig( Config::ConfigDescription & config )
+setupConfig( Config::ConfigDescription& config )
 {
-   config.addDelimiter( "Benchmark settings:" );
+   Benchmark::configSetup( config );
+
+   config.addDelimiter( "SpMV reference benchmark settings:" );
    config.addRequiredEntry< String >( "input-file", "Input file name." );
-   config.addEntry< String >( "log-file", "Log file name.", "tnl-benchmark-spmv-reference::" + getCurrDateTime() + ".log");
-   config.addEntry< String >( "output-mode", "Mode for opening the log file.", "append" );
-   config.addEntryEnum( "append" );
-   config.addEntryEnum( "overwrite" );
    config.addEntry< String >( "precision", "Precision of the arithmetics.", "double" );
    config.addEntryEnum( "float" );
    config.addEntryEnum( "double" );
    config.addEntryEnum( "all" );
-   config.addEntry< int >( "loops", "Number of iterations for every computation.", 10 );
-   config.addEntry< int >( "verbose", "Verbose mode.", 1 );
    config.addEntry< int >( "verbose-MReader", "Verbose mode for Matrix Reader.", 0 );
 
    config.addDelimiter( "Device settings:" );
@@ -76,9 +57,6 @@ main( int argc, char* argv[] )
 #ifdef HAVE_PETSC
    PetscInitialize( &argc, &argv, nullptr, nullptr );
 #endif
-//#ifdef HAVE_MPI
-//   TNL::MPI::ScopedInitializer mpi( argc, argv );
-//#endif
 
    Config::ParameterContainer parameters;
    Config::ConfigDescription conf_desc;
@@ -91,38 +69,17 @@ main( int argc, char* argv[] )
    Devices::Host::setup( parameters );
    Devices::Cuda::setup( parameters );
 
-   const String & inputFileName = parameters.getParameter< String >( "input-file" );
-   const String & logFileName = parameters.getParameter< String >( "log-file" );
-   String outputMode = parameters.getParameter< String >( "output-mode" );
-   const String & precision = parameters.getParameter< String >( "precision" );
-   const int loops = parameters.getParameter< int >( "loops" );
-   const int verbose = parameters.getParameter< int >( "verbose" );
+   const String& inputFileName = parameters.getParameter< String >( "input-file" );
+   const String& precision = parameters.getParameter< String >( "precision" );
    const int verboseMR = parameters.getParameter< int >( "verbose-MReader" );
 
-   // open log file
    if( inputFileName.empty() ) {
       std::cerr << "ERROR: Input file name is required." << std::endl;
       return EXIT_FAILURE;
    }
-   if( std::filesystem::exists(logFileName.getString()) ) {
-      std::cout << "Log file " << logFileName << " exists and ";
-      if( outputMode == "append" )
-         std::cout << "new logs will be appended." << std::endl;
-      else
-         std::cout << "will be overwritten." << std::endl;
-   }
 
-   auto mode = std::ios::out;
-   if( outputMode == "append" )
-       mode |= std::ios::app;
-   std::ofstream logFile( logFileName, mode );
-
-   // init benchmark and set parameters
-   TNL::Benchmarks::SpMV::BenchmarkType benchmark( logFile, loops, verbose );
-
-   // write global metadata into a separate file
-   std::map< std::string, std::string > metadata = getHardwareMetadata();
-   writeMapAsJson( metadata, logFileName, ".metadata.json" );
+   Benchmark benchmark;
+   benchmark.setup( parameters, argv[ 0 ] );
 
    // Initiate setup of benchmarks
    if( precision == "all" || precision == "float" )

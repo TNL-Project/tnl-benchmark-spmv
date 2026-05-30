@@ -7,8 +7,7 @@
 #include <cstdint>
 
 #include "SpmvBenchmarkResult.h"
-#include <TNL/Benchmarks/Benchmarks.h>
-#include <TNL/Benchmarks/JsonLogging.h>
+#include <TNL/Benchmarks/Benchmark.h>
 
 #include <TNL/Algorithms/Segments/BiEllpack.h>
 #include <TNL/Algorithms/Segments/CSR.h>
@@ -28,7 +27,7 @@ using namespace TNL::Matrices;
 
 namespace TNL::Benchmarks::SpMV {
 
-using BenchmarkType = TNL::Benchmarks::Benchmark< JsonLogging >;
+using BenchmarkType = TNL::Benchmarks::Benchmark;
 
 /////
 // Segments aliases
@@ -440,17 +439,6 @@ benchmarkSpmv( BenchmarkType& benchmark,
                                    { "format", "" },
                                    { "launch cfg.", "" },
                                    { "threads", "1" } } );
-
-   benchmark.setCommonMetadataCount(
-      27 );  // The first 27 metadata elements will be printed in the prolog of the terminal output
-   benchmark.setMetadataWidths( {
-      { "matrix name", 32 },
-      { "format", 55 },
-      { "launch cfg.", 30 },
-      { "threads", 10 },
-   } );
-   auto warmupLoops = benchmark.getWarmupLoops();
-   std::cout << "Warm-up loops before each benchmark: " << warmupLoops << ".\n";
 
    HostVector hostInVector( csrHostMatrix.getColumns() ), hostOutVector( csrHostMatrix.getRows() );
 
