@@ -1,5 +1,5 @@
 default:
-  image: "archlinux/devel-tnl:latest"
+  image: "registry.gitlab.com/tnl-project/container-images/archlinux-tnl-cuda:latest"
   tags:
     - docker
     - nvidia
