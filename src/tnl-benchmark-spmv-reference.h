@@ -7,7 +7,7 @@
 #include "spmv-reference.h"
 
 #ifdef HAVE_PETSC
-#include <petscmat.h>
+   #include <petscmat.h>
 #endif
 
 using namespace TNL::Matrices;

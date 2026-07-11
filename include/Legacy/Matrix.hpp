@@ -14,14 +14,18 @@ namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy {
 
 template< typename Real, typename Device, typename Index, typename RealAllocator >
 Matrix< Real, Device, Index, RealAllocator >::Matrix( const RealAllocatorType& allocator )
-: rows( 0 ), columns( 0 ), values( allocator )
+: rows( 0 ),
+  columns( 0 ),
+  values( allocator )
 {}
 
 template< typename Real, typename Device, typename Index, typename RealAllocator >
 Matrix< Real, Device, Index, RealAllocator >::Matrix( const IndexType rows_,
                                                       const IndexType columns_,
                                                       const RealAllocatorType& allocator )
-: rows( rows_ ), columns( columns_ ), values( allocator )
+: rows( rows_ ),
+  columns( columns_ ),
+  values( allocator )
 {}
 
 template< typename Real, typename Device, typename Index, typename RealAllocator >
@@ -56,7 +60,7 @@ Matrix< Real, Device, Index, RealAllocator >::getNonzeroElementsCount() const
    const auto values_view = this->values.getConstView();
    auto fetch = [ = ] __cuda_callable__( const IndexType i ) -> IndexType
    {
-      return ( values_view[ i ] != 0.0 );
+      return values_view[ i ] != 0.0;
    };
    return Algorithms::reduce< DeviceType >( (IndexType) 0, this->values.getSize(), fetch, std::plus<>{}, 0 );
 }

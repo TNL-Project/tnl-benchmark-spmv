@@ -15,7 +15,8 @@ template< typename Device >
 class MultidiagonalDeviceDependentCode;
 
 template< typename Real, typename Device, typename Index >
-Multidiagonal< Real, Device, Index >::Multidiagonal(){};
+Multidiagonal< Real, Device, Index >::Multidiagonal()
+{}
 
 template< typename Real, typename Device, typename Index >
 std::string
@@ -159,7 +160,7 @@ Multidiagonal< Real, Device, Index >::operator==( const Multidiagonal< Real2, De
 {
    TNL_ASSERT_EQ( this->getRows(), matrix.getRows(), "" );
    TNL_ASSERT_EQ( this->getColumns(), matrix.getColumns(), "" );
-   return ( this->diagonals == matrix.diagonals && this->values == matrix.values );
+   return this->diagonals == matrix.diagonals && this->values == matrix.values;
 }
 
 template< typename Real, typename Device, typename Index >

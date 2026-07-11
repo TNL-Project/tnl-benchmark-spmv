@@ -13,76 +13,77 @@ class SparseRow
    using RealType = Real;
    using IndexType = Index;
 
-   public:
+public:
+   __cuda_callable__
+   SparseRow();
 
-      __cuda_callable__
-      SparseRow();
+   __cuda_callable__
+   SparseRow( Index* columns, Real* values, const Index length, const Index step );
 
-      __cuda_callable__
-      SparseRow( Index* columns,
-                          Real* values,
-                          const Index length,
-                          const Index step );
+   __cuda_callable__
+   void
+   bind( Index* columns, Real* values, const Index length, const Index step );
 
-      __cuda_callable__
-      void bind( Index* columns,
-                 Real* values,
-                 const Index length,
-                 const Index step );
+   __cuda_callable__
+   void
+   setElement( const Index& elementIndex, const Index& column, const Real& value );
 
-      __cuda_callable__
-      void setElement( const Index& elementIndex,
-                       const Index& column,
-                       const Real& value );
+   __cuda_callable__
+   const Index&
+   getElementColumn( const Index& elementIndex ) const;
 
-      __cuda_callable__
-      const Index& getElementColumn( const Index& elementIndex ) const;
+   __cuda_callable__
+   const Index&
+   getColumnIndex( const Index& elementIndex ) const
+   {
+      return getElementColumn( elementIndex );
+   }
 
-      __cuda_callable__
-      const Index& getColumnIndex( const Index& elementIndex ) const
-      {
-         return getElementColumn( elementIndex );
-      }
+   __cuda_callable__
+   const Real&
+   getElementValue( const Index& elementIndex ) const;
 
+   __cuda_callable__
+   const Real&
+   getValue( const Index& elementIndex ) const
+   {
+      return getElementValue( elementIndex );
+   }
 
-      __cuda_callable__
-      const Real& getElementValue( const Index& elementIndex ) const;
+   __cuda_callable__
+   Index
+   getLength() const;
 
-      __cuda_callable__
-      const Real& getValue( const Index& elementIndex ) const
-      {
-         return getElementValue( elementIndex );
-      }
+   __cuda_callable__
+   Index
+   getSize() const
+   {
+      return length;
+   }
 
+   __cuda_callable__
+   Index
+   getNonZeroElementsCount() const;
 
-      __cuda_callable__
-      Index getLength() const;
+   void
+   print( std::ostream& str ) const;
 
-      __cuda_callable__
-      Index getSize() const { return length; }
+protected:
+   Real* values;
 
+   Index* columns;
 
-      __cuda_callable__
-      Index getNonZeroElementsCount() const;
-
-      void print( std::ostream& str ) const;
-
-   protected:
-
-      Real* values;
-
-      Index* columns;
-
-      Index length, step;
+   Index length, step;
 };
 
 template< typename Real, typename Index >
-std::ostream& operator<<( std::ostream& str, const SparseRow< Real, Index >& row )
+std::ostream&
+operator<<( std::ostream& str, const SparseRow< Real, Index >& row )
 {
    row.print( str );
    return str;
 }
 
-} // namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy
+}  // namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy
 
 #include "SparseRow_impl.h"

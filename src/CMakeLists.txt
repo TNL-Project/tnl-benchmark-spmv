@@ -9,120 +9,190 @@
 #include( cmake/BuildCSR5.cmake )
 
 find_package(MPI COMPONENTS CXX)
-if( MPI_CXX_FOUND )
-   find_package(Hypre)
-   find_package( Ginkgo )
+if(MPI_CXX_FOUND)
+    find_package(Hypre)
+    find_package(Ginkgo)
 endif()
 
 # host binaries
-add_executable( tnl-benchmark-spmv tnl-benchmark-spmv.cpp )
-target_link_libraries( tnl-benchmark-spmv PUBLIC TNL::TNL )
+add_executable(tnl-benchmark-spmv tnl-benchmark-spmv.cpp)
+target_link_libraries(tnl-benchmark-spmv PUBLIC TNL::TNL)
 tnl_set_host_arch(tnl-benchmark-spmv)
 
-add_executable( tnl-benchmark-spmv-legacy tnl-benchmark-spmv-legacy.cpp )
-target_link_libraries( tnl-benchmark-spmv-legacy PUBLIC TNL::TNL )
+add_executable(tnl-benchmark-spmv-legacy tnl-benchmark-spmv-legacy.cpp)
+target_link_libraries(tnl-benchmark-spmv-legacy PUBLIC TNL::TNL)
 tnl_set_host_arch(tnl-benchmark-spmv-legacy)
 
-if( NOT HYPRE_FOUND OR NOT HYPRE_WITH_CUDA )
-   add_executable( tnl-benchmark-spmv-reference tnl-benchmark-spmv-reference.cpp )
-   target_link_libraries( tnl-benchmark-spmv-reference PUBLIC TNL::TNL )
-   tnl_set_host_arch(tnl-benchmark-spmv-reference)
+if(NOT HYPRE_FOUND OR NOT HYPRE_WITH_CUDA)
+    add_executable(
+        tnl-benchmark-spmv-reference
+        tnl-benchmark-spmv-reference.cpp
+    )
+    target_link_libraries(tnl-benchmark-spmv-reference PUBLIC TNL::TNL)
+    tnl_set_host_arch(tnl-benchmark-spmv-reference)
 else()
-   message( "Hypre was built with CUDA on this system and so tnl-benchmark-spmv-reference cannot be built." )
+    message(
+        "Hypre was built with CUDA on this system and so tnl-benchmark-spmv-reference cannot be built."
+    )
 endif()
 
 # separate CUDA binaries
-if( CMAKE_CUDA_COMPILER )
-   add_executable( tnl-benchmark-spmv-cuda tnl-benchmark-spmv.cu )
-   target_link_libraries( tnl-benchmark-spmv-cuda PUBLIC TNL::TNL )
+if(CMAKE_CUDA_COMPILER)
+    add_executable(tnl-benchmark-spmv-cuda tnl-benchmark-spmv.cu)
+    target_link_libraries(tnl-benchmark-spmv-cuda PUBLIC TNL::TNL)
 
-   add_executable( tnl-benchmark-spmv-legacy-cuda tnl-benchmark-spmv-legacy.cu )
-   target_link_libraries( tnl-benchmark-spmv-legacy-cuda PUBLIC TNL::TNL )
+    add_executable(tnl-benchmark-spmv-legacy-cuda tnl-benchmark-spmv-legacy.cu)
+    target_link_libraries(tnl-benchmark-spmv-legacy-cuda PUBLIC TNL::TNL)
 
-   if( NOT HYPRE_FOUND OR HYPRE_WITH_CUDA )
-      add_executable( tnl-benchmark-spmv-reference-cuda tnl-benchmark-spmv-reference.cu LightSpMV-1.0/SpMV.cu LightSpMV-1.0/SpMVCSR.cu )
-      target_link_libraries( tnl-benchmark-spmv-reference-cuda PUBLIC TNL::TNL )
-      find_package( CUDAToolkit REQUIRED )
-      target_link_libraries( tnl-benchmark-spmv-reference-cuda PUBLIC CUDA::cusparse )
-   else()
-      message( "Hypre was built without CUDA on this system and so tnl-benchmark-spmv-reference-cuda cannot be built." )
-   endif()
+    if(NOT HYPRE_FOUND OR HYPRE_WITH_CUDA)
+        add_executable(
+            tnl-benchmark-spmv-reference-cuda
+            tnl-benchmark-spmv-reference.cu
+            LightSpMV-1.0/SpMV.cu
+            LightSpMV-1.0/SpMVCSR.cu
+        )
+        target_link_libraries(tnl-benchmark-spmv-reference-cuda PUBLIC TNL::TNL)
+        find_package(CUDAToolkit REQUIRED)
+        target_link_libraries(
+            tnl-benchmark-spmv-reference-cuda
+            PUBLIC CUDA::cusparse
+        )
+    else()
+        message(
+            "Hypre was built without CUDA on this system and so tnl-benchmark-spmv-reference-cuda cannot be built."
+        )
+    endif()
 endif()
 
 # separate HIP binaries
-if( CMAKE_HIP_COMPILER )
-   add_executable( tnl-benchmark-spmv-hip tnl-benchmark-spmv.hip )
-   target_link_libraries( tnl-benchmark-spmv-hip PUBLIC TNL::TNL )
-   target_compile_definitions( tnl-benchmark-spmv-hip PUBLIC "-DHIP_ENABLE_PRINTF" )
+if(CMAKE_HIP_COMPILER)
+    add_executable(tnl-benchmark-spmv-hip tnl-benchmark-spmv.hip)
+    target_link_libraries(tnl-benchmark-spmv-hip PUBLIC TNL::TNL)
+    target_compile_definitions(
+        tnl-benchmark-spmv-hip
+        PUBLIC "-DHIP_ENABLE_PRINTF"
+    )
 
-   #find_package( CUDAToolkit REQUIRED ) TODO: Some check for hipsparse
-   #target_link_libraries( tnl-benchmark-spmv-reference-hip PUBLIC HIP::hipsparse )
+    #find_package( CUDAToolkit REQUIRED ) TODO: Some check for hipsparse
+    #target_link_libraries( tnl-benchmark-spmv-reference-hip PUBLIC HIP::hipsparse )
 
-   # Find hipsparse package
-   find_package(hipsparse)
+    # Find hipsparse package
+    find_package(hipsparse)
 
-   # Check if hipsparse was found
-   if(hipsparse_FOUND )
-      message(STATUS "hipsparse found")
-      if( NOT HYPRE_FOUND OR NOT HYPRE_WITH_CUDA )
-         # Link hipsparse to your target (e.g., your executable or library)
-         add_executable( tnl-benchmark-spmv-reference-hip tnl-benchmark-spmv-reference.hip )
-         target_link_libraries( tnl-benchmark-spmv-reference-hip PUBLIC TNL::TNL )
-         #target_link_libraries( tnl-benchmark-spmv-reference-hip PUBLIC ${hipsparse_LIBRARIES})
-         target_link_libraries( tnl-benchmark-spmv-reference-hip PUBLIC roc::hipsparse )
-      endif()
-   else()
-      message(STATUS "hipsparse not found")
-      # Handle the case where hipsparse is not found
-      # e.g., by providing an error message or fetching the library from a repository
-   endif()
-
+    # Check if hipsparse was found
+    if(hipsparse_FOUND)
+        message(STATUS "hipsparse found")
+        if(NOT HYPRE_FOUND OR NOT HYPRE_WITH_CUDA)
+            # Link hipsparse to your target (e.g., your executable or library)
+            add_executable(
+                tnl-benchmark-spmv-reference-hip
+                tnl-benchmark-spmv-reference.hip
+            )
+            target_link_libraries(
+                tnl-benchmark-spmv-reference-hip
+                PUBLIC TNL::TNL
+            )
+            #target_link_libraries( tnl-benchmark-spmv-reference-hip PUBLIC ${hipsparse_LIBRARIES})
+            target_link_libraries(
+                tnl-benchmark-spmv-reference-hip
+                PUBLIC roc::hipsparse
+            )
+        endif()
+    else()
+        message(STATUS "hipsparse not found")
+        # Handle the case where hipsparse is not found
+        # e.g., by providing an error message or fetching the library from a repository
+    endif()
 endif()
 
-if( MPI_CXX_FOUND )
-   if( HYPRE_FOUND )
-      if( NOT HYPRE_WITH_CUDA )
-         # enable MPI support in TNL
-         target_compile_definitions( tnl-benchmark-spmv-reference PUBLIC "-DHAVE_MPI" )
-         # add MPI to the target: https://cliutils.gitlab.io/modern-cmake/chapters/packages/MPI.html
-         target_link_libraries( tnl-benchmark-spmv-reference PUBLIC MPI::MPI_CXX )
+if(MPI_CXX_FOUND)
+    if(HYPRE_FOUND)
+        if(NOT HYPRE_WITH_CUDA)
+            # enable MPI support in TNL
+            target_compile_definitions(
+                tnl-benchmark-spmv-reference
+                PUBLIC "-DHAVE_MPI"
+            )
+            # add MPI to the target: https://cliutils.gitlab.io/modern-cmake/chapters/packages/MPI.html
+            target_link_libraries(
+                tnl-benchmark-spmv-reference
+                PUBLIC MPI::MPI_CXX
+            )
 
-         # enable Hypre support in TNL
-         target_compile_definitions( tnl-benchmark-spmv-reference PUBLIC "-DHAVE_HYPRE" )
-         # add Hypre to the target
-         target_include_directories( tnl-benchmark-spmv-reference SYSTEM PUBLIC ${HYPRE_INCLUDE_DIRS} )
-         target_link_libraries( tnl-benchmark-spmv-reference PUBLIC ${HYPRE_LIBRARIES} -lm )
-      endif()
+            # enable Hypre support in TNL
+            target_compile_definitions(
+                tnl-benchmark-spmv-reference
+                PUBLIC "-DHAVE_HYPRE"
+            )
+            # add Hypre to the target
+            target_include_directories(
+                tnl-benchmark-spmv-reference
+                SYSTEM
+                PUBLIC ${HYPRE_INCLUDE_DIRS}
+            )
+            target_link_libraries(
+                tnl-benchmark-spmv-reference
+                PUBLIC ${HYPRE_LIBRARIES} -lm
+            )
+        endif()
 
-      if( CMAKE_CUDA_COMPILER AND HYPRE_WITH_CUDA )
-         # enable MPI support in TNL
-         target_compile_definitions( tnl-benchmark-spmv-reference-cuda PUBLIC "-DHAVE_MPI" )
-         # add MPI to the target: https://cliutils.gitlab.io/modern-cmake/chapters/packages/MPI.html
-         target_link_libraries( tnl-benchmark-spmv-reference-cuda PUBLIC MPI::MPI_CXX CUDA::cublas CUDA::curand CUDA::cusparse)
+        if(CMAKE_CUDA_COMPILER AND HYPRE_WITH_CUDA)
+            # enable MPI support in TNL
+            target_compile_definitions(
+                tnl-benchmark-spmv-reference-cuda
+                PUBLIC "-DHAVE_MPI"
+            )
+            # add MPI to the target: https://cliutils.gitlab.io/modern-cmake/chapters/packages/MPI.html
+            target_link_libraries(
+                tnl-benchmark-spmv-reference-cuda
+                PUBLIC MPI::MPI_CXX CUDA::cublas CUDA::curand CUDA::cusparse
+            )
 
-         # enable Hypre support in TNL
-         target_compile_definitions( tnl-benchmark-spmv-reference-cuda PUBLIC "-DHAVE_HYPRE" )
-         # add Hypre to the target
-         target_include_directories( tnl-benchmark-spmv-reference-cuda SYSTEM PUBLIC ${HYPRE_INCLUDE_DIRS} )
-         target_link_libraries( tnl-benchmark-spmv-reference-cuda PUBLIC ${HYPRE_LIBRARIES} -lm )
-      endif()
-   endif()
+            # enable Hypre support in TNL
+            target_compile_definitions(
+                tnl-benchmark-spmv-reference-cuda
+                PUBLIC "-DHAVE_HYPRE"
+            )
+            # add Hypre to the target
+            target_include_directories(
+                tnl-benchmark-spmv-reference-cuda
+                SYSTEM
+                PUBLIC ${HYPRE_INCLUDE_DIRS}
+            )
+            target_link_libraries(
+                tnl-benchmark-spmv-reference-cuda
+                PUBLIC ${HYPRE_LIBRARIES} -lm
+            )
+        endif()
+    endif()
 endif()
 
-if( MPI_CXX_FOUND )
-   if( Ginkgo_FOUND )
-      if( NOT HYPRE_FOUND OR NOT HYPRE_WITH_CUDA )
-         # enable Ginkgo support in TNL
-         target_compile_definitions( tnl-benchmark-spmv-reference PUBLIC "-DHAVE_GINKGO -DHAVE_MPI" )
-         # add Ginkgo to the target
-         target_link_libraries( tnl-benchmark-spmv-reference PUBLIC Ginkgo::ginkgo )
-      endif()
+if(MPI_CXX_FOUND)
+    if(Ginkgo_FOUND)
+        if(NOT HYPRE_FOUND OR NOT HYPRE_WITH_CUDA)
+            # enable Ginkgo support in TNL
+            target_compile_definitions(
+                tnl-benchmark-spmv-reference
+                PUBLIC "-DHAVE_GINKGO -DHAVE_MPI"
+            )
+            # add Ginkgo to the target
+            target_link_libraries(
+                tnl-benchmark-spmv-reference
+                PUBLIC Ginkgo::ginkgo
+            )
+        endif()
 
-      if( CMAKE_CUDA_COMPILER AND ( NOT HYPRE_FOUND OR HYPRE_WITH_CUDA ) )
-         # enable Ginkgo support in TNL
-         target_compile_definitions( tnl-benchmark-spmv-reference-cuda PUBLIC "-DHAVE_GINKGO -DHAVE_MPI" )
-         # add Ginkgo to the target
-         target_link_libraries( tnl-benchmark-spmv-reference-cuda PUBLIC Ginkgo::ginkgo )
-      endif()
-   endif()
+        if(CMAKE_CUDA_COMPILER AND (NOT HYPRE_FOUND OR HYPRE_WITH_CUDA))
+            # enable Ginkgo support in TNL
+            target_compile_definitions(
+                tnl-benchmark-spmv-reference-cuda
+                PUBLIC "-DHAVE_GINKGO -DHAVE_MPI"
+            )
+            # add Ginkgo to the target
+            target_link_libraries(
+                tnl-benchmark-spmv-reference-cuda
+                PUBLIC Ginkgo::ginkgo
+            )
+        endif()
+    endif()
 endif()

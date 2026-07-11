@@ -42,7 +42,7 @@ public:
    isSymmetric()
    {
       return false;
-   };
+   }
 
    Multidiagonal();
 

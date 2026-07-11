@@ -13,3 +13,11 @@ indent_style = space
 [*.py]
 indent_size = 4
 indent_style = space
+
+[{CMakeLists.txt,*.cmake}]
+indent_size = 4
+indent_style = space
+
+[*.{yaml,yml},.clangd,.clang-tidy]
+indent_size = 2
+indent_style = space

@@ -1,7 +1,11 @@
 cmake_minimum_required(VERSION 3.24)
 
 option(TNL_ENABLE_NATIVE "Use -march=native/-mtune=native for host code" OFF)
-set(TNL_CPU_ARCH "" CACHE STRING "Explicit -march=... value (e.g. haswell, skylake, znver3, x86-64-v3). Empty = default")
+set(TNL_CPU_ARCH
+    ""
+    CACHE STRING
+    "Explicit -march=... value (e.g. haswell, skylake, znver3, x86-64-v3). Empty = default"
+)
 
 # Set CUDA architectures for which the executables will be compiled.
 # See https://cmake.org/cmake/help/latest/prop_tgt/CUDA_ARCHITECTURES.html
@@ -17,7 +21,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 project(tnl-benchmark-spmv LANGUAGES CXX)
 
 # declare all custom build options
-option( HYPRE_WITH_CUDA "Set if Hypre was built with CUDA on this system." OFF )
+option(HYPRE_WITH_CUDA "Set if Hypre was built with CUDA on this system." OFF)
 
 # Require C++17, and disable compiler-specific extensions (if possible).
 set(CMAKE_CXX_STANDARD 17)
@@ -28,12 +32,17 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -Wall -Werror=vla")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
-set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELEASE} ${CMAKE_CXX_FLAGS_DEBUG}")
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO
+    "${CMAKE_CXX_FLAGS_RELEASE} ${CMAKE_CXX_FLAGS_DEBUG}"
+)
 
 function(tnl_set_host_arch target)
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         if(TNL_ENABLE_NATIVE)
-            target_compile_options(${target} PRIVATE -march=native -mtune=native)
+            target_compile_options(
+                ${target}
+                PRIVATE -march=native -mtune=native
+            )
         elseif(NOT TNL_CPU_ARCH STREQUAL "")
             target_compile_options(${target} PRIVATE -march=${TNL_CPU_ARCH})
             target_compile_options(${target} PRIVATE -mtune=${TNL_CPU_ARCH})
@@ -41,23 +50,26 @@ function(tnl_set_host_arch target)
     endif()
 endfunction()
 
-
 # Settings for debug build
-if( CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set( CMAKE_EXECUTABLE_SUFFIX "-dbg${CMAKE_EXECUTABLE_SUFFIX}" )  # suffix for executables
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(CMAKE_EXECUTABLE_SUFFIX "-dbg${CMAKE_EXECUTABLE_SUFFIX}") # suffix for executables
 endif()
 
 # Enforce (more or less) warning-free builds
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Wno-error=deprecated -Wno-error=deprecated-declarations -Wno-error=uninitialized")
+set(CMAKE_CXX_FLAGS
+    "${CMAKE_CXX_FLAGS} -Werror -Wno-error=deprecated -Wno-error=deprecated-declarations -Wno-error=uninitialized"
+)
 
 # Warn about redundant semicolons
-if( CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR
-    CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR
-    CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
+if(
+    CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
+    OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang"
+    OR CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
 )
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wextra-semi")
-    if( CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR
-        CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
+    if(
+        CMAKE_CXX_COMPILER_ID STREQUAL "Clang"
+        OR CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
     )
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wextra-semi-stmt")
     endif()
@@ -78,7 +90,9 @@ if(CMAKE_CUDA_COMPILER)
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Wall")
     set(CMAKE_CUDA_FLAGS_DEBUG "-g")
     set(CMAKE_CUDA_FLAGS_RELEASE "-O3 -DNDEBUG")
-    set(CMAKE_CUDA_FLAGS_RELWITHDEBINFO "${CMAKE_CUDA_FLAGS_RELEASE} ${CMAKE_CUDA_FLAGS_DEBUG}")
+    set(CMAKE_CUDA_FLAGS_RELWITHDEBINFO
+        "${CMAKE_CUDA_FLAGS_RELEASE} ${CMAKE_CUDA_FLAGS_DEBUG}"
+    )
 
     # enable separable compilation
     set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
@@ -100,7 +114,9 @@ if(CMAKE_HIP_COMPILER)
     #       which do not work with -O0 (leads to Memory access fault), hence -O1
     set(CMAKE_HIP_FLAGS_DEBUG "-O1 -g -DHIP_ENABLE_PRINTF")
     set(CMAKE_HIP_FLAGS_RELEASE "-O3 -DNDEBUG")
-    set(CMAKE_HIP_FLAGS_RELWITHDEBINFO "${CMAKE_HIP_FLAGS_RELEASE} ${CMAKE_HIP_FLAGS_DEBUG}")
+    set(CMAKE_HIP_FLAGS_RELWITHDEBINFO
+        "${CMAKE_HIP_FLAGS_RELEASE} ${CMAKE_HIP_FLAGS_DEBUG}"
+    )
 endif()
 
 # Set the project's include path
@@ -108,16 +124,16 @@ include_directories(include)
 
 # Add dependencies
 include(FetchContent)
-FetchContent_Declare(TNL
+FetchContent_Declare(
+    TNL
     GIT_REPOSITORY https://gitlab.com/tnl-project/tnl.git
     GIT_TAG main
     EXCLUDE_FROM_ALL
 )
-set(TNL_EXPORT_INTERFACE_TARGETS ON)  # needed for adding to the interface target
+set(TNL_EXPORT_INTERFACE_TARGETS ON) # needed for adding to the interface target
 FetchContent_MakeAvailable(TNL)
-
 
 # Add subdirectories with source
 add_subdirectory(src)
-enable_testing()  # this must be in the top-level CMakeLists.txt
+enable_testing() # this must be in the top-level CMakeLists.txt
 add_subdirectory(tests)

@@ -27,43 +27,57 @@
 #  endif()
 
 function(_HYPRE_GET_VERSION _OUT_ver _version_hdr)
-  file(STRINGS ${_version_hdr} _contents REGEX "#define HYPRE_RELEASE_VERSION[ \t]+")
-  if(_contents)
-    string(REGEX REPLACE "\"" "" _cont "${_contents}")
-    string(REGEX REPLACE ".*#define HYPRE_RELEASE_VERSION[ \t]+([0-9.]+).*" "\\1" ${_OUT_ver} "${_cont}")
-    if(NOT ${${_OUT_ver}} MATCHES "[0-9]+")
-        message(FATAL_ERROR "Version parsing failed for HYPRE_RELEASE_VERSION in ${_version_hdr}!")
+    file(
+        STRINGS ${_version_hdr}
+        _contents
+        REGEX "#define HYPRE_RELEASE_VERSION[ \t]+"
+    )
+    if(_contents)
+        string(REGEX REPLACE "\"" "" _cont "${_contents}")
+        string(
+            REGEX REPLACE ".*#define HYPRE_RELEASE_VERSION[ \t]+([0-9.]+).*"
+            "\\1"
+            ${_OUT_ver}
+            "${_cont}"
+        )
+        if(NOT ${${_OUT_ver}} MATCHES "[0-9]+")
+            message(
+                FATAL_ERROR
+                "Version parsing failed for HYPRE_RELEASE_VERSION in ${_version_hdr}!"
+            )
+        endif()
+        set(${_OUT_ver} ${${_OUT_ver}} PARENT_SCOPE)
+    elseif(EXISTS ${_version_hdr})
+        message(FATAL_ERROR "No HYPRE_RELEASE_VERSION in ${_version_hdr}")
+    else()
+        message(FATAL_ERROR "Include file ${_version_hdr} does not exist")
     endif()
-    set(${_OUT_ver} ${${_OUT_ver}} PARENT_SCOPE)
- elseif(EXISTS ${_version_hdr})
-    message(FATAL_ERROR "No HYPRE_RELEASE_VERSION in ${_version_hdr}")
- else()
-    message(FATAL_ERROR "Include file ${_version_hdr} does not exist")
-  endif()
 endfunction()
 
 # If already in cache, be silent
 if(HYPRE_INCLUDE_DIRS AND HYPRE_LIBRARIES)
-  set (HYPRE_FIND_QUIETLY TRUE)
+    set(HYPRE_FIND_QUIETLY TRUE)
 endif()
 
-if (HYPRE_ROOT)
-  set(HYPRE_SEARCH_OPTS NO_DEFAULT_PATH)
+if(HYPRE_ROOT)
+    set(HYPRE_SEARCH_OPTS NO_DEFAULT_PATH)
 else()
-  set(HYPRE_ROOT "/usr")
+    set(HYPRE_ROOT "/usr")
 endif()
 
-find_path(HYPRE_INCLUDE_DIR NAMES HYPRE.h
-                            PATH_SUFFIXES hypre
-                            HINTS ${HYPRE_ROOT}/include ${HYPRE_ROOT}/include/hypre
-                            ${HYPRE_SEARCH_OPTS})
+find_path(
+    HYPRE_INCLUDE_DIR
+    NAMES HYPRE.h
+    PATH_SUFFIXES hypre
+    HINTS ${HYPRE_ROOT}/include ${HYPRE_ROOT}/include/hypre ${HYPRE_SEARCH_OPTS}
+)
 
 if(HYPRE_INCLUDE_DIR)
-  _HYPRE_GET_VERSION(HYPRE_VERSION ${HYPRE_INCLUDE_DIR}/HYPRE_config.h)
-  set(HYPRE_INCLUDE_DIRS ${HYPRE_INCLUDE_DIR})
+    _hypre_get_version(HYPRE_VERSION ${HYPRE_INCLUDE_DIR}/HYPRE_config.h)
+    set(HYPRE_INCLUDE_DIRS ${HYPRE_INCLUDE_DIR})
 else()
-  set(HYPRE_VERSION 0.0.0)
-  set(HYPRE_INCLUDE_DIRS "")
+    set(HYPRE_VERSION 0.0.0)
+    set(HYPRE_INCLUDE_DIRS "")
 endif()
 
 find_library(HYPRE_LIBRARY NAMES HYPRE HINTS ${HYPRE_ROOT}/lib)
@@ -72,7 +86,11 @@ set(HYPRE_LIBRARIES ${HYPRE_LIBRARY})
 
 # Handle the QUIETLY and REQUIRED arguments and set HYPRE_FOUND to TRUE if
 # all listed variables are TRUE.
-INCLUDE(FindPackageHandleStandardArgs)
-FIND_PACKAGE_HANDLE_STANDARD_ARGS(Hypre REQUIRED_VARS HYPRE_LIBRARIES HYPRE_INCLUDE_DIRS VERSION_VAR HYPRE_VERSION)
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(
+    Hypre
+    REQUIRED_VARS HYPRE_LIBRARIES HYPRE_INCLUDE_DIRS
+    VERSION_VAR HYPRE_VERSION
+)
 
-MARK_AS_ADVANCED(HYPRE_INCLUDE_DIRS HYPRE_LIBRARIES)
+mark_as_advanced(HYPRE_INCLUDE_DIRS HYPRE_LIBRARIES)

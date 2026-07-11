@@ -17,7 +17,10 @@ ChunkedEllpackVectorProductCuda( const ChunkedEllpack< Real, Devices::Cuda, Inde
                                  Vector& outVector );
 
 template< typename Real, typename Device, typename Index >
-ChunkedEllpack< Real, Device, Index >::ChunkedEllpack() : chunksInSlice( 256 ), desiredChunkSize( 16 ), numberOfSlices( 0 )
+ChunkedEllpack< Real, Device, Index >::ChunkedEllpack()
+: chunksInSlice( 256 ),
+  desiredChunkSize( 16 ),
+  numberOfSlices( 0 )
 {}
 
 template< typename Real, typename Device, typename Index >

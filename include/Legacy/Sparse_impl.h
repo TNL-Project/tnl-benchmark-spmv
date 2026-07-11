@@ -5,92 +5,75 @@
 
 namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy {
 
-template< typename Real,
-          typename Device,
-          typename Index >
+template< typename Real, typename Device, typename Index >
 Sparse< Real, Device, Index >::Sparse()
 : maxRowLength( 0 )
-{
-}
+{}
 
-template< typename Real,
-          typename Device,
-          typename Index >
-   template< typename Real2,
-             typename Device2,
-             typename Index2 >
-void Sparse< Real, Device, Index >::setLike( const Sparse< Real2, Device2, Index2 >& matrix )
+template< typename Real, typename Device, typename Index >
+template< typename Real2, typename Device2, typename Index2 >
+void
+Sparse< Real, Device, Index >::setLike( const Sparse< Real2, Device2, Index2 >& matrix )
 {
    Matrix< Real, Device, Index >::setLike( matrix );
    this->allocateMatrixElements( matrix.getAllocatedElementsCount() );
 }
 
-
-template< typename Real,
-          typename Device,
-          typename Index >
-Index Sparse< Real, Device, Index >::getNumberOfNonzeroMatrixElements() const
+template< typename Real, typename Device, typename Index >
+Index
+Sparse< Real, Device, Index >::getNumberOfNonzeroMatrixElements() const
 {
    IndexType nonzeroElements( 0 );
    for( IndexType i = 0; i < this->values.getSize(); i++ )
-      if( this->columnIndexes.getElement( i ) != this-> columns &&
-          this->values.getElement( i ) != RealType( 0 ) )
+      if( this->columnIndexes.getElement( i ) != this->columns && this->values.getElement( i ) != RealType( 0 ) )
          nonzeroElements++;
    return nonzeroElements;
 }
 
-template< typename Real,
-          typename Device,
-          typename Index >
+template< typename Real, typename Device, typename Index >
 Index
-Sparse< Real, Device, Index >::
-getMaxRowLength() const
+Sparse< Real, Device, Index >::getMaxRowLength() const
 {
    return this->maxRowLength;
 }
 
-template< typename Real,
-          typename Device,
-          typename Index >
+template< typename Real, typename Device, typename Index >
 __cuda_callable__
-Index Sparse< Real, Device, Index >::getPaddingIndex() const
+Index
+Sparse< Real, Device, Index >::getPaddingIndex() const
 {
    return this->getColumns();
 }
 
-template< typename Real,
-          typename Device,
-          typename Index >
-void Sparse< Real, Device, Index >::reset()
+template< typename Real, typename Device, typename Index >
+void
+Sparse< Real, Device, Index >::reset()
 {
    Matrix< Real, Device, Index >::reset();
    this->columnIndexes.reset();
 }
 
-template< typename Real,
-          typename Device,
-          typename Index >
-void Sparse< Real, Device, Index >::save( File& file ) const
+template< typename Real, typename Device, typename Index >
+void
+Sparse< Real, Device, Index >::save( File& file ) const
 {
    Matrix< Real, Device, Index >::save( file );
    file << this->values << this->columnIndexes;
 }
 
-template< typename Real,
-          typename Device,
-          typename Index >
-void Sparse< Real, Device, Index >::load( File& file )
+template< typename Real, typename Device, typename Index >
+void
+Sparse< Real, Device, Index >::load( File& file )
 {
    Matrix< Real, Device, Index >::load( file );
    file >> this->values >> this->columnIndexes;
 }
 
-template< typename Real,
-          typename Device,
-          typename Index >
-void Sparse< Real, Device, Index >::allocateMatrixElements( const IndexType& numberOfMatrixElements )
+template< typename Real, typename Device, typename Index >
+void
+Sparse< Real, Device, Index >::allocateMatrixElements( const IndexType& numberOfMatrixElements )
 {
-   TNL_ASSERT_GE( numberOfMatrixElements, ( IndexType ) 0, "Number of matrix elements must be non-negative." );
+   TNL_ASSERT_GE( numberOfMatrixElements, (IndexType) 0, "Number of matrix elements must be non-negative." );
 
    this->values.setSize( numberOfMatrixElements );
    this->columnIndexes.setSize( numberOfMatrixElements );
@@ -103,12 +86,11 @@ void Sparse< Real, Device, Index >::allocateMatrixElements( const IndexType& num
       this->columnIndexes.setValue( this->columns );
 }
 
-template< typename Real,
-          typename Device,
-          typename Index >
-void Sparse< Real, Device, Index >::printStructure( std::ostream& str ) const
+template< typename Real, typename Device, typename Index >
+void
+Sparse< Real, Device, Index >::printStructure( std::ostream& str ) const
 {
-   throw Exceptions::NotImplementedError("Sparse::printStructure is not implemented yet.");
+   throw Exceptions::NotImplementedError( "Sparse::printStructure is not implemented yet." );
 }
 
-} // namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy
+}  // namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy

@@ -1750,7 +1750,7 @@ public:
                       &beta,
                       y );
    #endif
-   };
+   }
 };
 
 template<>
@@ -1794,7 +1794,7 @@ public:
                       &beta,
                       y );
    #endif
-   };
+   }
 };
 
 #endif
