@@ -6,8 +6,6 @@
 
 #include "spmv.h"
 
-using namespace TNL::Matrices;
-
 #include <exception>
 
 using namespace TNL;
@@ -78,10 +76,16 @@ main( int argc, char* argv[] )
    benchmark.setup( parameters, argv[ 0 ] );
 
    // Initiate setup of benchmarks
-   if( precision == "all" || precision == "float" )
-      runSpMVBenchmarks< float >( benchmark, inputFileName, parameters, verboseMR );
-   if( precision == "all" || precision == "double" )
-      runSpMVBenchmarks< double >( benchmark, inputFileName, parameters, verboseMR );
+   try {
+      if( precision == "all" || precision == "float" )
+         runSpMVBenchmarks< float >( benchmark, inputFileName, parameters, verboseMR );
+      if( precision == "all" || precision == "double" )
+         runSpMVBenchmarks< double >( benchmark, inputFileName, parameters, verboseMR );
+   }
+   catch( const std::exception& ex ) {
+      std::cerr << ex.what() << std::endl;
+      return EXIT_FAILURE;
+   }
 
    // Confirm that the benchmark has finished
    std::cout << "\n==> BENCHMARK FINISHED" << std::endl;
