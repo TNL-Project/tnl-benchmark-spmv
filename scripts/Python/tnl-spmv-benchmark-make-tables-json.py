@@ -313,7 +313,7 @@ def print_formats_and_launch_configs(formats, launch_configs):
                 )
 
 
-def analyze_df(df, args):
+def analyze_df(df, args, formats, launch_configs):
     """
     Analyze the dataframe and generate reports.
     """
@@ -339,59 +339,63 @@ def analyze_df(df, args):
     bestFormats.count_best_formats("best-formats-report_txt")
 
 
-argparser = get_arg_parser()
-args = argparser.parse_args()
+def main():
+    argparser = get_arg_parser()
+    args = argparser.parse_args()
 
-print(f"Parsing input files: {args.input}")
-input_df = parse_input_files(args.input)
-formats = get_formats(input_df)
-launch_configs = get_launch_configs(input_df)
-if args.verbose:
-    print_formats_and_launch_configs(formats, launch_configs)
+    print(f"Parsing input files: {args.input}")
+    input_df = parse_input_files(args.input)
+    formats = get_formats(input_df)
+    launch_configs = get_launch_configs(input_df)
+    if args.verbose:
+        print_formats_and_launch_configs(formats, launch_configs)
 
+    print("Converting data...")
+    multicolumns, df_data = get_multiindex(input_df, formats, launch_configs)
+    aux_df = pd.DataFrame(df_data, columns=multicolumns, index=[0])
+    aux_df.to_html("index.html")
+    result = convert_data_frame(
+        input_df, multicolumns, df_data, begin_idx=0, end_idx=args.max_rows
+    )
 
-print("Converting data...")
-multicolumns, df_data = get_multiindex(input_df, formats, launch_configs)
-aux_df = pd.DataFrame(df_data, columns=multicolumns, index=[0])
-aux_df.to_html("index.html")
-result = convert_data_frame(
-    input_df, multicolumns, df_data, begin_idx=0, end_idx=args.max_rows
-)
+    print("Computing speed-ups...")
+    speedup_getter = Speedup.Speedup(result, formats, launch_configs, legacy_counterparts)
+    result = speedup_getter.compute_speedup()
+    result.replace(to_replace=" ", value=np.nan, inplace=True)
 
-print("Computing speed-ups...")
-speedup_getter = Speedup.Speedup(result, formats, launch_configs, legacy_counterparts)
-result = speedup_getter.compute_speedup()
-result.replace(to_replace=" ", value=np.nan, inplace=True)
+    output_dir = args.output_dir
+    if not os.path.exists(output_dir):
+        os.mkdir(output_dir)
+    os.chdir(output_dir)
 
-output_dir = args.output_dir
-if not os.path.exists(output_dir):
-    os.mkdir(output_dir)
-os.chdir(output_dir)
+    analyze_df(result, args, formats, launch_configs)
 
-analyze_df(result, args)
+    for rows_count in [10, 100, 1000, 10000, 100000, 1000000, 10000000]:
+        print(f"Filtering for rows <= {rows_count}")
+        filtered_df = result[result["rows"].astype("int32") <= rows_count]
+        if filtered_df.empty:
+            print(f"No data for rows <= {rows_count}, skipping analysis.")
+            continue
+        if not os.path.exists(f"rows-le-{rows_count}"):
+            os.mkdir(f"rows-le-{rows_count}")
+        os.chdir(f"rows-le-{rows_count}")
+        analyze_df(filtered_df, args, formats, launch_configs)
+        os.chdir("..")
 
-for rows_count in [10, 100, 1000, 10000, 100000, 1000000, 10000000]:
-    print(f"Filtering for rows <= {rows_count}")
-    filtered_df = result[result["rows"].astype("int32") <= rows_count]
-    if filtered_df.empty:
-        print(f"No data for rows <= {rows_count}, skipping analysis.")
-        continue
-    if not os.path.exists(f"rows-le-{rows_count}"):
-        os.mkdir(f"rows-le-{rows_count}")
-    os.chdir(f"rows-le-{rows_count}")
-    analyze_df(filtered_df, args)
+    for rows_count in [10, 100, 1000, 10000, 100000, 1000000, 10000000]:
+        print(f"Filtering for rows >= {rows_count}")
+        filtered_df = result[result["rows"].astype("int32") >= rows_count]
+        if filtered_df.empty:
+            print(f"No data for rows >= {rows_count}, skipping analysis.")
+            continue
+        if not os.path.exists(f"rows-ge-{rows_count}"):
+            os.mkdir(f"rows-ge-{rows_count}")
+        os.chdir(f"rows-ge-{rows_count}")
+        analyze_df(filtered_df, args, formats, launch_configs)
+        os.chdir("..")
+
     os.chdir("..")
 
-for rows_count in [10, 100, 1000, 10000, 100000, 1000000, 10000000]:
-    print(f"Filtering for rows >= {rows_count}")
-    filtered_df = result[result["rows"].astype("int32") >= rows_count]
-    if filtered_df.empty:
-        print(f"No data for rows >= {rows_count}, skipping analysis.")
-        continue
-    if not os.path.exists(f"rows-ge-{rows_count}"):
-        os.mkdir(f"rows-ge-{rows_count}")
-    os.chdir(f"rows-ge-{rows_count}")
-    analyze_df(filtered_df, args)
-    os.chdir("..")
 
-os.chdir("..")
+if __name__ == "__main__":
+    main()
