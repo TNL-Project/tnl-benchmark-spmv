@@ -1,48 +1,31 @@
 def divide_columns(df, in_colA, in_colB, out_col):
     """
     Compute out_col = in_colA / in_colB
+    Division by zero yields NaN (matching the original try/except behavior).
     """
-    if not in_colA in df.columns:
+    if in_colA not in df.columns:
         raise Exception(f"Column {in_colA} not found in the dataframe")
-    if not in_colB in df.columns:
+    if in_colB not in df.columns:
         raise Exception(f"Column {in_colB} not found in the dataframe")
-    if not out_col in df.columns:
+    if out_col not in df.columns:
         raise Exception(f"Column {out_col} not found in the dataframe")
 
-    in_colA_list = df[in_colA]
-    in_colB_list = df[in_colB]
-    out_col_list = []
-
-    for A, B in zip(in_colA_list, in_colB_list):
-        div = 0
-        try:
-            div = A / B
-        except:
-            div = float("nan")
-        out_col_list.append(div)
-    df[out_col] = out_col_list
+    result = df[in_colA] / df[in_colB]
+    df[out_col] = result.replace( [ float( "inf" ), float( "-inf" ) ], float( "nan" ) )
 
 
 def divide_column_by_number(df, in_colA, number, out_col):
     """
     Compute out_col = in_colA / number
+    Division by zero yields NaN (matching the original try/except behavior).
     """
-    if not in_colA in df.columns:
+    if in_colA not in df.columns:
         raise Exception(f"Column {in_colA} not found in the dataframe")
-    if not out_col in df.columns:
+    if out_col not in df.columns:
         raise Exception(f"Column {out_col} not found in the dataframe")
 
-    in_colA_list = df[in_colA]
-    out_col_list = []
-
-    for A in in_colA_list:
-        div = 0
-        try:
-            div = A / number
-        except:
-            div = float("nan")
-        out_col_list.append(div)
-    df[out_col] = out_col_list
+    result = df[in_colA] / number
+    df[out_col] = result.replace( [ float( "inf" ), float( "-inf" ) ], float( "nan" ) )
 
 
 """
