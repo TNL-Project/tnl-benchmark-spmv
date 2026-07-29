@@ -34,11 +34,12 @@ Compute speed-up and efficiency of different formats and launch configurations
 
 
 class Speedup:
-    def __init__(self, df, formats, launch_configs, legacy_counterparts):
+    def __init__(self, df, formats, launch_configs, legacy_counterparts, accelerator_devices):
         self.df = df
         self.formats = formats
         self.launch_configs = launch_configs
         self.legacy_counterparts = legacy_counterparts
+        self.accelerator_devices = accelerator_devices
 
     def compute_csr_cpu_speedup(self):
         """
@@ -65,32 +66,32 @@ class Speedup:
         for format in self.formats:
             if "cusparse" in format:
                 continue
-            if not (format, "GPU") in self.launch_configs:
-                continue
-            for launch_config in self.launch_configs[(format, "GPU")]:
-                divide_columns(
-                    self.df,
-                    ("CSR", "CPU", "1 thread", "time mean", ""),
-                    (format, "GPU", launch_config, "time mean", ""),
-                    (format, "GPU", launch_config, "speed-up", "CSR CPU"),
-                )
+            for device in self.accelerator_devices:
+                if not (format, device) in self.launch_configs:
+                    continue
+                for launch_config in self.launch_configs[(format, device)]:
+                    divide_columns(
+                        self.df,
+                        ("CSR", "CPU", "1 thread", "time mean", ""),
+                        (format, device, launch_config, "time mean", ""),
+                        (format, device, launch_config, "speed-up", "CSR CPU"),
+                    )
 
     def compute_cusparse_speedup(self):
         """
-        Compute speed-up of particular formats compared to Cusparse on GPU
+        Compute speed-up of particular formats compared to Cusparse on the same accelerator device
         """
         if "cusparse" in self.formats:
-            for device in ["GPU"]:
+            for device in self.accelerator_devices:
+                if not ("cusparse", device) in self.launch_configs:
+                    continue
                 for format in self.formats:
                     if not format in ["cusparse"]:
-                        if (format, device) in self.launch_configs and (
-                            format,
-                            device,
-                        ) in self.launch_configs:
+                        if (format, device) in self.launch_configs:
                             for launch_config in self.launch_configs[(format, device)]:
                                 divide_columns(
                                     self.df,
-                                    ("cusparse", "GPU", "Default", "time mean", ""),
+                                    ("cusparse", device, "Default", "time mean", ""),
                                     (format, device, launch_config, "time mean", ""),
                                     (
                                         format,
@@ -103,11 +104,11 @@ class Speedup:
 
     def compute_hypre_and_ginkgo_speedup(self):
         """
-        Compute speed-up of particular formats compared to Hypre and Ginkgo on GPU and CSR on CPU
+        Compute speed-up of particular formats compared to Hypre and Ginkgo on each accelerator device and CSR on CPU
         """
         for ref_format in ["Hypre", "Ginkgo"]:
             if ref_format in self.formats:
-                for device in ["GPU"]:
+                for device in self.accelerator_devices:
                     for format in self.formats:
                         if not format in ["cusparse", "CSR", "Ginkgo", "Hypre"]:
                             if (format, device) in self.launch_configs and (
@@ -119,14 +120,14 @@ class Speedup:
                                 ]:
                                     if (
                                         ref_format,
-                                        "GPU",
+                                        device,
                                         "Default",
                                         "time mean",
                                         "",
                                     ) in self.df.columns:
                                         divide_columns(
                                             self.df,
-                                            (ref_format, "GPU", "Default", "time mean", ""),
+                                            (ref_format, device, "Default", "time mean", ""),
                                             (format, device, launch_config, "time mean", ""),
                                             (
                                                 format,
@@ -164,29 +165,32 @@ class Speedup:
         Compute speed-up of CSR Light Automatic and CSR Light Automatic Light compared to LightSpMV Vector
         """
         if "LightSpMV Vector" in self.formats:
-            if ("CSR", "GPU") in self.launch_configs:
-                if "Light CSR" in self.launch_configs[("CSR", "GPU")]:
-                    divide_columns(
-                        self.df,
-                        ("CSR", "GPU", "Light CSR", "bandwidth", ""),
-                        ("LightSpMV Vector", "GPU", "Default", "bandwidth", ""),
-                        ("CSR", "GPU", "Light CSR", "speed-up", "LightSpMV Vector"),
-                    )
+            for device in self.accelerator_devices:
+                if ("CSR", device) in self.launch_configs:
+                    if "Light CSR" in self.launch_configs[("CSR", device)]:
+                        divide_columns(
+                            self.df,
+                            ("CSR", device, "Light CSR", "bandwidth", ""),
+                            ("LightSpMV Vector", device, "Default", "bandwidth", ""),
+                            ("CSR", device, "Light CSR", "speed-up", "LightSpMV Vector"),
+                        )
 
     def compute_binary_speedup(self):
         """
         Compute speed-up of Binary formats compared to their non-binary counterparts
         """
         for format in self.formats:
-            if "Binary" in format and (format, "GPU") in self.launch_configs:
-                for launch_config in self.launch_configs[(format, "GPU")]:
-                    non_binary_format = format.replace("Binary ", "")
-                    divide_columns(
-                        self.df,
-                        (non_binary_format, "GPU", launch_config, "time mean", ""),
-                        (format, "GPU", launch_config, "time mean", ""),
-                        (format, "GPU", launch_config, "speed-up", "non-binary"),
-                    )
+            if "Binary" in format:
+                for device in self.accelerator_devices:
+                    if (format, device) in self.launch_configs:
+                        for launch_config in self.launch_configs[(format, device)]:
+                            non_binary_format = format.replace("Binary ", "")
+                            divide_columns(
+                                self.df,
+                                (non_binary_format, device, launch_config, "time mean", ""),
+                                (format, device, launch_config, "time mean", ""),
+                                (format, device, launch_config, "speed-up", "non-binary"),
+                            )
 
     def compute_symmetric_speedup(self):
         """
@@ -194,15 +198,16 @@ class Speedup:
         """
         for format in self.formats:
             if "Symmetric" in format:
-                if (format, "GPU") in self.launch_configs:
-                    for launch_config in self.launch_configs[(format, "GPU")]:
-                        non_symmetric_format = format.replace("Symmetric ", "")
-                        divide_columns(
-                            self.df,
-                            (non_symmetric_format, "GPU", launch_config, "time mean", ""),
-                            (format, "GPU", launch_config, "time mean", ""),
-                            (format, "GPU", launch_config, "speed-up", "non-symmetric"),
-                        )
+                for device in self.accelerator_devices:
+                    if (format, device) in self.launch_configs:
+                        for launch_config in self.launch_configs[(format, device)]:
+                            non_symmetric_format = format.replace("Symmetric ", "")
+                            divide_columns(
+                                self.df,
+                                (non_symmetric_format, device, launch_config, "time mean", ""),
+                                (format, device, launch_config, "time mean", ""),
+                                (format, device, launch_config, "speed-up", "non-symmetric"),
+                            )
 
     def compute_sorted_speedup(self):
         """
@@ -210,43 +215,45 @@ class Speedup:
         """
         for format in self.formats:
             if "Sorted" in format:
-                if (format, "GPU") in self.launch_configs:
-                    for launch_config in self.launch_configs[(format, "GPU")]:
-                        non_symmetric_format = format.replace("Sorted ", "")
-                        divide_columns(
-                            self.df,
-                            (non_symmetric_format, "GPU", launch_config, "time mean", ""),
-                            (format, "GPU", launch_config, "time mean", ""),
-                            (format, "GPU", launch_config, "speed-up", "non-sorted"),
-                        )
+                for device in self.accelerator_devices:
+                    if (format, device) in self.launch_configs:
+                        for launch_config in self.launch_configs[(format, device)]:
+                            non_symmetric_format = format.replace("Sorted ", "")
+                            divide_columns(
+                                self.df,
+                                (non_symmetric_format, device, launch_config, "time mean", ""),
+                                (format, device, launch_config, "time mean", ""),
+                                (format, device, launch_config, "speed-up", "non-sorted"),
+                            )
 
     def compute_legacy_speedup(self):
         """
         Compute speed-up of formats compared to their legacy counterparts
         """
         for format in self.formats:
-            if (format, "GPU") in self.launch_configs:
-                for launch_config in self.launch_configs[(format, "GPU")]:
-                    if not self.legacy_counterparts.get((format, launch_config)):
-                        continue
-                    legacy_format = self.legacy_counterparts[(format, launch_config)]
-                    if legacy_format in self.formats:
-                        if (format, "GPU") in self.launch_configs and (
-                            legacy_format,
-                            "GPU",
-                        ) in self.launch_configs:
-                            divide_columns(
-                                self.df,
-                                (legacy_format, "GPU", "Default", "time mean", ""),
-                                (format, "GPU", launch_config, "time mean", ""),
-                                (
-                                    format,
-                                    "GPU",
-                                    launch_config,
-                                    "speed-up",
-                                    legacy_format,
-                                ),
-                            )
+            for device in self.accelerator_devices:
+                if (format, device) in self.launch_configs:
+                    for launch_config in self.launch_configs[(format, device)]:
+                        if not self.legacy_counterparts.get((format, launch_config)):
+                            continue
+                        legacy_format = self.legacy_counterparts[(format, launch_config)]
+                        if legacy_format in self.formats:
+                            if (format, device) in self.launch_configs and (
+                                legacy_format,
+                                device,
+                            ) in self.launch_configs:
+                                divide_columns(
+                                    self.df,
+                                    (legacy_format, device, "Default", "time mean", ""),
+                                    (format, device, launch_config, "time mean", ""),
+                                    (
+                                        format,
+                                        device,
+                                        launch_config,
+                                        "speed-up",
+                                        legacy_format,
+                                    ),
+                                )
 
     def compute_speedup(self):
 

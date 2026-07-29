@@ -6,34 +6,36 @@ import MultiindexCreator as mic
 
 class BestFormats:
 
-    def __init__(self, df, formats, launch_configs):
+    def __init__(self, df, formats, launch_configs, accelerator_devices):
         self.df = df
         self.formats = formats
         self.launch_configs = launch_configs
+        self.accelerator_devices = accelerator_devices
 
         mc_csr = mic.MultiindexCreator(4)
         mc_csr.add_entries([["Matrix name"], ["rows"], ["columns"], ["nonzeros per row"]])
         mc_csr.add_entry(["CSR Best", "CPU", "threads", ""])
         mc_csr.add_entry(["CSR Best", "CPU", "bandwidth", ""])
         mc_csr.add_entry(["CSR Best", "CPU", "time", ""])
-        mc_csr.add_entry(["CSR Best", "GPU", "launch cfg.", ""])
-        mc_csr.add_entry(["CSR Best", "GPU", "bandwidth", ""])
-        mc_csr.add_entry(["CSR Best", "GPU", "time", ""])
-        mc_csr.add_entry(["CSR Best", "GPU", "diff.max", ""])
-        mc_csr.add_entry(["CSR Best", "GPU", "speed-up", "cusparse"])
-        mc_csr.add_entry(["CSR Best", "GPU", "speed-up", "CSR CPU"])
-        mc_csr.add_entry(["CSR Best", "GPU", "speed-up", "Hypre"])
-        mc_csr.add_entry(["CSR Best", "GPU", "speed-up", "Ginkgo"])
-        mc_csr.add_entry(["CSR Best", "GPU", "speed-up", "2nd best"])
+        for device in accelerator_devices:
+            mc_csr.add_entry(["CSR Best", device, "launch cfg.", ""])
+            mc_csr.add_entry(["CSR Best", device, "bandwidth", ""])
+            mc_csr.add_entry(["CSR Best", device, "time", ""])
+            mc_csr.add_entry(["CSR Best", device, "diff.max", ""])
+            mc_csr.add_entry(["CSR Best", device, "speed-up", "cusparse"])
+            mc_csr.add_entry(["CSR Best", device, "speed-up", "CSR CPU"])
+            mc_csr.add_entry(["CSR Best", device, "speed-up", "Hypre"])
+            mc_csr.add_entry(["CSR Best", device, "speed-up", "Ginkgo"])
+            mc_csr.add_entry(["CSR Best", device, "speed-up", "2nd best"])
 
-        mc_csr.add_entry(["CSR 2nd Best", "GPU", "launch cfg.", ""])
-        mc_csr.add_entry(["CSR 2nd Best", "GPU", "bandwidth", ""])
-        mc_csr.add_entry(["CSR 2nd Best", "GPU", "time", ""])
-        mc_csr.add_entry(["CSR 2nd Best", "GPU", "diff.max", ""])
-        mc_csr.add_entry(["CSR 2nd Best", "GPU", "speed-up", "cusparse"])
-        mc_csr.add_entry(["CSR 2nd Best", "GPU", "speed-up", "CSR CPU"])
-        mc_csr.add_entry(["CSR 2nd Best", "GPU", "speed-up", "Hypre"])
-        mc_csr.add_entry(["CSR 2nd Best", "GPU", "speed-up", "Ginkgo"])
+            mc_csr.add_entry(["CSR 2nd Best", device, "launch cfg.", ""])
+            mc_csr.add_entry(["CSR 2nd Best", device, "bandwidth", ""])
+            mc_csr.add_entry(["CSR 2nd Best", device, "time", ""])
+            mc_csr.add_entry(["CSR 2nd Best", device, "diff.max", ""])
+            mc_csr.add_entry(["CSR 2nd Best", device, "speed-up", "cusparse"])
+            mc_csr.add_entry(["CSR 2nd Best", device, "speed-up", "CSR CPU"])
+            mc_csr.add_entry(["CSR 2nd Best", device, "speed-up", "Hypre"])
+            mc_csr.add_entry(["CSR 2nd Best", device, "speed-up", "Ginkgo"])
 
         multicolumns, df_data = mc_csr.get_multiindex()
         self.best_csr_df = pd.DataFrame(
@@ -137,7 +139,7 @@ class BestFormats:
                         if bw is not None and bw > max_bandwidth:
                             max_bandwidth = bw
                             best_config = config
-                            time = row[("CSR", "CPU", config, "time", "")]
+                            time = row[("CSR", "CPU", config, "time mean", "")]
                 launch_config_list.append(best_config)
                 bandwidth_list.append(max_bandwidth)
                 time_list.append(time)
@@ -145,7 +147,9 @@ class BestFormats:
             self.best_csr_df[("CSR Best", "CPU", "bandwidth", "")] = bandwidth_list
             self.best_csr_df[("CSR Best", "CPU", "time", "")] = time_list
 
-        if ("CSR", "GPU") in self.launch_configs:
+        for device in self.accelerator_devices:
+            if ("CSR", device) not in self.launch_configs:
+                continue
             launch_config_list = [[], []]
             bandwidth_list = [[], []]
             time_list = [[], []]
@@ -165,8 +169,8 @@ class BestFormats:
                 speedup_hypre = [None, None]
                 speedup_ginkgo = [None, None]
                 speedup_second_best = None
-                for config in self.launch_configs[("CSR", "GPU")]:
-                    col = ("CSR", "GPU", config, "bandwidth", "")
+                for config in self.launch_configs[("CSR", device)]:
+                    col = ("CSR", device, config, "bandwidth", "")
                     if col in self.df.columns:
                         bw = row[col]
                         if bw is not None and bw > max_bandwidth[0]:
@@ -180,19 +184,19 @@ class BestFormats:
                             speedup_ginkgo[1] = speedup_ginkgo[0]
                             max_bandwidth[0] = bw
                             best_config[0] = config
-                            time[0] = row[("CSR", "GPU", config, "time", "")]
-                            diff_max[0] = row[("CSR", "GPU", config, "diff.max", "")]
+                            time[0] = row[("CSR", device, config, "time mean", "")]
+                            diff_max[0] = row[("CSR", device, config, "diff.max", "")]
                             speedup_cusparse[0] = row[
-                                ("CSR", "GPU", config, "speed-up", "cusparse")
+                                ("CSR", device, config, "speed-up", "cusparse")
                             ]
                             speedup_csr_cpu[0] = row[
-                                ("CSR", "GPU", config, "speed-up", "CSR CPU")
+                                ("CSR", device, config, "speed-up", "CSR CPU")
                             ]
                             speedup_hypre[0] = row[
-                                ("CSR", "GPU", config, "speed-up", "Hypre")
+                                ("CSR", device, config, "speed-up", "Hypre")
                             ]
                             speedup_ginkgo[0] = row[
-                                ("CSR", "GPU", config, "speed-up", "Ginkgo")
+                                ("CSR", device, config, "speed-up", "Ginkgo")
                             ]
                             if time[0] != "" and time[1] != "":
                                 speedup_second_best = time[1] / time[0]
@@ -218,43 +222,43 @@ class BestFormats:
                 speedup_ginkgo_list[1].append(speedup_ginkgo[1])
 
             # 1st best
-            self.best_csr_df[("CSR Best", "GPU", "launch cfg.", "")] = launch_config_list[0]
-            self.best_csr_df[("CSR Best", "GPU", "bandwidth", "")] = bandwidth_list[0]
-            self.best_csr_df[("CSR Best", "GPU", "time", "")] = time_list[0]
-            self.best_csr_df[("CSR Best", "GPU", "diff.max", "")] = diff_max_list[0]
-            self.best_csr_df[("CSR Best", "GPU", "speed-up", "cusparse")] = (
+            self.best_csr_df[("CSR Best", device, "launch cfg.", "")] = launch_config_list[0]
+            self.best_csr_df[("CSR Best", device, "bandwidth", "")] = bandwidth_list[0]
+            self.best_csr_df[("CSR Best", device, "time", "")] = time_list[0]
+            self.best_csr_df[("CSR Best", device, "diff.max", "")] = diff_max_list[0]
+            self.best_csr_df[("CSR Best", device, "speed-up", "cusparse")] = (
                 speedup_cusparse_list[0]
             )
-            self.best_csr_df[("CSR Best", "GPU", "speed-up", "CSR CPU")] = (
+            self.best_csr_df[("CSR Best", device, "speed-up", "CSR CPU")] = (
                 speedup_csr_cpu_list[0]
             )
-            self.best_csr_df[("CSR Best", "GPU", "speed-up", "Hypre")] = speedup_hypre_list[
+            self.best_csr_df[("CSR Best", device, "speed-up", "Hypre")] = speedup_hypre_list[
                 0
             ]
-            self.best_csr_df[("CSR Best", "GPU", "speed-up", "Ginkgo")] = (
+            self.best_csr_df[("CSR Best", device, "speed-up", "Ginkgo")] = (
                 speedup_ginkgo_list[0]
             )
-            self.best_csr_df[("CSR Best", "GPU", "speed-up", "2nd best")] = (
+            self.best_csr_df[("CSR Best", device, "speed-up", "2nd best")] = (
                 speedup_second_best_list[0]
             )
 
             # 2nd best
-            self.best_csr_df[("CSR 2nd Best", "GPU", "launch cfg.", "")] = (
+            self.best_csr_df[("CSR 2nd Best", device, "launch cfg.", "")] = (
                 launch_config_list[1]
             )
-            self.best_csr_df[("CSR 2nd Best", "GPU", "bandwidth", "")] = bandwidth_list[1]
-            self.best_csr_df[("CSR 2nd Best", "GPU", "time", "")] = time_list[1]
-            self.best_csr_df[("CSR 2nd Best", "GPU", "diff.max", "")] = diff_max_list[1]
-            self.best_csr_df[("CSR 2nd Best", "GPU", "speed-up", "cusparse")] = (
+            self.best_csr_df[("CSR 2nd Best", device, "bandwidth", "")] = bandwidth_list[1]
+            self.best_csr_df[("CSR 2nd Best", device, "time", "")] = time_list[1]
+            self.best_csr_df[("CSR 2nd Best", device, "diff.max", "")] = diff_max_list[1]
+            self.best_csr_df[("CSR 2nd Best", device, "speed-up", "cusparse")] = (
                 speedup_cusparse_list[1]
             )
-            self.best_csr_df[("CSR 2nd Best", "GPU", "speed-up", "CSR CPU")] = (
+            self.best_csr_df[("CSR 2nd Best", device, "speed-up", "CSR CPU")] = (
                 speedup_csr_cpu_list[1]
             )
-            self.best_csr_df[("CSR 2nd Best", "GPU", "speed-up", "Hypre")] = (
+            self.best_csr_df[("CSR 2nd Best", device, "speed-up", "Hypre")] = (
                 speedup_hypre_list[1]
             )
-            self.best_csr_df[("CSR 2nd Best", "GPU", "speed-up", "Ginkgo")] = (
+            self.best_csr_df[("CSR 2nd Best", device, "speed-up", "Ginkgo")] = (
                 speedup_ginkgo_list[1]
             )
 
@@ -289,7 +293,7 @@ class BestFormats:
                     or "Ginkgo" in format
                 ):
                     continue
-                for device in ["CPU", "GPU"]:
+                for device in ["CPU"] + self.accelerator_devices:
                     if (format, device) not in self.launch_configs:
                         continue
                     for launch_config in self.launch_configs[(format, device)]:
@@ -309,17 +313,21 @@ class BestFormats:
                                 best_device[0] = device
                                 best_launch_config[0] = launch_config
                                 time[0] = row[
-                                    (format, device, launch_config, "time", "")
+                                    (format, device, launch_config, "time mean", "")
                                 ]
                                 if time[0] != "" and time[1] != "":
                                     speedup_second_best = time[1] / time[0]
-                                if "cusparse" in self.formats and device == "GPU":
+                                if (
+                                    "cusparse" in self.formats
+                                    and device != "CPU"
+                                    and ("cusparse", device) in self.launch_configs
+                                ):
                                     speedup_cusparse[0] = (
                                         max_bandwidth[0]
                                         / row[
                                             (
                                                 "cusparse",
-                                                "GPU",
+                                                device,
                                                 "Default",
                                                 "bandwidth",
                                                 "",
@@ -329,7 +337,7 @@ class BestFormats:
                                 if (
                                     "CSR",
                                     "CPU",
-                                ) in self.launch_configs and device == "GPU":
+                                ) in self.launch_configs and device != "CPU":
                                     speedup_csr_cpu[0] = (
                                         max_bandwidth[0]
                                         / row[
@@ -407,7 +415,7 @@ class BestFormats:
             for format in self.formats:
                 if "Binary" in format or "Symmetric" in format:
                     continue
-                for device in ["CPU", "GPU"]:
+                for device in ["CPU"] + self.accelerator_devices:
                     if (format, device) not in self.launch_configs:
                         continue
                     for launch_config in self.launch_configs[(format, device)]:
@@ -425,7 +433,7 @@ class BestFormats:
                                 best_device[0] = device
                                 best_launch_config[0] = launch_config
                                 time[0] = row[
-                                    (format, device, launch_config, "time", "")
+                                    (format, device, launch_config, "time mean", "")
                                 ]
                                 if time[0] != "" and time[1] != "":
                                     speedup_second_best = time[1] / time[0]
@@ -474,7 +482,7 @@ class BestFormats:
         """
         best_formats = {}
         best_sorted = 0
-        best_gpu = 0
+        best_accelerator = 0
         total = 0
         for idx, row in self.best_total_df.iterrows():
             best_format = row[("Total Best", "format", "", "")]
@@ -486,15 +494,15 @@ class BestFormats:
             if "Sorted" in best_format:
                 best_sorted += 1
             total += 1
-            if best_device == "GPU":
-                best_gpu += 1
+            if best_device != "CPU":
+                best_accelerator += 1
 
         with open(file_name, "w") as f:
             f.write("=======================================================\n")
             f.write("Best formats summary\n")
             f.write("=======================================================\n")
             f.write(f"Total matrices: {total}\n")
-            f.write(f"Best on GPU: {best_gpu}\n")
+            f.write(f"Best on accelerator: {best_accelerator}\n")
             f.write("Best formats:\n")
             for format, count in best_formats.items():
                 f.write(f" - {format}: {count}\n")
