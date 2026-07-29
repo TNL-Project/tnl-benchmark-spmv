@@ -14,6 +14,7 @@ import Speedup
 import Report
 import BestFormats
 import LatexLabels
+import PosterGraphs
 
 bw_units = "TB/s"
 
@@ -60,6 +61,12 @@ def get_arg_parser():
     parser.add_argument(
         "--draw-graphs",
         help="Flag to draw graphs",
+        action="store_true",
+        default=False
+    )
+    parser.add_argument(
+        "--poster-graphs",
+        help="Flag to draw ad hoc poster graphs (see PosterGraphs.py)",
         action="store_true",
         default=False
     )
@@ -327,6 +334,11 @@ def analyze_df(df, args, formats, launch_configs, accelerator_devices):
             accelerator_devices,
         )
         report.write()
+
+    if args.poster_graphs:
+        PosterGraphs.speedup_overview_vs_cusparse(
+            df, formats, launch_configs, accelerator_devices
+        )
 
     bestFormats = BestFormats.BestFormats(df, formats, launch_configs, accelerator_devices)
     bestFormats.write()
