@@ -160,87 +160,71 @@ def get_multiindex(input_df, formats, launch_configs):
 
 def convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=-1):
     """
-    Convert input table to a better structured one using multiindex
+    Convert input table to a wide-format DataFrame using multiindex columns.
+    Uses vectorized melt + pivot instead of row-by-row iteration.
     """
-    frames = []
-    in_idx = 0
-    out_idx = 0
-    # max_out_idx = max_rows
     if end_idx == -1:
         end_idx = len(input_df.index)
-    best_count = 0
-    while in_idx < len(input_df.index) and out_idx < end_idx:
-        matrixName = input_df.iloc[in_idx]["matrix name"]
-        df_matrix = input_df.loc[input_df["matrix name"] == matrixName]
-        if out_idx >= begin_idx:
-            print(f"{out_idx} : {in_idx} / {len(input_df.index)} : {matrixName}")
-        else:
-            print(f"{out_idx} : {in_idx} / {len(input_df.index)} : {matrixName} - SKIP")
-        aux_df = pd.DataFrame(df_data, columns=multicolumns, index=[out_idx])
-        for index, row in df_matrix.iterrows():
-            aux_df.loc[out_idx, "Matrix name"] = row["matrix name"]
-            aux_df.loc[out_idx, "rows"] = row["rows"]
-            aux_df.loc[out_idx, "columns"] = row["columns"]
-            aux_df.loc[out_idx, "nonzeros per row"] = float(row["nonzeros"]) / float(
-                row["rows"]
-            )
-            current_format = row["format"]
-            # print(f"current_format = {current_format}")
-            current_device = row["performer"]
-            current_launch_config = row["launch cfg."]
-            bw = pd.to_numeric(row["bandwidth"], errors="coerce")
-            if bw_units == "TB/s":
-                bw = bw / 1024
-            time = pd.to_numeric(row["time mean"], errors="coerce")
-            diff_max = pd.to_numeric(row["CSR Diff.Max"], errors="coerce")
-            if current_device == "CPU" and (
-                current_format in ["CSR", "Ginkgo", "Hypre"]
-            ):
-                # aux_df.iloc[0][("CSR", "CPU", "1.0 threads", "bandwidth")] = bw
-                aux_df.loc[
-                    out_idx,
-                    (
-                        current_format,
-                        current_device,
-                        current_launch_config,
-                        "bandwidth",
-                        "",
-                    ),
-                ] = bw
-                aux_df.loc[
-                    out_idx,
-                    (current_format, current_device, current_launch_config, "time mean", ""),
-                ] = time
-            else:
-                aux_df.loc[
-                    out_idx,
-                    (
-                        current_format,
-                        current_device,
-                        current_launch_config,
-                        "bandwidth",
-                        "",
-                    ),
-                ] = bw
-                aux_df.loc[
-                    out_idx,
-                    (current_format, current_device, current_launch_config, "time mean", ""),
-                ] = time
-                aux_df.loc[
-                    out_idx,
-                    (
-                        current_format,
-                        current_device,
-                        current_launch_config,
-                        "diff.max",
-                        "",
-                    ),
-                ] = diff_max
-        if out_idx >= begin_idx:
-            frames.append(aux_df)
-        out_idx = out_idx + 1
-        in_idx = in_idx + len(df_matrix.index)
-    result = pd.concat(frames)
+    matrix_names = input_df["matrix name"].drop_duplicates().tolist()
+    matrix_names = matrix_names[begin_idx:end_idx]
+
+    if not matrix_names:
+        return pd.DataFrame(columns=multicolumns)
+
+    df = input_df[input_df["matrix name"].isin(matrix_names)].copy()
+
+    df["bandwidth"] = pd.to_numeric(df["bandwidth"], errors="coerce")
+    if bw_units == "TB/s":
+        df["bandwidth"] = df["bandwidth"] / 1024
+    df["time mean"] = pd.to_numeric(df["time mean"], errors="coerce")
+    df["CSR Diff.Max"] = pd.to_numeric(df["CSR Diff.Max"], errors="coerce")
+
+    cpu_no_diff_mask = (df["performer"] == "CPU") & (df["format"].isin(["CSR", "Ginkgo", "Hypre"]))
+    df.loc[cpu_no_diff_mask, "CSR Diff.Max"] = float("nan")
+
+    melted = df.melt(
+        id_vars=["matrix name", "format", "performer", "launch cfg."],
+        value_vars=["bandwidth", "time mean", "CSR Diff.Max"],
+        var_name="metric",
+        value_name="value",
+    )
+    metric_map = {"bandwidth": "bandwidth", "time mean": "time mean", "CSR Diff.Max": "diff.max"}
+    melted["metric"] = melted["metric"].map(metric_map)
+    melted = melted.dropna(subset=["value"])
+
+    result = melted.pivot_table(
+        index="matrix name",
+        columns=["format", "performer", "launch cfg.", "metric"],
+        values="value",
+        aggfunc="first",
+    )
+
+    if not result.columns.empty:
+        result.columns = pd.MultiIndex.from_tuples([(*col, "") for col in result.columns])
+
+    for col in result.columns:
+        if len(col) > 3 and col[3] == "diff.max":
+            vals = result[col]
+            if vals.dtype == np.float64:
+                result[col] = vals.astype(object)
+                mask = vals.notna() & (vals == vals.fillna(0.0).astype(int))
+                result.loc[mask, col] = vals[mask].astype(int).astype(object)
+
+    metadata = df.drop_duplicates("matrix name").set_index("matrix name")
+    metadata = metadata.reindex(matrix_names)
+
+    result[("Matrix name", "", "", "", "")] = metadata.index
+    result[("rows", "", "", "", "")] = metadata["rows"].values
+    result[("columns", "", "", "", "")] = metadata["columns"].values
+    result[("nonzeros per row", "", "", "", "")] = (
+        pd.to_numeric(metadata["nonzeros"], errors="coerce")
+        / pd.to_numeric(metadata["rows"], errors="coerce")
+    ).values
+
+    result = result.reindex(columns=multicolumns)
+    result = result.reindex(matrix_names)
+    result = result.reset_index(drop=True)
+
     result.replace("", float("nan"), inplace=True)
     result = result.copy()
     return result
