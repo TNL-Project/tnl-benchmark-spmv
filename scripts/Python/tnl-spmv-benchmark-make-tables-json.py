@@ -317,6 +317,16 @@ def analyze_df(df, args, formats, launch_configs, accelerator_devices):
     """
     Analyze the dataframe and generate reports.
     """
+    if args.poster_graphs:
+        PosterGraphs.speedup_overview_vs_cusparse(
+            df, formats, launch_configs, accelerator_devices
+        )
+        PosterGraphs.speedup_overview_variants(
+            df, formats, launch_configs, accelerator_devices
+        )
+        PosterGraphs.speedup_heatmap_vs_best_csr(df, accelerator_devices)
+        PosterGraphs.cumulative_coverage_vs_best(df, accelerator_devices)
+
     print("Writting to file sparse-matrix-benchmark-test-processed.html ... ")
     df.sort_index(inplace=True)
     df.to_html("sparse-matrix-benchmark-test-processed.html")
@@ -334,11 +344,6 @@ def analyze_df(df, args, formats, launch_configs, accelerator_devices):
             accelerator_devices,
         )
         report.write()
-
-    if args.poster_graphs:
-        PosterGraphs.speedup_overview_vs_cusparse(
-            df, formats, launch_configs, accelerator_devices
-        )
 
     bestFormats = BestFormats.BestFormats(df, formats, launch_configs, accelerator_devices)
     bestFormats.write()
