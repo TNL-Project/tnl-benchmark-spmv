@@ -36,6 +36,10 @@ setupConfig( Config::ConfigDescription& config )
    config.addRequiredEntry< String >( "input-file", "Input file name." );
    config.addEntry< bool >( "with-symmetric-matrices", "Perform benchmark even for symmetric matrix formats.", true );
    config.addEntry< bool >( "with-sorted-segments", "Perform benchmark formats based on sorted segments.", true );
+   config.addEntry< bool >( "with-sigma-256-sorted-segments",
+                            "In addition to fully sorted segments (sigma = -1), also benchmark sorted segments formats "
+                            "with sigma = 256 (sorting within blocks of 256 segments). Requires with-sorted-segments.",
+                            true );
    config.addEntry< bool >( "with-ellpack-formats", "Perform benchmark for Ellpack based matrix formats.", true );
    config.addEntry< bool >( "with-all-cpu-tests", "All matrix formats are tested on both CPU and GPU. ", false );
    config.addEntry< String >( "precision", "Precision of the arithmetics.", "double" );

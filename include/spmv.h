@@ -128,6 +128,66 @@ using SortedColumnMajorSlicedEllpackSegments_SliceSize_32 =
    Algorithms::Segments::SortedSegments< Algorithms::Segments::ColumnMajorSlicedEllpack< Device, Index, IndexAllocator, 32 > >;
 
 /////
+// SigmaSparseMatrix
+//
+// TNL::Algorithms::Segments::SortedSegments sorts segments in blocks of `sigma` elements
+// (sigma == -1 sorts all segments together). `sigma` is a runtime property (setSigma()), not
+// a template parameter, and it must be set on the matrix's segments *before* setRowCapacities()
+// triggers the sort. SparseMatrix::segments is protected and its operator= does not propagate
+// sigma from the source object, so the only way to configure it from outside SparseMatrix is a
+// subclass that sets it right after construction, before the matrix gets assigned/populated.
+//
+// NOTE: this is a workaround for a TNL API design gap, not our preferred design -- there is
+// currently no way to configure sigma through SparseMatrix's public API at all. In particular,
+// matrix.getSegments().setSigma(...) looks like it should work but silently doesn't: getSegments()
+// returns a *view*, and SortedSegments::getView() constructs that view without ever passing sigma
+// to it, so the view's sigma is always its own independent default (-1), completely disconnected
+// from the owning segments' sigma that setSegmentsSizes() actually reads during the sort.
+// Tracked upstream: https://gitlab.com/tnl-project/tnl/-/work_items/233
+//
+template< typename Real,
+          typename Device,
+          typename Index,
+          typename MatrixType,
+          template< typename Device_, typename Index_, typename IndexAllocator_ > class Segments,
+          typename ComputeReal = std::conditional_t< std::is_same_v< Real, bool >, Index, Real >,
+          typename RealAllocator = typename Allocators::Default< Device >::template Allocator< Real >,
+          typename IndexAllocator = typename Allocators::Default< Device >::template Allocator< Index > >
+class SigmaSparseMatrix
+: public Matrices::SparseMatrix< Real, Device, Index, MatrixType, Segments, ComputeReal, RealAllocator, IndexAllocator >
+{
+public:
+   using Base =
+      Matrices::SparseMatrix< Real, Device, Index, MatrixType, Segments, ComputeReal, RealAllocator, IndexAllocator >;
+   using Base::Base;
+   using Base::operator=;
+
+   // Only meaningful (and only compiles) when Segments is based on TNL::Algorithms::Segments::SortedSegments.
+   void
+   setSigma( Index sigma )
+   {
+      this->segments.setSigma( sigma );
+   }
+};
+
+// Renames the "Sorted" prefix produced by SortedSegments::getSegmentsType() to make the sigma
+// value used for a particular benchmark run visible in the log, e.g. "Sorted CSR" with sigma=256
+// becomes "Sigma-256-Sorted CSR". No-op when sigma is not a positive block size (i.e. sigma == -1,
+// meaning all segments were sorted together, keeps the plain "Sorted" name).
+template< typename Index >
+std::string
+applySigmaToFormatName( std::string format, Index sigma )
+{
+   if( sigma <= 0 )
+      return format;
+   const std::string needle = "Sorted";
+   const auto pos = format.find( needle );
+   if( pos != std::string::npos )
+      format.replace( pos, needle.size(), "Sigma-" + std::to_string( sigma ) + "-Sorted" );
+   return format;
+}
+
+/////
 // Main benchmarking
 //
 template< typename Real,
@@ -143,9 +203,10 @@ benchmarkSpMVWithDevice( BenchmarkType& benchmark,
                          const TNL::Containers::Vector< Real, Devices::Host, Index >& csrResultVector,
                          const String& inputFileName,
                          const Config::ParameterContainer& parameters,
-                         bool verboseMR )
+                         bool verboseMR,
+                         Index sigma = -1 )
 {
-   using DeviceMatrix = Matrices::SparseMatrix< TestValue, Device, Index, MatrixType, SegmentsType, Real >;
+   using DeviceMatrix = SigmaSparseMatrix< TestValue, Device, Index, MatrixType, SegmentsType, Real >;
    using DeviceVector = Containers::Vector< Real, Device, Index >;
 
 #ifdef __CUDACC__
@@ -157,6 +218,9 @@ benchmarkSpMVWithDevice( BenchmarkType& benchmark,
 #endif
 
    DeviceMatrix deviceMatrix;
+   if constexpr( Algorithms::Segments::isSortedSegments_v< typename DeviceMatrix::SegmentsType > )
+      if( sigma > 0 )
+         deviceMatrix.setSigma( sigma );
    try {
       deviceMatrix = inputMatrix;
    }
@@ -167,7 +231,8 @@ benchmarkSpMVWithDevice( BenchmarkType& benchmark,
    DeviceVector deviceInVector( deviceMatrix.getColumns() ), deviceOutVector( deviceMatrix.getRows() );
 
    for( auto [ launch_config, tag ] : TNL::Algorithms::Segments::reductionLaunchConfigurations( deviceMatrix.getSegments() ) ) {
-      benchmark.setMetadataElement( { "format", MatrixInfo< DeviceMatrix >::getFormat() } );
+      benchmark.setMetadataElement(
+         { "format", applySigmaToFormatName( MatrixInfo< typename DeviceMatrix::Base >::getFormat(), sigma ) } );
       benchmark.setMetadataElement( { "launch cfg.", tag } );
 
       auto resetDeviceVectors = [ & ]()
@@ -198,19 +263,24 @@ benchmarkSpMV( BenchmarkType& benchmark,
                const TNL::Containers::Vector< Real, Devices::Host, Index >& csrResultVector,
                const String& inputFileName,
                const Config::ParameterContainer& parameters,
-               bool verboseMR )
+               bool verboseMR,
+               Index sigma = -1 )
 {
    // TODO: Host should be benchmarked as other devices, i.e. with
    //       launch configurations when it allows changing the number of OMP
    //       threads.
-   using TestMatrix = Matrices::SparseMatrix< TestValue, TNL::Devices::Host, Index, MatrixType, SegmentsType, Real >;
+   using TestMatrix = SigmaSparseMatrix< TestValue, TNL::Devices::Host, Index, MatrixType, SegmentsType, Real >;
    using HostVector = Containers::Vector< Real, Devices::Host, Index >;
 
    bool allCpuTests = parameters.getParameter< bool >( "with-all-cpu-tests" );
-   benchmark.setMetadataElement( { "format", MatrixInfo< TestMatrix >::getFormat() } );
+   benchmark.setMetadataElement(
+      { "format", applySigmaToFormatName( MatrixInfo< typename TestMatrix::Base >::getFormat(), sigma ) } );
    benchmark.setMetadataElement( { "launch cfg.", "Default" } );
 
    TestMatrix hostMatrix;
+   if constexpr( Algorithms::Segments::isSortedSegments_v< typename TestMatrix::SegmentsType > )
+      if( sigma > 0 )
+         hostMatrix.setSigma( sigma );
    try {
       hostMatrix = inputMatrix;
    }
@@ -244,13 +314,13 @@ benchmarkSpMV( BenchmarkType& benchmark,
 #ifdef __CUDACC__
    // Benchmark SpMV on CUDA
    benchmarkSpMVWithDevice< Real, Devices::Cuda, Index, InputMatrix, SegmentsType, TestValue, MatrixType >(
-      benchmark, inputMatrix, csrResultVector, inputFileName, parameters, verboseMR );
+      benchmark, inputMatrix, csrResultVector, inputFileName, parameters, verboseMR, sigma );
 #endif
 
 #ifdef __HIP__
    // Benchmark SpMV on HIP
    benchmarkSpMVWithDevice< Real, Devices::Hip, Index, InputMatrix, SegmentsType, TestValue, MatrixType >(
-      benchmark, inputMatrix, csrResultVector, inputFileName, parameters, verboseMR );
+      benchmark, inputMatrix, csrResultVector, inputFileName, parameters, verboseMR, sigma );
 #endif
 }
 
@@ -296,38 +366,66 @@ dispatchSpMV( BenchmarkType& benchmark,
          benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
    }
    if( parameters.getParameter< bool >( "with-sorted-segments" ) ) {
-      benchmarkSpMV< Real, Index, InputMatrix, Algorithms::Segments::SortedCSR, TestValue, MatrixType >(
-         benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-      benchmarkSpMV< Real, Index, InputMatrix, Algorithms::Segments::SortedAdaptiveCSR, TestValue, MatrixType >(
-         benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-      if( parameters.getParameter< bool >( "with-ellpack-formats" ) ) {
-         benchmarkSpMV< Real, Index, InputMatrix, Algorithms::Segments::SortedEllpack, TestValue, MatrixType >(
-            benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-         benchmarkSpMV< Real, Index, InputMatrix, SortedRowMajorSlicedEllpackSegments_SliceSize_2, TestValue, MatrixType >(
-            benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-         benchmarkSpMV< Real, Index, InputMatrix, SortedRowMajorSlicedEllpackSegments_SliceSize_4, TestValue, MatrixType >(
-            benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-         benchmarkSpMV< Real, Index, InputMatrix, SortedRowMajorSlicedEllpackSegments_SliceSize_8, TestValue, MatrixType >(
-            benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-         benchmarkSpMV< Real, Index, InputMatrix, SortedRowMajorSlicedEllpackSegments_SliceSize_16, TestValue, MatrixType >(
-            benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-         benchmarkSpMV< Real, Index, InputMatrix, SortedRowMajorSlicedEllpackSegments_SliceSize_32, TestValue, MatrixType >(
-            benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-         benchmarkSpMV< Real, Index, InputMatrix, SortedColumnMajorSlicedEllpackSegments_SliceSize_2, TestValue, MatrixType >(
-            benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-         benchmarkSpMV< Real, Index, InputMatrix, SortedColumnMajorSlicedEllpackSegments_SliceSize_4, TestValue, MatrixType >(
-            benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-         benchmarkSpMV< Real, Index, InputMatrix, SortedColumnMajorSlicedEllpackSegments_SliceSize_8, TestValue, MatrixType >(
-            benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-         benchmarkSpMV< Real, Index, InputMatrix, SortedColumnMajorSlicedEllpackSegments_SliceSize_16, TestValue, MatrixType >(
-            benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-         benchmarkSpMV< Real, Index, InputMatrix, SortedColumnMajorSlicedEllpackSegments_SliceSize_32, TestValue, MatrixType >(
-            benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-         benchmarkSpMV< Real, Index, InputMatrix, Algorithms::Segments::SortedChunkedEllpack, TestValue, MatrixType >(
-            benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-         benchmarkSpMV< Real, Index, InputMatrix, Algorithms::Segments::SortedBiEllpack, TestValue, MatrixType >(
-            benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
-      }
+      // sigma == -1 sorts all segments together (the historical "Sorted" behavior); sigma == 256
+      // sorts within blocks of 256 segments instead, see with-sigma-256-sorted-segments.
+      auto benchmarkSortedFormats = [ & ]( Index sigma )
+      {
+         benchmarkSpMV< Real, Index, InputMatrix, Algorithms::Segments::SortedCSR, TestValue, MatrixType >(
+            benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
+         benchmarkSpMV< Real, Index, InputMatrix, Algorithms::Segments::SortedAdaptiveCSR, TestValue, MatrixType >(
+            benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
+         if( parameters.getParameter< bool >( "with-ellpack-formats" ) ) {
+            benchmarkSpMV< Real, Index, InputMatrix, Algorithms::Segments::SortedEllpack, TestValue, MatrixType >(
+               benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
+            benchmarkSpMV< Real, Index, InputMatrix, SortedRowMajorSlicedEllpackSegments_SliceSize_2, TestValue, MatrixType >(
+               benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
+            benchmarkSpMV< Real, Index, InputMatrix, SortedRowMajorSlicedEllpackSegments_SliceSize_4, TestValue, MatrixType >(
+               benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
+            benchmarkSpMV< Real, Index, InputMatrix, SortedRowMajorSlicedEllpackSegments_SliceSize_8, TestValue, MatrixType >(
+               benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
+            benchmarkSpMV< Real, Index, InputMatrix, SortedRowMajorSlicedEllpackSegments_SliceSize_16, TestValue, MatrixType >(
+               benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
+            benchmarkSpMV< Real, Index, InputMatrix, SortedRowMajorSlicedEllpackSegments_SliceSize_32, TestValue, MatrixType >(
+               benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
+            benchmarkSpMV< Real,
+                           Index,
+                           InputMatrix,
+                           SortedColumnMajorSlicedEllpackSegments_SliceSize_2,
+                           TestValue,
+                           MatrixType >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
+            benchmarkSpMV< Real,
+                           Index,
+                           InputMatrix,
+                           SortedColumnMajorSlicedEllpackSegments_SliceSize_4,
+                           TestValue,
+                           MatrixType >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
+            benchmarkSpMV< Real,
+                           Index,
+                           InputMatrix,
+                           SortedColumnMajorSlicedEllpackSegments_SliceSize_8,
+                           TestValue,
+                           MatrixType >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
+            benchmarkSpMV< Real,
+                           Index,
+                           InputMatrix,
+                           SortedColumnMajorSlicedEllpackSegments_SliceSize_16,
+                           TestValue,
+                           MatrixType >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
+            benchmarkSpMV< Real,
+                           Index,
+                           InputMatrix,
+                           SortedColumnMajorSlicedEllpackSegments_SliceSize_32,
+                           TestValue,
+                           MatrixType >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
+            benchmarkSpMV< Real, Index, InputMatrix, Algorithms::Segments::SortedChunkedEllpack, TestValue, MatrixType >(
+               benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
+            benchmarkSpMV< Real, Index, InputMatrix, Algorithms::Segments::SortedBiEllpack, TestValue, MatrixType >(
+               benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
+         }
+      };
+      benchmarkSortedFormats( -1 );
+      if( parameters.getParameter< bool >( "with-sigma-256-sorted-segments" ) )
+         benchmarkSortedFormats( 256 );
    }
 }
 template< typename Real, typename Index, typename InputMatrix >
