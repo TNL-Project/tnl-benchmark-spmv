@@ -230,6 +230,9 @@ benchmarkSpmv( BenchmarkType& benchmark,
    //
    cusparseHandle_t cusparseHandle;
    cusparseCreate( &cusparseHandle );
+   int cusparseVersion = 0;
+   cusparseGetVersion( cusparseHandle, &cusparseVersion );
+   benchmark.setMetadataElement( { "cusparse version", convertToString( cusparseVersion ) } );
 
    CSRCudaMatrix csrCudaMatrix;
    csrCudaMatrix = csrHostMatrix;
