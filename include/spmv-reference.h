@@ -239,24 +239,39 @@ benchmarkSpmv( BenchmarkType& benchmark,
 
    CudaVector cudaInVector( csrCudaMatrix.getColumns() ), cudaOutVector( csrCudaMatrix.getRows() );
 
-   CusparseMatrix cusparseMatrix;
-   cusparseMatrix.init( csrCudaMatrix, cudaInVector, cudaOutVector, &cusparseHandle );
-
    auto resetCudaVectors = [ & ]()
    {
       cudaInVector = 1.0;
       cudaOutVector = 0.0;
    };
 
-   auto spmvCusparse = [ & ]()
-   {
-      cusparseMatrix.vectorProduct( cudaInVector, cudaOutVector );
-   };
-
    SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( hostOutVector, cudaOutVector );
-   benchmark.setMetadataElement( { "format", "cusparse" } );
-   benchmark.setMetadataElement( { "launch cfg.", "Default" } );
-   benchmark.time< Devices::Cuda >( resetCudaVectors, "CUDA", spmvCusparse, cudaBenchmarkResults );
+
+   // Compare the algorithm cuSPARSE picks automatically (Default) against explicitly
+   // requesting the CSR-specific algorithms, to check whether Default is actually optimal.
+   struct CusparseAlgVariant
+   {
+      const char* name;
+      cusparseSpMVAlg_t alg;
+   };
+   const CusparseAlgVariant cusparseAlgorithms[] = {
+      {    "Default", CUSPARSE_SPMV_ALG_DEFAULT },
+      { "CSR ALG1",   CUSPARSE_SPMV_CSR_ALG1     },
+      { "CSR ALG2",   CUSPARSE_SPMV_CSR_ALG2     },
+   };
+   for( const auto& variant : cusparseAlgorithms ) {
+      CusparseMatrix cusparseMatrix;
+      cusparseMatrix.init( csrCudaMatrix, cudaInVector, cudaOutVector, &cusparseHandle, variant.alg );
+
+      auto spmvCusparse = [ & ]()
+      {
+         cusparseMatrix.vectorProduct( cudaInVector, cudaOutVector );
+      };
+
+      benchmark.setMetadataElement( { "format", "cusparse" } );
+      benchmark.setMetadataElement( { "launch cfg.", variant.name } );
+      benchmark.time< Devices::Cuda >( resetCudaVectors, "CUDA", spmvCusparse, cudaBenchmarkResults );
+   }
 
    #if defined( HAVE_HYPRE ) && defined( HYPRE_USING_CUDA )
    // Initialize HYPRE and set some global options, notably HYPRE_SetSpGemmUseCusparse(0);

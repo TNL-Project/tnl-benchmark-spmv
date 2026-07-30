@@ -83,6 +83,7 @@ protected:
    #else
    cusparseSpMatDescr_t matA;
    TNL::Containers::Array< std::byte, TNL::Devices::Cuda > buffer;
+   cusparseSpMVAlg_t algorithm = CUSPARSE_SPMV_ALG_DEFAULT;
    #endif
 #endif
 };
@@ -98,10 +99,15 @@ public:
 #ifdef __CUDACC__
    template< typename InVector, typename OutVector >
    void
-   init( MatrixType& matrix, const InVector& inVector, OutVector& outVector, cusparseHandle_t* cusparseHandle )
+   init( MatrixType& matrix,
+         const InVector& inVector,
+         OutVector& outVector,
+         cusparseHandle_t* cusparseHandle,
+         cusparseSpMVAlg_t alg = CUSPARSE_SPMV_ALG_DEFAULT )
    {
       CusparseCSRBase< double >::init( matrix, cusparseHandle );
    #if defined __CUDACC__ && CUDART_VERSION >= 11000
+      this->algorithm = alg;
       double alpha = 1.0;
       double beta = 0.0;
       CHECK_CUSPARSE( cusparseCreateCsr( &this->matA,                                  // cusparseSpMatDescr_t* spMatDescr,
@@ -126,7 +132,7 @@ public:
                                                &beta,                             // const void*          beta,
                                                this->vecY,                        // cusparseDnVecDescr_t vecY,
                                                CUDA_R_64F,                        // cudaDataType         computeType,
-                                               CUSPARSE_SPMV_ALG_DEFAULT,         // cusparseSpMVAlg_t    alg,
+                                               this->algorithm,                   // cusparseSpMVAlg_t    alg,
                                                &buffer_size ) );                  // size_t*              bufferSize)
       this->buffer.setSize( buffer_size );
       // One-time analysis that lets cusparseSpMV() pick a faster CSR kernel/load-balancing
@@ -139,7 +145,7 @@ public:
                                                &beta,
                                                this->vecY,
                                                CUDA_R_64F,
-                                               CUSPARSE_SPMV_ALG_DEFAULT,
+                                               this->algorithm,
                                                (void*) this->buffer.getData() ) );
    #else
       cusparseCreateMatDescr( &this->matrixDescriptor );
@@ -164,7 +170,7 @@ public:
                                     &beta,                               // const void*          beta,
                                     this->vecY,                          // cusparseDnVecDescr_t vecY,
                                     CUDA_R_64F,                          // cudaDataType         computeType,
-                                    CUSPARSE_SPMV_ALG_DEFAULT,           // cusparseSpMVAlg_t    alg,
+                                    this->algorithm,                     // cusparseSpMVAlg_t    alg,
                                     (void*) this->buffer.getData() ) );  // void*                externalBuffer)
    #else
       double a = 1.0;
@@ -202,10 +208,15 @@ public:
 #ifdef __CUDACC__
    template< typename InVector, typename OutVector >
    void
-   init( MatrixType& matrix, const InVector& inVector, OutVector& outVector, cusparseHandle_t* cusparseHandle )
+   init( MatrixType& matrix,
+         const InVector& inVector,
+         OutVector& outVector,
+         cusparseHandle_t* cusparseHandle,
+         cusparseSpMVAlg_t alg = CUSPARSE_SPMV_ALG_DEFAULT )
    {
       CusparseCSRBase< float >::init( matrix, cusparseHandle );
    #if defined __CUDACC__ && CUDART_VERSION >= 11000
+      this->algorithm = alg;
       float alpha = 1.0;
       float beta = 0.0;
       CHECK_CUSPARSE( cusparseCreateCsr( &this->matA,                                  // cusparseSpMatDescr_t* spMatDescr,
@@ -230,7 +241,7 @@ public:
                                                &beta,                             // const void*          beta,
                                                this->vecY,                        // cusparseDnVecDescr_t vecY,
                                                CUDA_R_32F,                        // cudaDataType         computeType,
-                                               CUSPARSE_SPMV_ALG_DEFAULT,         // cusparseSpMVAlg_t    alg,
+                                               this->algorithm,                   // cusparseSpMVAlg_t    alg,
                                                &buffer_size ) );                  // size_t*              bufferSize
       this->buffer.setSize( buffer_size );
       // One-time analysis that lets cusparseSpMV() pick a faster CSR kernel/load-balancing
@@ -243,7 +254,7 @@ public:
                                                &beta,
                                                this->vecY,
                                                CUDA_R_32F,
-                                               CUSPARSE_SPMV_ALG_DEFAULT,
+                                               this->algorithm,
                                                (void*) this->buffer.getData() ) );
    #else
       cusparseCreateMatDescr( &this->matrixDescriptor );
@@ -268,7 +279,7 @@ public:
                                     &beta,                               // const void*          beta,
                                     this->vecY,                          // cusparseDnVecDescr_t vecY,
                                     CUDA_R_32F,                          // cudaDataType         computeType,
-                                    CUSPARSE_SPMV_ALG_DEFAULT,           // cusparseSpMVAlg_t    alg,
+                                    this->algorithm,                     // cusparseSpMVAlg_t    alg,
                                     (void*) this->buffer.getData() ) );  // void*                externalBuffer)
    #else
       float d = 1.0;
