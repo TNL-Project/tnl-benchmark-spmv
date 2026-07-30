@@ -28,6 +28,7 @@
 #endif
 
 #include "cusparseCSRMatrix.h"
+#include "cusparseSlicedEllMatrix.h"
 #include "hipsparseCSRMatrix.h"
 #include "LightSpMVBenchmark.h"
 #include "CSR5Benchmark.h"
@@ -35,6 +36,14 @@
 namespace TNL::Benchmarks::SpMV {
 
 using BenchmarkType = TNL::Benchmarks::Benchmark;
+
+#ifdef __CUDACC__
+// cuSPARSE's Sliced ELLPACK matches TNL's column-major SlicedEllpack segments,
+// see the comment in cusparseSlicedEllMatrix.h. Alias templates must live at
+// namespace scope, so this cannot be declared inside benchmarkSpmv().
+template< typename Device_, typename Index_, typename IndexAllocator_ >
+using SlicedEllpackSegments = TNL::Algorithms::Segments::ColumnMajorSlicedEllpack< Device_, Index_, IndexAllocator_ >;
+#endif
 
 template< typename Real = double, typename Index = int >
 void
@@ -48,6 +57,9 @@ benchmarkSpmv( BenchmarkType& benchmark,
 #ifdef __CUDACC__
    using CSRCudaMatrix = TNL::Matrices::SparseMatrix< Real, TNL::Devices::Cuda, int >;
    using CusparseMatrix = TNL::CusparseCSR< Real >;
+   using SlicedEllCudaMatrix =
+      TNL::Matrices::SparseMatrix< Real, TNL::Devices::Cuda, int, Matrices::GeneralMatrix, SlicedEllpackSegments >;
+   using CusparseSlicedEllMatrix = TNL::CusparseSlicedEll< Real >;
 #endif
 #ifdef __HIP__
    using CSRHipMatrix = TNL::Matrices::SparseMatrix< Real, TNL::Devices::Hip, int >;
@@ -271,6 +283,30 @@ benchmarkSpmv( BenchmarkType& benchmark,
       benchmark.setMetadataElement( { "format", "cusparse" } );
       benchmark.setMetadataElement( { "launch cfg.", variant.name } );
       benchmark.time< Devices::Cuda >( resetCudaVectors, "CUDA", spmvCusparse, cudaBenchmarkResults );
+   }
+
+   ////
+   // Perform benchmark on CUDA device with cuSPARSE's Sliced ELLPACK format
+   //
+   SlicedEllCudaMatrix slicedEllCudaMatrix;
+   slicedEllCudaMatrix = csrHostMatrix;
+
+   const CusparseAlgVariant cusparseSlicedEllAlgorithms[] = {
+      {  "Default", CUSPARSE_SPMV_ALG_DEFAULT },
+      { "SELL ALG1", CUSPARSE_SPMV_SELL_ALG1   },
+   };
+   for( const auto& variant : cusparseSlicedEllAlgorithms ) {
+      CusparseSlicedEllMatrix cusparseSlicedEllMatrix;
+      cusparseSlicedEllMatrix.init( slicedEllCudaMatrix, cudaInVector, cudaOutVector, &cusparseHandle, variant.alg );
+
+      auto spmvCusparseSlicedEll = [ & ]()
+      {
+         cusparseSlicedEllMatrix.vectorProduct( cudaInVector, cudaOutVector );
+      };
+
+      benchmark.setMetadataElement( { "format", "cusparse SlicedEll" } );
+      benchmark.setMetadataElement( { "launch cfg.", variant.name } );
+      benchmark.time< Devices::Cuda >( resetCudaVectors, "CUDA", spmvCusparseSlicedEll, cudaBenchmarkResults );
    }
 
    #if defined( HAVE_HYPRE ) && defined( HYPRE_USING_CUDA )
