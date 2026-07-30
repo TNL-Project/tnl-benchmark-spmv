@@ -96,7 +96,23 @@ template<>
 class CusparseCSR< double > : public CusparseCSRBase< double >
 {
 public:
+   CusparseCSR() = default;
+   CusparseCSR( const CusparseCSR& ) = delete;
+   CusparseCSR&
+   operator=( const CusparseCSR& ) = delete;
+
 #ifdef __CUDACC__
+   ~CusparseCSR()
+   {
+   #if CUDART_VERSION >= 11000
+      if( this->matrix != nullptr ) {
+         cusparseDestroySpMat( this->matA );
+         cusparseDestroyDnVec( this->vecX );
+         cusparseDestroyDnVec( this->vecY );
+      }
+   #endif
+   }
+
    template< typename InVector, typename OutVector >
    void
    init( MatrixType& matrix,
@@ -205,7 +221,23 @@ template<>
 class CusparseCSR< float > : public CusparseCSRBase< float >
 {
 public:
+   CusparseCSR() = default;
+   CusparseCSR( const CusparseCSR& ) = delete;
+   CusparseCSR&
+   operator=( const CusparseCSR& ) = delete;
+
 #ifdef __CUDACC__
+   ~CusparseCSR()
+   {
+   #if CUDART_VERSION >= 11000
+      if( this->matrix != nullptr ) {
+         cusparseDestroySpMat( this->matA );
+         cusparseDestroyDnVec( this->vecX );
+         cusparseDestroyDnVec( this->vecY );
+      }
+   #endif
+   }
+
    template< typename InVector, typename OutVector >
    void
    init( MatrixType& matrix,

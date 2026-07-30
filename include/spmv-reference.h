@@ -367,6 +367,8 @@ benchmarkSpmv( BenchmarkType& benchmark,
    benchmark.setMetadataElement( { "launch cfg.", "Default" } );
    benchmark.time< Devices::Cuda >( resetLightSpMVVectors, "CUDA", spmvLightSpMV, cudaBenchmarkResults );
    #endif
+
+   cusparseDestroy( cusparseHandle );
 #endif
 
 #ifdef __HIP__
