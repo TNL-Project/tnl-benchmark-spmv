@@ -145,7 +145,8 @@ def get_multiindex(input_df, formats, launch_configs, accelerator_devices):
     Create index for the table.
     """
     mc = mic.MultiindexCreator(5)
-    mc.add_entries([["Matrix name"], ["rows"], ["columns"], ["nonzeros per row"]])
+    mc.add_entries([["Matrix name"], ["rows"], ["columns"], ["nonzeros"], ["nonzeros per row"]])
+    mc.add_entries([[stat] for stat in PosterGraphs.MATRIX_STAT_COLUMNS])
 
     for format in formats:
         for device in ["CPU"] + accelerator_devices:
@@ -223,10 +224,18 @@ def convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=-1)
     result[("Matrix name", "", "", "", "")] = metadata.index
     result[("rows", "", "", "", "")] = metadata["rows"].values
     result[("columns", "", "", "", "")] = metadata["columns"].values
+    result[("nonzeros", "", "", "", "")] = pd.to_numeric(
+        metadata["nonzeros"], errors="coerce"
+    ).values
     result[("nonzeros per row", "", "", "", "")] = (
         pd.to_numeric(metadata["nonzeros"], errors="coerce")
         / pd.to_numeric(metadata["rows"], errors="coerce")
     ).values
+    for stat in PosterGraphs.MATRIX_STAT_COLUMNS:
+        if stat in metadata.columns:
+            result[(stat, "", "", "", "")] = pd.to_numeric(
+                metadata[stat], errors="coerce"
+            ).values
 
     result = result.reindex(columns=multicolumns)
     result = result.reindex(matrix_names)
@@ -321,10 +330,24 @@ def analyze_df(df, args, formats, launch_configs, accelerator_devices):
         PosterGraphs.speedup_overview_vs_cusparse(
             df, formats, launch_configs, accelerator_devices
         )
+        PosterGraphs.speedup_overview_csr_vs_cusparse(
+            df, formats, launch_configs, accelerator_devices
+        )
         PosterGraphs.speedup_overview_variants(
             df, formats, launch_configs, accelerator_devices
         )
+        PosterGraphs.speedup_overview_csr_binary_vs_nonbinary(
+            df, formats, launch_configs, accelerator_devices
+        )
+        PosterGraphs.speedup_overview_sorted_segments(df, accelerator_devices)
         PosterGraphs.speedup_heatmap_vs_best_csr(df, accelerator_devices)
+        PosterGraphs.speedup_heatmap_vs_best_csr(
+            df, accelerator_devices, include_cpu_csr=True
+        )
+        PosterGraphs.write_speedup_matrices(df, accelerator_devices)
+        PosterGraphs.write_speedup_matrices(
+            df, accelerator_devices, include_cpu_csr=True
+        )
         PosterGraphs.cumulative_coverage_vs_best(df, accelerator_devices)
 
     print("Writting to file sparse-matrix-benchmark-test-processed.html ... ")
