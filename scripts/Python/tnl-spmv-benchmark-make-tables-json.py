@@ -14,12 +14,17 @@ import Speedup
 import Report
 import BestFormats
 import LatexLabels
-import PosterGraphs
+import PosterOverviewGraphs
+import PosterHeatmapGraphs
+import PosterCoverageGraphs
 
 bw_units = "TB/s"
 
 # launch_configs = {}
 
+# Maps a (new format, launch config) to the name of the "legacy" (pre-rewrite)
+# TNL implementation it replaces, so add_to_multiindex() can add a speed-up
+# column comparing the two - i.e. "did the rewrite actually help?".
 legacy_counterparts = {
     ("BiEllpack", "1 TPS"): "Legacy BiEllpack",
     ("ChunkedEllpack", "1 TPS"): "Legacy ChunkedEllpack",
@@ -66,7 +71,8 @@ def get_arg_parser():
     )
     parser.add_argument(
         "--poster-graphs",
-        help="Flag to draw ad hoc poster graphs (see PosterGraphs.py)",
+        help="Flag to draw ad hoc poster graphs (see PosterOverviewGraphs.py / "
+        "PosterHeatmapGraphs.py / PosterCoverageGraphs.py)",
         action="store_true",
         default=False
     )
@@ -74,6 +80,22 @@ def get_arg_parser():
 
 
 def add_to_multiindex(mc, format, device, launch_config, launch_configs):
+    """
+    Register the output columns for one (format, device, launch_config)
+    combination with the MultiindexCreator `mc`. Each call to mc.add_entry()
+    below adds one column, addressed later as a 5-tuple
+    (format, device, launch_config, metric, reference) - `reference` is only
+    meaningful for "speed-up" columns (empty string otherwise) and names what
+    the speed-up was computed against, e.g. speed-up vs. "cusparse" or vs.
+    "non-binary" (the same format's non-Binary counterpart).
+
+    There are two branches:
+      - CPU-threaded CSR/Hypre/Ginkgo: these report a "1 threads" launch
+        config as the serial baseline, so parallel efficiency ("eff.") only
+        makes sense (and is only added) for the other thread counts.
+      - everything else: bandwidth/time/diff.max, plus whichever speed-up
+        comparisons apply to this format (see the comments below).
+    """
     if (format in ["CSR", "Hypre", "Ginkgo"]) and device == "CPU":
         # For these formats on CPU we want to compute parallel efficiency
         if launch_config == "1 threads":
@@ -142,11 +164,22 @@ def add_to_multiindex(mc, format, device, launch_config, launch_configs):
 
 def get_multiindex(input_df, formats, launch_configs, accelerator_devices):
     """
-    Create index for the table.
+    Build the 5-level column MultiIndex for the final wide-format DataFrame:
+    one column per (format, device, launch_config, metric, reference) - see
+    add_to_multiindex() for what that 5-tuple means.
+
+    Columns are added in three groups, in this order:
+      1. per-matrix identity/metadata (name, size, and the statistics from
+         MatrixStatistics.h) - level 1 only, the other 4 levels stay "".
+      2. one benchmark-result column per (format, device, launch_config)
+         actually present in `launch_configs`, via add_to_multiindex().
+      3. two special-case columns appended per (format, device): which
+         format is fastest for "CSR Light Automatic" ("speed-up" vs.
+         LightSpMV), and "CSR Light Best"'s own timing.
     """
     mc = mic.MultiindexCreator(5)
     mc.add_entries([["Matrix name"], ["rows"], ["columns"], ["nonzeros"], ["nonzeros per row"]])
-    mc.add_entries([[stat] for stat in PosterGraphs.MATRIX_STAT_COLUMNS])
+    mc.add_entries([[stat] for stat in PosterHeatmapGraphs.MATRIX_STAT_COLUMNS])
 
     for format in formats:
         for device in ["CPU"] + accelerator_devices:
@@ -168,8 +201,18 @@ def get_multiindex(input_df, formats, launch_configs, accelerator_devices):
 
 def convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=-1):
     """
-    Convert input table to a wide-format DataFrame using multiindex columns.
-    Uses vectorized melt + pivot instead of row-by-row iteration.
+    Convert `input_df` - one row per (matrix, format, device, launch config),
+    "long" format - into the "wide" table the rest of the script works with:
+    one row per matrix, one column per (format, device, launch_config,
+    metric, reference) matching `multicolumns` (see get_multiindex()).
+
+    Reshaping is done with melt() + pivot_table() (vectorized) rather than
+    iterating rows in Python, which matters here since `input_df` can have
+    hundreds of thousands of rows (many matrices x many format/device/
+    launch-config combinations x few metrics each).
+
+    begin_idx/end_idx select a slice of matrices (by first-seen order) to
+    process, e.g. for --max-rows.
     """
     if end_idx == -1:
         end_idx = len(input_df.index)
@@ -187,9 +230,17 @@ def convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=-1)
     df["time mean"] = pd.to_numeric(df["time mean"], errors="coerce")
     df["CSR Diff.Max"] = pd.to_numeric(df["CSR Diff.Max"], errors="coerce")
 
+    # CSR/Ginkgo/Hypre on the CPU are themselves the reference solution that
+    # every other run's "diff.max" is measured against, so a diff.max value
+    # for one of them would just be noise (or a solver artifact) - blank it
+    # out rather than let it show up as a spurious accuracy warning.
     cpu_no_diff_mask = (df["performer"] == "CPU") & (df["format"].isin(["CSR", "Ginkgo", "Hypre"]))
     df.loc[cpu_no_diff_mask, "CSR Diff.Max"] = float("nan")
 
+    # Reshape long -> even longer: one row per (matrix, format, performer,
+    # launch cfg., metric) with a single "value" column, dropping rows whose
+    # value is NaN (e.g. diff.max blanked out just above, or a metric that
+    # simply wasn't recorded for that run).
     melted = df.melt(
         id_vars=["matrix name", "format", "performer", "launch cfg."],
         value_vars=["bandwidth", "time mean", "CSR Diff.Max"],
@@ -200,6 +251,11 @@ def convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=-1)
     melted["metric"] = melted["metric"].map(metric_map)
     melted = melted.dropna(subset=["value"])
 
+    # ... then pivot long -> wide: one row per matrix, one column per
+    # (format, performer, launch cfg., metric) combination that actually has
+    # data. aggfunc="first" is a formality - each (matrix, format, performer,
+    # launch cfg., metric) combination should have exactly one value; if the
+    # input ever had duplicates, this silently keeps the first one.
     result = melted.pivot_table(
         index="matrix name",
         columns=["format", "performer", "launch cfg.", "metric"],
@@ -207,9 +263,18 @@ def convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=-1)
         aggfunc="first",
     )
 
+    # pivot_table only produces 4 column levels (format, performer,
+    # launch cfg., metric); pad on the 5th ("reference", used only by
+    # speed-up columns added below/in Speedup.py) as an empty string so the
+    # columns match multicolumns' 5-level shape.
     if not result.columns.empty:
         result.columns = pd.MultiIndex.from_tuples([(*col, "") for col in result.columns])
 
+    # Cosmetic: diff.max values that happen to be whole numbers (most
+    # commonly 0.0, i.e. "no difference") are shown as plain ints ("0")
+    # instead of floats ("0.0") - purely a display choice, made per-column
+    # via an object dtype so the exact (non-integral) diff.max values stay
+    # as floats within the same column.
     for col in result.columns:
         if len(col) > 3 and col[3] == "diff.max":
             vals = result[col]
@@ -218,6 +283,10 @@ def convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=-1)
                 mask = vals.notna() & (vals == vals.fillna(0.0).astype(int))
                 result.loc[mask, col] = vals[mask].astype(int).astype(object)
 
+    # Matrix-level fields (name/size/statistics) are constant across every
+    # row of `df` for a given matrix, so just take the first occurrence of
+    # each and reindex to matrix_names to line rows up with `result` (whose
+    # index is already "matrix name", in the same order via pivot_table).
     metadata = df.drop_duplicates("matrix name").set_index("matrix name")
     metadata = metadata.reindex(matrix_names)
 
@@ -231,12 +300,18 @@ def convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=-1)
         pd.to_numeric(metadata["nonzeros"], errors="coerce")
         / pd.to_numeric(metadata["rows"], errors="coerce")
     ).values
-    for stat in PosterGraphs.MATRIX_STAT_COLUMNS:
+    for stat in PosterHeatmapGraphs.MATRIX_STAT_COLUMNS:
         if stat in metadata.columns:
             result[(stat, "", "", "", "")] = pd.to_numeric(
                 metadata[stat], errors="coerce"
             ).values
 
+    # `multicolumns` (from get_multiindex()) is the full, format-independent
+    # set of columns the rest of the pipeline expects; `result` only has
+    # columns for (format, device, launch_config) combinations that actually
+    # had data. reindex(columns=...) adds the missing ones back as all-NaN
+    # (e.g. a format that wasn't run on every device) rather than leaving
+    # them out, so every output DataFrame has the same column shape.
     result = result.reindex(columns=multicolumns)
     result = result.reindex(matrix_names)
     result = result.reset_index(drop=True)
@@ -259,7 +334,12 @@ def parse_input_files(file_list):
 
 def get_formats(input_df):
     """
-    Get list of formats from the input dataframe
+    Get the list of formats to generate output columns for: every format
+    name found in the benchmark log, minus the "CSR Light Automatic" family
+    (an internal auto-tuning wrapper around the other CSR Light kernels,
+    not itself a distinct storage format worth its own row/column), plus
+    the synthetic "CSR Best" format (computed later, not present in the raw
+    log) representing "whichever CSR launch config was fastest".
     """
     formats = list(
         set(input_df["format"].values.tolist())
@@ -287,7 +367,15 @@ def get_accelerator_devices(input_df):
 
 def get_launch_configs(input_df, accelerator_devices):
     """
-    Get list of launch configurations from the input dataframe
+    Build {(format, device): [launch_config, ...]} - the set of launch
+    configs actually present in the log for each (format, device) pair, in
+    first-seen order. get_multiindex()/add_to_multiindex() use this to know
+    which columns to create; convert_data_frame() doesn't need it (it derives
+    columns straight from the data via pivot_table).
+
+    "CSR Best" is a synthetic format (computed later, see BestFormats.py) so
+    it never appears in the log itself; give it a single "" (no-op) launch
+    config on every device so it still gets a column added for it.
     """
     launch_configs = {}
     in_idx = 0
@@ -327,28 +415,28 @@ def analyze_df(df, args, formats, launch_configs, accelerator_devices):
     Analyze the dataframe and generate reports.
     """
     if args.poster_graphs:
-        PosterGraphs.speedup_overview_vs_cusparse(
+        PosterOverviewGraphs.speedup_overview_vs_cusparse(
             df, formats, launch_configs, accelerator_devices
         )
-        PosterGraphs.speedup_overview_csr_vs_cusparse(
+        PosterOverviewGraphs.speedup_overview_csr_vs_cusparse(
             df, formats, launch_configs, accelerator_devices
         )
-        PosterGraphs.speedup_overview_variants(
+        PosterOverviewGraphs.speedup_overview_variants(
             df, formats, launch_configs, accelerator_devices
         )
-        PosterGraphs.speedup_overview_csr_binary_vs_nonbinary(
+        PosterOverviewGraphs.speedup_overview_csr_binary_vs_nonbinary(
             df, formats, launch_configs, accelerator_devices
         )
-        PosterGraphs.speedup_overview_sorted_segments(df, accelerator_devices)
-        PosterGraphs.speedup_heatmap_vs_best_csr(df, accelerator_devices)
-        PosterGraphs.speedup_heatmap_vs_best_csr(
+        PosterOverviewGraphs.speedup_overview_sorted_segments(df, accelerator_devices)
+        PosterHeatmapGraphs.speedup_heatmap_vs_best_csr(df, accelerator_devices)
+        PosterHeatmapGraphs.speedup_heatmap_vs_best_csr(
             df, accelerator_devices, include_cpu_csr=True
         )
-        PosterGraphs.write_speedup_matrices(df, accelerator_devices)
-        PosterGraphs.write_speedup_matrices(
+        PosterHeatmapGraphs.write_speedup_matrices(df, accelerator_devices)
+        PosterHeatmapGraphs.write_speedup_matrices(
             df, accelerator_devices, include_cpu_csr=True
         )
-        PosterGraphs.cumulative_coverage_vs_best(df, accelerator_devices)
+        PosterCoverageGraphs.cumulative_coverage_vs_best(df, accelerator_devices)
 
     print("Writting to file sparse-matrix-benchmark-test-processed.html ... ")
     df.sort_index(inplace=True)
@@ -407,30 +495,6 @@ def main():
     os.chdir(output_dir)
 
     analyze_df(result, args, formats, launch_configs, accelerator_devices)
-
-    for rows_count in [10, 100, 1000, 10000, 100000, 1000000, 10000000]:
-        print(f"Filtering for rows <= {rows_count}")
-        filtered_df = result[result["rows"].astype("int32") <= rows_count]
-        if filtered_df.empty:
-            print(f"No data for rows <= {rows_count}, skipping analysis.")
-            continue
-        if not os.path.exists(f"rows-le-{rows_count}"):
-            os.mkdir(f"rows-le-{rows_count}")
-        os.chdir(f"rows-le-{rows_count}")
-        analyze_df(filtered_df, args, formats, launch_configs, accelerator_devices)
-        os.chdir("..")
-
-    for rows_count in [10, 100, 1000, 10000, 100000, 1000000, 10000000]:
-        print(f"Filtering for rows >= {rows_count}")
-        filtered_df = result[result["rows"].astype("int32") >= rows_count]
-        if filtered_df.empty:
-            print(f"No data for rows >= {rows_count}, skipping analysis.")
-            continue
-        if not os.path.exists(f"rows-ge-{rows_count}"):
-            os.mkdir(f"rows-ge-{rows_count}")
-        os.chdir(f"rows-ge-{rows_count}")
-        analyze_df(filtered_df, args, formats, launch_configs, accelerator_devices)
-        os.chdir("..")
 
     os.chdir("..")
 
