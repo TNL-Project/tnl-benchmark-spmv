@@ -20,6 +20,12 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 project(tnl-benchmark-spmv LANGUAGES CXX)
 
+# Put all built executables in a single build/bin directory instead of
+# mirroring the source tree (e.g. build/src, build/tests/Legacy) - also
+# relied on by tests/Legacy/CMakeLists.txt, which points add_test() at
+# ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/<target>.
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+
 # declare all custom build options
 option(HYPRE_WITH_CUDA "Set if Hypre was built with CUDA on this system." OFF)
 
