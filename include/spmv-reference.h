@@ -45,15 +45,19 @@ template< typename Device_, typename Index_, typename IndexAllocator_ >
 using SlicedEllpackSegments = TNL::Algorithms::Segments::ColumnMajorSlicedEllpack< Device_, Index_, IndexAllocator_ >;
 #endif
 
+// Runs the full reference-library benchmark suite (PETSc/HYPRE/Ginkgo/cuSPARSE/
+// CSR5/LightSpMV/hipsparse, whichever are compiled in) for one already loaded
+// matrix.
 template< typename Real = double, typename Index = int >
 void
-benchmarkSpmv( BenchmarkType& benchmark,
-               const String& inputFileName,
-               const Config::ParameterContainer& parameters,
-               bool verboseMR )
+runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
+                            // Here we use 'int' instead of 'Index' because of compatibility with cusparse.
+                            TNL::Matrices::SparseMatrix< Real, TNL::Devices::Host, int >& csrHostMatrix,
+                            const String& inputFileName,
+                            const Config::ParameterContainer& parameters,
+                            bool verboseMR,
+                            bool transposed )
 {
-   // Here we use 'int' instead of 'Index' because of compatibility with cusparse.
-   using CSRHostMatrix = TNL::Matrices::SparseMatrix< Real, TNL::Devices::Host, int >;
 #ifdef __CUDACC__
    using CSRCudaMatrix = TNL::Matrices::SparseMatrix< Real, TNL::Devices::Cuda, int >;
    using CusparseMatrix = TNL::CusparseCSR< Real >;
@@ -68,16 +72,9 @@ benchmarkSpmv( BenchmarkType& benchmark,
 
    using HostVector = Containers::Vector< Real, Devices::Host, int >;
 
-   CSRHostMatrix csrHostMatrix;
-
    ////
    // Set-up benchmark datasize
    //
-   TNL::Matrices::MatrixReader< CSRHostMatrix >::readMtx( inputFileName, csrHostMatrix, verboseMR );
-   const Index uncompressedSize = csrHostMatrix.getValues().getSize();
-   TNL::Matrices::compressSparseMatrix( csrHostMatrix );
-   const Index compressedSize = csrHostMatrix.getValues().getSize();
-   std::cout << "Compression ratio: " << (double) uncompressedSize / compressedSize << std::endl;
    const int nonzeros = csrHostMatrix.getNonzeroElementsCount();
    const double datasetSize = (double) nonzeros * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
    benchmark.setDatasetSize( datasetSize );
@@ -101,6 +98,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
    //
    benchmark.setMetadataColumns( {
       { "matrix name", inputFileName },
+      { "transposed", transposed ? "true" : "false" },
       { "precision", getType< Real >() },
       { "rows", convertToString( csrHostMatrix.getRows() ) },
       { "columns", convertToString( csrHostMatrix.getColumns() ) },
@@ -267,9 +265,9 @@ benchmarkSpmv( BenchmarkType& benchmark,
       cusparseSpMVAlg_t alg;
    };
    const CusparseAlgVariant cusparseAlgorithms[] = {
-      {    "Default", CUSPARSE_SPMV_ALG_DEFAULT },
-      { "CSR ALG1",   CUSPARSE_SPMV_CSR_ALG1     },
-      { "CSR ALG2",   CUSPARSE_SPMV_CSR_ALG2     },
+      { "Default", CUSPARSE_SPMV_ALG_DEFAULT },
+      { "CSR ALG1", CUSPARSE_SPMV_CSR_ALG1 },
+      { "CSR ALG2", CUSPARSE_SPMV_CSR_ALG2 },
    };
    for( const auto& variant : cusparseAlgorithms ) {
       CusparseMatrix cusparseMatrix;
@@ -292,8 +290,8 @@ benchmarkSpmv( BenchmarkType& benchmark,
    slicedEllCudaMatrix = csrHostMatrix;
 
    const CusparseAlgVariant cusparseSlicedEllAlgorithms[] = {
-      {  "Default", CUSPARSE_SPMV_ALG_DEFAULT },
-      { "SELL ALG1", CUSPARSE_SPMV_SELL_ALG1   },
+      { "Default", CUSPARSE_SPMV_ALG_DEFAULT },
+      { "SELL ALG1", CUSPARSE_SPMV_SELL_ALG1 },
    };
    for( const auto& variant : cusparseSlicedEllAlgorithms ) {
       CusparseSlicedEllMatrix cusparseSlicedEllMatrix;
@@ -459,6 +457,40 @@ benchmarkSpmv( BenchmarkType& benchmark,
 
 #endif
    csrHostMatrix.reset();
+}
+
+template< typename Real = double, typename Index = int >
+void
+benchmarkSpmv( BenchmarkType& benchmark,
+               const String& inputFileName,
+               const Config::ParameterContainer& parameters,
+               bool verboseMR )
+{
+   // Here we use 'int' instead of 'Index' because of compatibility with cusparse.
+   using CSRHostMatrix = TNL::Matrices::SparseMatrix< Real, TNL::Devices::Host, int >;
+
+   CSRHostMatrix csrHostMatrix;
+   TNL::Matrices::MatrixReader< CSRHostMatrix >::readMtx( inputFileName, csrHostMatrix, verboseMR );
+   const Index uncompressedSize = csrHostMatrix.getValues().getSize();
+   TNL::Matrices::compressSparseMatrix( csrHostMatrix );
+   const Index compressedSize = csrHostMatrix.getValues().getSize();
+   std::cout << "Compression ratio: " << (double) uncompressedSize / compressedSize << std::endl;
+
+   const String& withTransposedMatrix = parameters.getParameter< String >( "with-transposed-matrix" );
+
+   // Compute the transpose (if needed) before csrHostMatrix is possibly
+   // reset by runSpmvBenchmarksForMatrix() below.
+   CSRHostMatrix transposedHostMatrix;
+   if( withTransposedMatrix != "false" )
+      transposedHostMatrix.getTransposition( csrHostMatrix );
+
+   if( withTransposedMatrix != "only" )
+      runSpmvBenchmarksForMatrix< Real, Index >( benchmark, csrHostMatrix, inputFileName, parameters, verboseMR, false );
+   else
+      csrHostMatrix.reset();
+
+   if( withTransposedMatrix != "false" )
+      runSpmvBenchmarksForMatrix< Real, Index >( benchmark, transposedHostMatrix, inputFileName, parameters, verboseMR, true );
 }
 
 }  // namespace TNL::Benchmarks::SpMV

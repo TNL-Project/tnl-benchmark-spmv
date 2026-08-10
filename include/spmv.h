@@ -157,8 +157,7 @@ class SigmaSparseMatrix
 : public Matrices::SparseMatrix< Real, Device, Index, MatrixType, Segments, ComputeReal, RealAllocator, IndexAllocator >
 {
 public:
-   using Base =
-      Matrices::SparseMatrix< Real, Device, Index, MatrixType, Segments, ComputeReal, RealAllocator, IndexAllocator >;
+   using Base = Matrices::SparseMatrix< Real, Device, Index, MatrixType, Segments, ComputeReal, RealAllocator, IndexAllocator >;
    using Base::Base;
    using Base::operator=;
 
@@ -387,24 +386,12 @@ dispatchSpMV( BenchmarkType& benchmark,
                benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
             benchmarkSpMV< Real, Index, InputMatrix, SortedRowMajorSlicedEllpackSegments_SliceSize_32, TestValue, MatrixType >(
                benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
-            benchmarkSpMV< Real,
-                           Index,
-                           InputMatrix,
-                           SortedColumnMajorSlicedEllpackSegments_SliceSize_2,
-                           TestValue,
-                           MatrixType >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
-            benchmarkSpMV< Real,
-                           Index,
-                           InputMatrix,
-                           SortedColumnMajorSlicedEllpackSegments_SliceSize_4,
-                           TestValue,
-                           MatrixType >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
-            benchmarkSpMV< Real,
-                           Index,
-                           InputMatrix,
-                           SortedColumnMajorSlicedEllpackSegments_SliceSize_8,
-                           TestValue,
-                           MatrixType >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
+            benchmarkSpMV< Real, Index, InputMatrix, SortedColumnMajorSlicedEllpackSegments_SliceSize_2, TestValue, MatrixType >(
+               benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
+            benchmarkSpMV< Real, Index, InputMatrix, SortedColumnMajorSlicedEllpackSegments_SliceSize_4, TestValue, MatrixType >(
+               benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
+            benchmarkSpMV< Real, Index, InputMatrix, SortedColumnMajorSlicedEllpackSegments_SliceSize_8, TestValue, MatrixType >(
+               benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
             benchmarkSpMV< Real,
                            Index,
                            InputMatrix,
@@ -471,12 +458,17 @@ dispatchSymmetric( BenchmarkType& benchmark,
       benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
 }
 
-template< typename Real = double, typename Index = int >
+// Runs the full benchmark suite (CSR host scan + dispatchGeneral, and
+// dispatchSymmetric for the non-transposed matrix) for one already loaded
+// matrix.
+template< typename Real, typename Index >
 void
-benchmarkSpmv( BenchmarkType& benchmark,
-               const String& inputFileName,
-               const Config::ParameterContainer& parameters,
-               bool verboseMR )
+runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
+                            const Matrices::SparseMatrix< Real, TNL::Devices::Host, Index >& csrHostMatrix,
+                            const String& inputFileName,
+                            const Config::ParameterContainer& parameters,
+                            bool verboseMR,
+                            bool transposed )
 {
    using CSRHostMatrix = Matrices::SparseMatrix< Real, TNL::Devices::Host, Index >;
    using HostVector = Containers::Vector< Real, Devices::Host, Index >;
@@ -484,12 +476,6 @@ benchmarkSpmv( BenchmarkType& benchmark,
    ////
    // Set-up benchmark datasize
    //
-   CSRHostMatrix csrHostMatrix;
-   MatrixReader< CSRHostMatrix >::readMtx( inputFileName, csrHostMatrix, verboseMR );
-   const Index uncompressedSize = csrHostMatrix.getValues().getSize();
-   TNL::Matrices::compressSparseMatrix( csrHostMatrix );
-   const Index compressedSize = csrHostMatrix.getValues().getSize();
-   std::cout << "Compression ratio: " << (double) uncompressedSize / compressedSize << std::endl;
    const Index nonzeros = csrHostMatrix.getNonzeroElementsCount();
    const double datasetSize = (double) ( nonzeros * ( 2 * sizeof( Real ) + sizeof( Index ) )
                                          + ( csrHostMatrix.getRows() + csrHostMatrix.getColumns() ) * sizeof( Index ) )
@@ -508,6 +494,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
    // Perform benchmark on host with CSR as a reference CPU format
    //
    benchmark.setMetadataColumns( { { "matrix name", inputFileName },
+                                   { "transposed", transposed ? "true" : "false" },
                                    { "precision", getType< Real >() },
                                    { "rows", convertToString( csrHostMatrix.getRows() ) },
                                    { "columns", convertToString( csrHostMatrix.getColumns() ) },
@@ -576,8 +563,39 @@ benchmarkSpmv( BenchmarkType& benchmark,
 
    dispatchGeneral< Real, Index >( benchmark, csrHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
 
-   if( parameters.getParameter< bool >( "with-symmetric-matrices" ) )
+   // A symmetric matrix's transpose equals itself, so re-running the
+   // symmetric dispatch for the transposed matrix would just duplicate the
+   // non-transposed results at double the cost.
+   if( ! transposed && parameters.getParameter< bool >( "with-symmetric-matrices" ) )
       dispatchSymmetric< Real, Index >( benchmark, hostOutVector, inputFileName, parameters, verboseMR );
+}
+
+template< typename Real = double, typename Index = int >
+void
+benchmarkSpmv( BenchmarkType& benchmark,
+               const String& inputFileName,
+               const Config::ParameterContainer& parameters,
+               bool verboseMR )
+{
+   using CSRHostMatrix = Matrices::SparseMatrix< Real, TNL::Devices::Host, Index >;
+
+   CSRHostMatrix csrHostMatrix;
+   MatrixReader< CSRHostMatrix >::readMtx( inputFileName, csrHostMatrix, verboseMR );
+   const Index uncompressedSize = csrHostMatrix.getValues().getSize();
+   TNL::Matrices::compressSparseMatrix( csrHostMatrix );
+   const Index compressedSize = csrHostMatrix.getValues().getSize();
+   std::cout << "Compression ratio: " << (double) uncompressedSize / compressedSize << std::endl;
+
+   const String& withTransposedMatrix = parameters.getParameter< String >( "with-transposed-matrix" );
+
+   if( withTransposedMatrix != "only" )
+      runSpmvBenchmarksForMatrix< Real, Index >( benchmark, csrHostMatrix, inputFileName, parameters, verboseMR, false );
+
+   if( withTransposedMatrix != "false" ) {
+      CSRHostMatrix transposedHostMatrix;
+      transposedHostMatrix.getTransposition( csrHostMatrix );
+      runSpmvBenchmarksForMatrix< Real, Index >( benchmark, transposedHostMatrix, inputFileName, parameters, verboseMR, true );
+   }
 }
 
 }  // namespace TNL::Benchmarks::SpMV

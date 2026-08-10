@@ -40,6 +40,11 @@ setupConfig( Config::ConfigDescription& config )
 
    config.addDelimiter( "SpMV reference benchmark settings:" );
    config.addRequiredEntry< String >( "input-file", "Input file name." );
+   config.addEntry< String >(
+      "with-transposed-matrix", "Benchmark also (false/true) or only (only) the transposed matrix.", "true" );
+   config.addEntryEnum( "false" );
+   config.addEntryEnum( "true" );
+   config.addEntryEnum( "only" );
    config.addEntry< String >( "precision", "Precision of the arithmetics.", "double" );
    config.addEntryEnum( "float" );
    config.addEntryEnum( "double" );

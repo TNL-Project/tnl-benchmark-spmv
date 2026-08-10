@@ -35,6 +35,11 @@ setupConfig( Config::ConfigDescription& config )
    config.addDelimiter( "SpMV benchmark settings:" );
    config.addRequiredEntry< String >( "input-file", "Input file name." );
    config.addEntry< bool >( "with-symmetric-matrices", "Perform benchmark even for symmetric matrix formats.", true );
+   config.addEntry< String >(
+      "with-transposed-matrix", "Benchmark also (false/true) or only (only) the transposed matrix.", "true" );
+   config.addEntryEnum( "false" );
+   config.addEntryEnum( "true" );
+   config.addEntryEnum( "only" );
    config.addEntry< bool >( "with-sorted-segments", "Perform benchmark formats based on sorted segments.", true );
    config.addEntry< bool >( "with-sigma-256-sorted-segments",
                             "In addition to fully sorted segments (sigma = -1), also benchmark sorted segments formats "
