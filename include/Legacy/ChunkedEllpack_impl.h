@@ -1210,7 +1210,7 @@ public:
       OutVector* kernel_outVector = Cuda::passToDevice( outVector );
       dim3 cudaBlockSize( matrix.getNumberOfChunksInSlice() ), cudaGridSize( Backend::getMaxGridXSize() );
       const IndexType cudaBlocks = matrix.getNumberOfSlices();
-      const IndexType cudaGrids = roundUpDivision( cudaBlocks, Backend::getMaxGridXSize() );
+      const IndexType cudaGrids = roundUpDivision( static_cast< std::size_t >( cudaBlocks ), Backend::getMaxGridXSize() );
       const IndexType sharedMemory = cudaBlockSize.x * sizeof( RealType ) + sizeof( tnlChunkedEllpackSliceInfo< IndexType > );
       for( IndexType gridIdx = 0; gridIdx < cudaGrids; gridIdx++ ) {
          if( gridIdx == cudaGrids - 1 )

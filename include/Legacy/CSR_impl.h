@@ -1081,7 +1081,7 @@ SpMVCSRScalarPrepare( const Real* inVector, Real* outVector, const CSR< Real, De
    /* Execute kernels on device */
    for( Index grid = 0; neededThreads != 0; ++grid ) {
       if( MAX_X_DIM * threads >= neededThreads ) {
-         blocks = roundUpDivision( neededThreads, threads );
+         blocks = roundUpDivision( neededThreads, static_cast< size_t >( threads ) );
          neededThreads = 0;
       }
       else {
@@ -1111,7 +1111,7 @@ SpMVCSRVectorPrepare( const Real* inVector, Real* outVector, const CSR< Real, De
    /* Execute kernels on device */
    for( Index grid = 0; neededThreads != 0; ++grid ) {
       if( MAX_X_DIM * threads >= neededThreads ) {
-         blocks = roundUpDivision( neededThreads, threads );
+         blocks = roundUpDivision( neededThreads, static_cast< size_t >( threads ) );
          neededThreads = 0;
       }
       else {
@@ -1328,7 +1328,7 @@ SpMVCSRLightWithoutAtomicPrepare( const Real* inVector, Real* outVector, const C
    /* Execute kernels on device */
    for( Index grid = 0; neededThreads != 0; ++grid ) {
       if( MAX_X_DIM * threads >= neededThreads ) {
-         blocks = roundUpDivision( neededThreads, threads );
+         blocks = roundUpDivision( neededThreads, static_cast< size_t >( threads ) );
          neededThreads = 0;
       }
       else {
@@ -1506,7 +1506,7 @@ SpMVCSRMultiVectorPrepare( const Real* inVector, Real* outVector, const CSR< Rea
    /* Execute kernels on device */
    for( Index grid = 0; neededThreads != 0; ++grid ) {
       if( MAX_X_DIM * threads >= neededThreads ) {
-         blocks = roundUpDivision( neededThreads, threads );
+         blocks = roundUpDivision( neededThreads, static_cast< size_t >( threads ) );
          neededThreads = 0;
       }
       else {
@@ -1660,7 +1660,7 @@ SpMVCSRAdaptivePrepare( const Real* inVector, Real* outVector, const CSR< Real, 
    // Execute kernels on device
    for( Index grid = 0; neededThreads != 0; ++grid ) {
       if( MAX_X_DIM * threads >= neededThreads ) {
-         blocks = roundUpDivision( neededThreads, threads );
+         blocks = roundUpDivision( neededThreads, static_cast< size_t >( threads ) );
          neededThreads = 0;
       }
       else {

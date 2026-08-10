@@ -1245,8 +1245,8 @@ public:
 
       if( matrix.totalLoad < 2 ) {
          dim3 blockSize( 256 ), cudaGridSize( Backend::getMaxGridXSize() );
-         IndexType cudaBlocks = roundUpDivision( matrix.reduceMap.getSize(), blockSize.x );
-         IndexType cudaGrids = roundUpDivision( cudaBlocks, Backend::getMaxGridXSize() );
+         IndexType cudaBlocks = roundUpDivision( matrix.reduceMap.getSize(), static_cast< IndexType >( blockSize.x ) );
+         IndexType cudaGrids = roundUpDivision( static_cast< std::size_t >( cudaBlocks ), Backend::getMaxGridXSize() );
          for( IndexType gridIdx = 0; gridIdx < cudaGrids; gridIdx++ ) {
             if( gridIdx == cudaGrids - 1 )
                cudaGridSize.x = cudaBlocks % Backend::getMaxGridXSize();
@@ -1264,14 +1264,16 @@ public:
       }
       else if( matrix.totalLoad < 4 ) {
          dim3 blockSize( 192 ), cudaGridSize( Backend::getMaxGridXSize() );
-         IndexType cudaBlocks = roundUpDivision( matrix.reduceMap.getSize(), blockSize.x );
-         IndexType cudaGrids = roundUpDivision( cudaBlocks, Backend::getMaxGridXSize() );
+         IndexType cudaBlocks = roundUpDivision( matrix.reduceMap.getSize(), static_cast< IndexType >( blockSize.x ) );
+         IndexType cudaGrids = roundUpDivision( static_cast< std::size_t >( cudaBlocks ), Backend::getMaxGridXSize() );
          for( IndexType gridIdx = 0; gridIdx < cudaGrids; gridIdx++ ) {
             if( gridIdx == cudaGrids - 1 )
                cudaGridSize.x = cudaBlocks % Backend::getMaxGridXSize();
             const int sharedMemory = blockSize.x * sizeof( Real );
+            // clang-format off
             AdEllpackVectorProductCuda4< Real, Index, InVector, OutVector >
-               < < < cudaGridSize, blockSize, sharedMemory > > >( kernel_this, kernel_inVector, kernel_outVector, gridIdx );
+               <<< cudaGridSize, blockSize, sharedMemory >>>( kernel_this, kernel_inVector, kernel_outVector, gridIdx );
+            // clang-format on
          }
          TNL_CHECK_CUDA_DEVICE;
          Cuda::freeFromDevice( kernel_this );
@@ -1281,14 +1283,16 @@ public:
       }
       else if( matrix.totalLoad < 8 ) {
          dim3 blockSize( 128 ), cudaGridSize( Backend::getMaxGridXSize() );
-         IndexType cudaBlocks = roundUpDivision( matrix.reduceMap.getSize(), blockSize.x );
-         IndexType cudaGrids = roundUpDivision( cudaBlocks, Backend::getMaxGridXSize() );
+         IndexType cudaBlocks = roundUpDivision( matrix.reduceMap.getSize(), static_cast< IndexType >( blockSize.x ) );
+         IndexType cudaGrids = roundUpDivision( static_cast< std::size_t >( cudaBlocks ), Backend::getMaxGridXSize() );
          for( IndexType gridIdx = 0; gridIdx < cudaGrids; gridIdx++ ) {
             if( gridIdx == cudaGrids - 1 )
                cudaGridSize.x = cudaBlocks % Backend::getMaxGridXSize();
             const int sharedMemory = blockSize.x * sizeof( Real );
+            // clang-format off
             AdEllpackVectorProductCuda8< Real, Index, InVector, OutVector >
-               < < < cudaGridSize, blockSize, sharedMemory > > >( kernel_this, kernel_inVector, kernel_outVector, gridIdx );
+               <<< cudaGridSize, blockSize, sharedMemory >>>( kernel_this, kernel_inVector, kernel_outVector, gridIdx );
+            // clang-format on
          }
          TNL_CHECK_CUDA_DEVICE;
          Cuda::freeFromDevice( kernel_this );
@@ -1298,14 +1302,16 @@ public:
       }
       else if( matrix.totalLoad < 16 ) {
          dim3 blockSize( 128 ), cudaGridSize( Backend::getMaxGridXSize() );
-         IndexType cudaBlocks = roundUpDivision( matrix.reduceMap.getSize(), blockSize.x );
-         IndexType cudaGrids = roundUpDivision( cudaBlocks, Backend::getMaxGridXSize() );
+         IndexType cudaBlocks = roundUpDivision( matrix.reduceMap.getSize(), static_cast< IndexType >( blockSize.x ) );
+         IndexType cudaGrids = roundUpDivision( static_cast< std::size_t >( cudaBlocks ), Backend::getMaxGridXSize() );
          for( IndexType gridIdx = 0; gridIdx < cudaGrids; gridIdx++ ) {
             if( gridIdx == cudaGrids - 1 )
                cudaGridSize.x = cudaBlocks % Backend::getMaxGridXSize();
             const int sharedMemory = blockSize.x * sizeof( Real );
+            // clang-format off
             AdEllpackVectorProductCuda16< Real, Index, InVector, OutVector >
-               < < < cudaGridSize, blockSize, sharedMemory > > >( kernel_this, kernel_inVector, kernel_outVector, gridIdx );
+               <<< cudaGridSize, blockSize, sharedMemory >>>( kernel_this, kernel_inVector, kernel_outVector, gridIdx );
+            // clang-format on
          }
          TNL_CHECK_CUDA_DEVICE;
          Cuda::freeFromDevice( kernel_this );
@@ -1315,8 +1321,8 @@ public:
       }
       else {
          dim3 blockSize( 96 ), cudaGridSize( Backend::getMaxGridXSize() );
-         IndexType cudaBlocks = roundUpDivision( matrix.reduceMap.getSize(), blockSize.x );
-         IndexType cudaGrids = roundUpDivision( cudaBlocks, Backend::getMaxGridXSize() );
+         IndexType cudaBlocks = roundUpDivision( matrix.reduceMap.getSize(), static_cast< IndexType >( blockSize.x ) );
+         IndexType cudaGrids = roundUpDivision( static_cast< std::size_t >( cudaBlocks ), Backend::getMaxGridXSize() );
          for( IndexType gridIdx = 0; gridIdx < cudaGrids; gridIdx++ ) {
             if( gridIdx == cudaGrids - 1 )
                cudaGridSize.x = cudaBlocks % Backend::getMaxGridXSize();

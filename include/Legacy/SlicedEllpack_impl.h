@@ -44,7 +44,7 @@ SlicedEllpack< Real, Device, Index, SliceSize >::setCompressedRowLengths( ConstR
    TNL_ASSERT_GT( this->getColumns(), 0, "cannot set row lengths of an empty matrix" );
    TNL_ASSERT_EQ( this->getRows(), rowLengths.getSize(), "wrong size of the rowLengths vector" );
 
-   const IndexType slices = roundUpDivision( this->rows, SliceSize );
+   const IndexType slices = roundUpDivision( this->rows, static_cast< IndexType >( SliceSize ) );
    this->sliceCompressedRowLengths.setSize( slices );
    this->slicePointers.setSize( slices + 1 );
 
@@ -771,10 +771,10 @@ public:
 #ifdef __CUDACC__
       typedef SlicedEllpack< Real, Device, Index, SliceSize > Matrix;
       Matrix* kernel_matrix = Cuda::passToDevice( matrix );
-      const Index numberOfSlices = roundUpDivision( matrix.getRows(), SliceSize );
+      const Index numberOfSlices = roundUpDivision( matrix.getRows(), static_cast< Index >( SliceSize ) );
       dim3 cudaBlockSize( 256 ), cudaGridSize( Backend::getMaxGridXSize() );
-      const Index cudaBlocks = roundUpDivision( numberOfSlices, cudaBlockSize.x );
-      const Index cudaGrids = roundUpDivision( cudaBlocks, Backend::getMaxGridXSize() );
+      const Index cudaBlocks = roundUpDivision( numberOfSlices, static_cast< Index >( cudaBlockSize.x ) );
+      const Index cudaGrids = roundUpDivision( static_cast< std::size_t >( cudaBlocks ), Backend::getMaxGridXSize() );
       for( int gridIdx = 0; gridIdx < cudaGrids; gridIdx++ ) {
          if( gridIdx == cudaGrids - 1 )
             cudaGridSize.x = cudaBlocks % Backend::getMaxGridXSize();
@@ -804,8 +804,8 @@ public:
       // InVector* kernel_inVector = Cuda::passToDevice( inVector );
       // OutVector* kernel_outVector = Cuda::passToDevice( outVector );
       dim3 cudaBlockSize( 256 ), cudaGridSize( Backend::getMaxGridXSize() );
-      const IndexType cudaBlocks = roundUpDivision( matrix.getRows(), cudaBlockSize.x );
-      const IndexType cudaGrids = roundUpDivision( cudaBlocks, Backend::getMaxGridXSize() );
+      const IndexType cudaBlocks = roundUpDivision( matrix.getRows(), static_cast< IndexType >( cudaBlockSize.x ) );
+      const IndexType cudaGrids = roundUpDivision( static_cast< std::size_t >( cudaBlocks ), Backend::getMaxGridXSize() );
       for( IndexType gridIdx = 0; gridIdx < cudaGrids; gridIdx++ ) {
          if( gridIdx == cudaGrids - 1 )
             cudaGridSize.x = cudaBlocks % Backend::getMaxGridXSize();

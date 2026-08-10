@@ -737,8 +737,8 @@ public:
       // InVector* kernel_inVector = Cuda::passToDevice( inVector );
       // OutVector* kernel_outVector = Cuda::passToDevice( outVector );
       dim3 cudaBlockSize( 256 ), cudaGridSize( Backend::getMaxGridXSize() );
-      const IndexType cudaBlocks = roundUpDivision( matrix.getRows(), cudaBlockSize.x );
-      const IndexType cudaGrids = roundUpDivision( cudaBlocks, Backend::getMaxGridXSize() );
+      const IndexType cudaBlocks = roundUpDivision( matrix.getRows(), static_cast< IndexType >( cudaBlockSize.x ) );
+      const IndexType cudaGrids = roundUpDivision( static_cast< std::size_t >( cudaBlocks ), Backend::getMaxGridXSize() );
       for( IndexType gridIdx = 0; gridIdx < cudaGrids; gridIdx++ ) {
          if( gridIdx == cudaGrids - 1 )
             cudaGridSize.x = cudaBlocks % Backend::getMaxGridXSize();
