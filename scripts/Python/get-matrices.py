@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-from __future__ import annotations
+# Kept compatible with Python 3.6 (no dataclasses, no PEP 604 "X | Y" unions,
+# no argparse.BooleanOptionalAction, no Path.unlink(missing_ok=...)).
 
 import argparse
 import csv
@@ -12,16 +13,15 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
+from typing import Callable, List, NamedTuple, Optional, Tuple
 
 STATS_URL = "https://sparse.tamu.edu/files/ssstats.csv"
 MATRIX_URL = "http://sparse-files.engr.tamu.edu/MM"
 USER_AGENT = "tnl-suitesparse-downloader/1.0"
 
 
-@dataclass(frozen=True)
-class Matrix:
+class Matrix(NamedTuple):
     group: str
     name: str
     nrows: int
@@ -82,11 +82,11 @@ def format_size(n: int) -> str:
 def render_progress(
     prefix: str,
     current: int,
-    total: int | None,
+    total: Optional[int],
     *,
     width: int = 30,
     final: bool = False,
-    format_value: callable = format_size,
+    format_value: Callable[[int], str] = format_size,
 ) -> None:
     """Show progress towards `total` units of `format_value` (bytes by
     default; pass e.g. str for a plain count): a bar that overwrites itself
@@ -147,14 +147,17 @@ def download(url: str, destination: Path, *, progress_label: str = "  progress:"
             render_progress(progress_label, downloaded, total, final=True)
     except urllib.error.HTTPError as exc:
         if start and exc.code == 416:
-            partial.unlink(missing_ok=True)
+            try:
+                partial.unlink()
+            except FileNotFoundError:
+                pass
             return download(url, destination, progress_label=progress_label)
         raise
 
     partial.replace(destination)
 
 
-def load_metadata(path: Path) -> tuple[list[Matrix], str]:
+def load_metadata(path: Path) -> Tuple[List[Matrix], str]:
     matrices = []
 
     with path.open(newline="", encoding="utf-8") as f:
@@ -223,7 +226,7 @@ def extract_matrix(archive: Path, matrix: Matrix, destination: Path) -> None:
 
 def write_manifest(
     path: Path,
-    matrices: list[Matrix],
+    matrices: List[Matrix],
     scalar_bytes: int,
     index_bytes: int,
 ) -> None:
@@ -298,11 +301,16 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--extract-matrices",
-        action=argparse.BooleanOptionalAction,
+        dest="extract_matrices",
+        action="store_true",
         default=True,
-        help="extract the .mtx matrix out of each downloaded .tar.gz archive "
-        "(default: enabled); use --no-extract-matrices to only download the "
-        "archives and leave them packed",
+        help="extract the .mtx matrix out of each downloaded .tar.gz archive (default: enabled)",
+    )
+    parser.add_argument(
+        "--no-extract-matrices",
+        dest="extract_matrices",
+        action="store_false",
+        help="only download the archives and leave them packed, without extracting the .mtx files",
     )
     parser.add_argument(
         "--refresh-metadata",
@@ -407,7 +415,10 @@ def main() -> int:
                 extract_matrix(archive, matrix, destination)
 
                 if not args.keep_archives:
-                    archive.unlink(missing_ok=True)
+                    try:
+                        archive.unlink()
+                    except FileNotFoundError:
+                        pass
 
                 print(f"  output:         {destination}")
             else:
