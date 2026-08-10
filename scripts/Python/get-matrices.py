@@ -264,10 +264,11 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument(
         "--max-gpu-memory",
-        required=True,
         type=parse_size,
+        default=None,
         metavar="SIZE",
-        help="maximum estimated GPU memory per matrix, e.g. 4G, 16G, 28G",
+        help="maximum estimated GPU memory per matrix, e.g. 4G, 16G, 28G "
+        "(default: unlimited)",
     )
     parser.add_argument(
         "--scalar-bytes",
@@ -361,7 +362,10 @@ def main() -> int:
             skipped_index += 1
             continue
 
-        if matrix.gpu_bytes(args.scalar_bytes, args.index_bytes) > args.max_gpu_memory:
+        if (
+            args.max_gpu_memory is not None
+            and matrix.gpu_bytes(args.scalar_bytes, args.index_bytes) > args.max_gpu_memory
+        ):
             skipped_large += 1
             continue
 
@@ -376,7 +380,10 @@ def main() -> int:
     print(f"Skipped by memory limit:    {skipped_large}")
     print(f"Skipped complex:            {skipped_complex}")
     print(f"Skipped by index range:     {skipped_index}")
-    print(f"Maximum GPU memory:         {format_size(args.max_gpu_memory)}")
+    max_gpu_memory_text = (
+        "unlimited" if args.max_gpu_memory is None else format_size(args.max_gpu_memory)
+    )
+    print(f"Maximum GPU memory:         {max_gpu_memory_text}")
     print(f"Scalar / index size:        {args.scalar_bytes} / {args.index_bytes} B")
     print(f"Manifest:                   {manifest}")
 
