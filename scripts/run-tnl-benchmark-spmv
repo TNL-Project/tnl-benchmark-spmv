@@ -16,6 +16,8 @@ SIZE_LIMIT=-1 # no size limit
 COUNT_LIMIT=-1 # no count limit
 log_file="sparse-matrix-benchmark.log"
 continue_benchmark="no"
+MPI_ENABLED="no"
+MPI_PROCESSES=1
 
 # Function to execute a command and continue on segfault
 run_command() {
@@ -70,6 +72,14 @@ while [[ "$#" -gt 0 ]]; do
             MAX_OMP_THREADS="$2"
             shift
             ;;
+        -m|--mpi-enabled)  # Enable MPI
+            MPI_ENABLED="$2"
+            shift
+            ;;
+        -p|--mpi-processes)  # Number of MPI processes
+            MPI_PROCESSES="$2"
+            shift
+            ;;
         -h|--help)  # Display help
             echo "Usage: $0 [options]"
             echo "Options:"
@@ -82,6 +92,8 @@ while [[ "$#" -gt 0 ]]; do
             echo "  -d, --debug  yes/no           Debug mode. Default: no"
             echo "  -o, --openmp-enabled yes/no   Enable OpenMP. Default: yes"
             echo "  -t, --openmp-max-threads MAX  Maximum number of OpenMP threads. Default: auto"
+            echo "  -m, --mpi-enabled yes/no      Run the benchmark via mpirun. Default: no"
+            echo "  -p, --mpi-processes NUM       Number of MPI processes (mpirun -np). Default: 1"
             echo "  -h, --help                    Display help"
             exit 0
             ;;
@@ -144,7 +156,11 @@ if [[ "$MAX_OMP_THREADS" == "auto" ]]; then
 fi
 
 # set parameters for the benchmark
-COMMAND=("$BENCHMARK" --precision float --log-file "$log_file" --output-mode append --verbose 1)
+COMMAND=()
+if [[ "$MPI_ENABLED" == "yes" ]]; then
+    COMMAND+=(mpirun -np "$MPI_PROCESSES")
+fi
+COMMAND+=("$BENCHMARK" --precision float --log-file "$log_file" --output-mode append --verbose 1)
 
 if [[ "$OMP_ENABLED" == "yes" ]]; then
     COMMAND+=(--openmp-enabled yes)
