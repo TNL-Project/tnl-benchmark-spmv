@@ -477,8 +477,9 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
    // Set-up benchmark datasize
    //
    const Index nonzeros = csrHostMatrix.getNonzeroElementsCount();
-   const double datasetSize = (double) ( nonzeros * ( 2 * sizeof( Real ) + sizeof( Index ) )
-                                         + ( csrHostMatrix.getRows() + csrHostMatrix.getColumns() ) * sizeof( Index ) )
+   const double datasetSize = (double) ( nonzeros * ( 2 * sizeof( Real )      // matrix value + corresponding x[col] element, read per nonzero
+                                                        + sizeof( Index ) )   // column index, read per nonzero
+                                         + csrHostMatrix.getRows() * sizeof( Real ) )  // accumulated result written to y, once per row
                             / oneGB;
    benchmark.setDatasetSize( datasetSize );
 
