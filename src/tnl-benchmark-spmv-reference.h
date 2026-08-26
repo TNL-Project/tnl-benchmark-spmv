@@ -3,6 +3,7 @@
 #include <TNL/Devices/Host.h>
 #include <TNL/Devices/Cuda.h>
 #include <TNL/Config/parseCommandLine.h>
+#include <TNL/MPI/ScopedInitializer.h>
 
 #include "spmv-reference.h"
 
@@ -59,6 +60,12 @@ setupConfig( Config::ConfigDescription& config )
 int
 main( int argc, char* argv[] )
 {
+   // MPI must be initialized because this binary links against Hypre/Ginkgo,
+   // which require it even when running on a single rank.
+#ifdef HAVE_MPI
+   TNL::MPI::ScopedInitializer mpi( argc, argv );
+#endif
+
 #ifdef HAVE_PETSC
    PetscInitialize( &argc, &argv, nullptr, nullptr );
 #endif
