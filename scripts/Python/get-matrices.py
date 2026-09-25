@@ -198,30 +198,50 @@ def load_metadata(path: Path) -> Tuple[List[Matrix], str]:
     return matrices, revision
 
 
-def extract_matrix(archive: Path, matrix: Matrix, destination: Path) -> None:
-    """Extract only <matrix-name>.mtx, not RHS vectors or other archive files."""
+def extract_matrices(archive: Path, matrix: Matrix, destination: Path) -> List[Path]:
+    """
+    Extract all .mtx matrices from the archive into the directory of the destination.
+
+    Some archives contain more matrices than the main <matrix-name>.mtx (e.g. a sequence
+    of matrices <matrix-name>_A_01.mtx, ...). Right-hand side vectors (*_b.mtx, usually
+    in the array format) are skipped. The main matrix is extracted last, so that its
+    presence means that the extraction has finished.
+    """
     destination.parent.mkdir(parents=True, exist_ok=True)
-    partial = destination.with_name(destination.name + ".part")
-    expected = f"{matrix.name}.mtx"
+    main_name = destination.name
 
+    extracted = []
     with tarfile.open(archive, "r:gz") as tf:
-        members = [
-            m for m in tf.getmembers()
-            if m.isfile() and PurePosixPath(m.name).name == expected
-        ]
+        members = {}
+        for m in tf.getmembers():
+            name = PurePosixPath(m.name).name
+            if not m.isfile() or not name.endswith(".mtx"):
+                continue
+            # skip right-hand sides, but not a matrix which is itself named *_b
+            if name.endswith("_b.mtx") and name != main_name:
+                continue
+            # if a name occurs more than once, prefer the one closest to the archive root
+            if name not in members or len(PurePosixPath(m.name).parts) < len(
+                PurePosixPath(members[name].name).parts
+            ):
+                members[name] = m
 
-        if not members:
-            raise RuntimeError(f"{expected} not found in {archive}")
+        if main_name not in members:
+            raise RuntimeError(f"{main_name} not found in {archive}")
 
-        member = min(members, key=lambda m: len(PurePosixPath(m.name).parts))
-        source = tf.extractfile(member)
-        if source is None:
-            raise RuntimeError(f"cannot extract {member.name} from {archive}")
+        for name in sorted(members, key=lambda n: n == main_name):
+            source = tf.extractfile(members[name])
+            if source is None:
+                raise RuntimeError(f"cannot extract {members[name].name} from {archive}")
 
-        with source, partial.open("wb") as out:
-            shutil.copyfileobj(source, out, length=1024 * 1024)
+            target = destination.with_name(name)
+            partial = target.with_name(name + ".part")
+            with source, partial.open("wb") as out:
+                shutil.copyfileobj(source, out, length=1024 * 1024)
+            partial.replace(target)
+            extracted.append(target)
 
-    partial.replace(destination)
+    return extracted
 
 
 def write_manifest(
@@ -298,14 +318,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--keep-archives",
         action="store_true",
-        help="keep .tar.gz files after extracting the main .mtx matrix",
+        help="keep .tar.gz files after extracting the .mtx matrices",
     )
     parser.add_argument(
         "--extract-matrices",
         dest="extract_matrices",
         action="store_true",
         default=True,
-        help="extract the .mtx matrix out of each downloaded .tar.gz archive (default: enabled)",
+        help="extract the .mtx matrices out of each downloaded .tar.gz archive (default: enabled)",
     )
     parser.add_argument(
         "--no-extract-matrices",
@@ -419,7 +439,7 @@ def main() -> int:
 
             if args.extract_matrices:
                 print("  status:         extracting")
-                extract_matrix(archive, matrix, destination)
+                extracted = extract_matrices(archive, matrix, destination)
 
                 if not args.keep_archives:
                     try:
@@ -428,6 +448,8 @@ def main() -> int:
                         pass
 
                 print(f"  output:         {destination}")
+                if len(extracted) > 1:
+                    print(f"  extra matrices: {len(extracted) - 1}")
             else:
                 print(f"  output:         {archive}")
 
