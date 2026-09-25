@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 3.24)
 
+# let find_package use upper-case <PACKAGENAME>_ROOT variables, e.g. HYPRE_ROOT
+if(POLICY CMP0144)
+    cmake_policy(SET CMP0144 NEW)
+endif()
+
 option(TNL_ENABLE_NATIVE "Use -march=native/-mtune=native for host code" OFF)
 set(TNL_CPU_ARCH
     ""
@@ -25,9 +30,6 @@ project(tnl-benchmark-spmv LANGUAGES CXX)
 # relied on by tests/Legacy/CMakeLists.txt, which points add_test() at
 # ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/<target>.
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
-
-# declare all custom build options
-option(HYPRE_WITH_CUDA "Set if Hypre was built with CUDA on this system." OFF)
 
 # Require C++17, and disable compiler-specific extensions (if possible).
 set(CMAKE_CXX_STANDARD 17)
