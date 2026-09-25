@@ -1,3 +1,4 @@
+import re
 import sys
 
 
@@ -227,10 +228,10 @@ class Speedup:
                 for device in self.accelerator_devices:
                     if (format, device) in self.launch_configs:
                         for launch_config in self.launch_configs[(format, device)]:
-                            non_symmetric_format = format.replace("Sorted ", "")
+                            non_sorted_format = re.sub(r"Sigma-\d+-Sorted ", "", format)
                             divide_columns(
                                 self.df,
-                                (non_symmetric_format, device, launch_config, "time mean", ""),
+                                (non_sorted_format, device, launch_config, "time mean", ""),
                                 (format, device, launch_config, "time mean", ""),
                                 (format, device, launch_config, "speed-up", "non-sorted"),
                             )
