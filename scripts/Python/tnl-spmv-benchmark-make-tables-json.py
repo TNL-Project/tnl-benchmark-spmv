@@ -76,6 +76,15 @@ def get_arg_parser():
         action="store_true",
         default=False
     )
+    parser.add_argument(
+        "--list-matrices",
+        nargs="?",
+        const="processed-matrices.txt",
+        default=None,
+        metavar="FILE",
+        help="Write the names of all processed matrices, one per line, to a text file "
+        "in the output directory (default file name: processed-matrices.txt)",
+    )
     return parser
 
 
@@ -461,6 +470,17 @@ def analyze_df(df, args, formats, launch_configs, accelerator_devices):
     bestFormats.count_best_formats("best-formats-report_txt")
 
 
+def write_matrices_list(df, file_name):
+    """
+    Write the names of all processed matrices (one per line) to a text file
+    """
+    names = [str(name) for name in df[("Matrix name", "", "", "", "")]]
+    with open(file_name, "w") as f:
+        for name in names:
+            f.write(f"{name}\n")
+    print(f"List of {len(names)} processed matrices ({len(set(names))} unique names) written to {file_name}")
+
+
 def main():
     argparser = get_arg_parser()
     args = argparser.parse_args()
@@ -493,6 +513,9 @@ def main():
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
     os.chdir(output_dir)
+
+    if args.list_matrices:
+        write_matrices_list(result, args.list_matrices)
 
     analyze_df(result, args, formats, launch_configs, accelerator_devices)
 
