@@ -1,14 +1,24 @@
+import sys
+
+
+def _missing_columns(df, columns):
+    """
+    Return the columns from the list that are not present in the dataframe and print a warning for each.
+    """
+    missing = [col for col in columns if col not in df.columns]
+    for col in missing:
+        print(f"WARNING: Column {col} not found in the dataframe, skipping the computation.", file=sys.stderr)
+    return missing
+
+
 def divide_columns(df, in_colA, in_colB, out_col):
     """
     Compute out_col = in_colA / in_colB
     Division by zero yields NaN (matching the original try/except behavior).
+    If any of the columns is missing, a warning is printed and nothing is computed.
     """
-    if in_colA not in df.columns:
-        raise Exception(f"Column {in_colA} not found in the dataframe")
-    if in_colB not in df.columns:
-        raise Exception(f"Column {in_colB} not found in the dataframe")
-    if out_col not in df.columns:
-        raise Exception(f"Column {out_col} not found in the dataframe")
+    if _missing_columns(df, [in_colA, in_colB, out_col]):
+        return
 
     result = df[in_colA] / df[in_colB]
     df[out_col] = result.replace( [ float( "inf" ), float( "-inf" ) ], float( "nan" ) )
@@ -18,11 +28,10 @@ def divide_column_by_number(df, in_colA, number, out_col):
     """
     Compute out_col = in_colA / number
     Division by zero yields NaN (matching the original try/except behavior).
+    If any of the columns is missing, a warning is printed and nothing is computed.
     """
-    if in_colA not in df.columns:
-        raise Exception(f"Column {in_colA} not found in the dataframe")
-    if out_col not in df.columns:
-        raise Exception(f"Column {out_col} not found in the dataframe")
+    if _missing_columns(df, [in_colA, out_col]):
+        return
 
     result = df[in_colA] / number
     df[out_col] = result.replace( [ float( "inf" ), float( "-inf" ) ], float( "nan" ) )
