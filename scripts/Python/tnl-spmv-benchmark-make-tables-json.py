@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import math
 import argparse
+import pickle
 from TNL.BenchmarkLogs import *
 import MultiindexCreator as mic
 import Speedup
@@ -85,6 +86,27 @@ def get_arg_parser():
         help="Write the names of all processed matrices, one per line, to a text file "
         "in the output directory (default file name: processed-matrices.txt)",
     )
+    parser.add_argument(
+        "--transposed",
+        help="Process results for the transposed matrices instead of the original ones",
+        action="store_true",
+        default=False,
+    )
+    parser.add_argument(
+        "--save-table",
+        default="spmv-benchmark-table.pkl",
+        metavar="FILE",
+        help="Binary (pickle) file in the output directory where the complete table, "
+        "including all computed speed-ups, is stored so that later runs can load it "
+        "with --load-table (default: spmv-benchmark-table.pkl, empty string disables saving)",
+    )
+    parser.add_argument(
+        "--load-table",
+        default=None,
+        metavar="FILE",
+        help="Load the complete table from a binary file previously written by "
+        "--save-table instead of parsing the input files and computing speed-ups",
+    )
     return parser
 
 
@@ -108,54 +130,54 @@ def add_to_multiindex(mc, format, device, launch_config, launch_configs):
     if (format in ["CSR", "Hypre", "Ginkgo"]) and device == "CPU":
         # For these formats on CPU we want to compute parallel efficiency
         if launch_config == "1 threads":
-            bm_data = ["bandwidth", "time mean"]
+            bm_data = ["bandwidth", "time median"]
         else:
-            bm_data = ["bandwidth", "time mean", "speed-up", "eff."]
+            bm_data = ["bandwidth", "time median", "speed-up", "eff."]
         if format in ["Hypre", "Ginkgo"]:
             bm_data.append("TNL speed-up")
         for data in bm_data:
             mc.add_entry([format, "CPU", launch_config, data])
-            print(f"   >>> {format} CPU {launch_config} {data}")
+            #print(f"   >>> {format} CPU {launch_config} {data}")
     else:
         # Here we add all the other formats
         if (format, device) in launch_configs:
             for data in [
                 "bandwidth",
-                "time mean",
+                "time median",
                 "diff.max",
             ]:
                 mc.add_entry([format, device, launch_config, data])
-                print(f"   >>> {format} {device} {launch_config} {data}")
+                #print(f"   >>> {format} {device} {launch_config} {data}")
         # If there is a legacy counterpart for the format we add speed-up to compare both
         legacy_format = legacy_counterparts.get(format)
         if legacy_format:
             mc.add_entry([format, device, launch_config, "speed-up", legacy_format])
-            print(f"   >>> {format} {device} {launch_config} speed-up {legacy_format}")
+            #print(f"   >>> {format} {device} {launch_config} speed-up {legacy_format}")
 
         # Here we add speed-up comparisons  with cusparse, CSR on CPU, Hypre and Ginkgo Libraries
         if device != "CPU" and not format in ["cusparse"]:
             for speedup in ["cusparse", "CSR CPU", "Hypre", "Ginkgo"]:
                 if speedup != format:
                     mc.add_entry([format, device, launch_config, "speed-up", speedup])
-                    print(f"   >>> {format} {device} {launch_config} speed-up {speedup}")
+                    #print(f"   >>> {format} {device} {launch_config} speed-up {speedup}")
         # Add speedup of CSR Light compared to Light SpMV
         if format == "CSR" and launch_config == "Light CSR":
             mc.add_entry([format, device, "Light CSR", "speed-up", "LightSpMV Vector"])
-            print(f"   >>> {format} {device} {launch_config} speed-up LightSpMV Vector")
+            #print(f"   >>> {format} {device} {launch_config} speed-up LightSpMV Vector")
 
         # Here we add speed-up comparisons for Binary,Symmetric and Sorted formats
         if device != "CPU":
             if "Binary" in format:
                 mc.add_entry([format, device, launch_config, "speed-up", "non-binary"])
-                print(f"   >>> {format} {device} {launch_config} speed-up non-binary")
+                #print(f"   >>> {format} {device} {launch_config} speed-up non-binary")
             if "Symmetric" in format:
                 mc.add_entry(
                     [format, device, launch_config, "speed-up", "non-symmetric"]
                 )
-                print(f"   >>> {format} {device} {launch_config} speed-up non-symmetric")
+                #print(f"   >>> {format} {device} {launch_config} speed-up non-symmetric")
             if "Sorted" in format:
                 mc.add_entry([format, device, launch_config, "speed-up", "non-sorted"])
-                print(f"   >>> {format} {device} {launch_config} speed-up non-sorted")
+                #print(f"   >>> {format} {device} {launch_config} speed-up non-sorted")
             if (format, launch_config) in legacy_counterparts:
                 mc.add_entry(
                     [
@@ -166,9 +188,9 @@ def add_to_multiindex(mc, format, device, launch_config, launch_configs):
                         legacy_counterparts[(format, launch_config)],
                     ]
                 )
-                print(
-                    f"   >>> {format} {device} {launch_config} speed-up {legacy_counterparts[(format, launch_config)]}"
-                )
+                #print(
+                #    f"   >>> {format} {device} {launch_config} speed-up {legacy_counterparts[(format, launch_config)]}"
+                #)
 
 
 def get_multiindex(input_df, formats, launch_configs, accelerator_devices):
@@ -236,7 +258,7 @@ def convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=-1)
     df["bandwidth"] = pd.to_numeric(df["bandwidth"], errors="coerce")
     if bw_units == "TB/s":
         df["bandwidth"] = df["bandwidth"] / 1024
-    df["time mean"] = pd.to_numeric(df["time mean"], errors="coerce")
+    df["time median"] = pd.to_numeric(df["time median"], errors="coerce")
     df["CSR Diff.Max"] = pd.to_numeric(df["CSR Diff.Max"], errors="coerce")
 
     # CSR/Ginkgo/Hypre on the CPU are themselves the reference solution that
@@ -252,11 +274,11 @@ def convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=-1)
     # simply wasn't recorded for that run).
     melted = df.melt(
         id_vars=["matrix name", "format", "performer", "launch cfg."],
-        value_vars=["bandwidth", "time mean", "CSR Diff.Max"],
+        value_vars=["bandwidth", "time median", "CSR Diff.Max"],
         var_name="metric",
         value_name="value",
     )
-    metric_map = {"bandwidth": "bandwidth", "time mean": "time mean", "CSR Diff.Max": "diff.max"}
+    metric_map = {"bandwidth": "bandwidth", "time median": "time median", "CSR Diff.Max": "diff.max"}
     melted["metric"] = melted["metric"].map(metric_map)
     melted = melted.dropna(subset=["value"])
 
@@ -293,10 +315,12 @@ def convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=-1)
                 result.loc[mask, col] = vals[mask].astype(int).astype(object)
 
     # Matrix-level fields (name/size/statistics) are constant across every
-    # row of `df` for a given matrix, so just take the first occurrence of
-    # each and reindex to matrix_names to line rows up with `result` (whose
-    # index is already "matrix name", in the same order via pivot_table).
-    metadata = df.drop_duplicates("matrix name").set_index("matrix name")
+    # row of `df` for a given matrix, but not every benchmark writes all of
+    # them (e.g. the reference benchmark does not emit MatrixStatistics), so
+    # take the first non-null value of each field per matrix and reindex to
+    # matrix_names to line rows up with `result` (whose index is already
+    # "matrix name", in the same order via pivot_table).
+    metadata = df.groupby("matrix name", sort=False).first()
     metadata = metadata.reindex(matrix_names)
 
     result[("Matrix name", "", "", "", "")] = metadata.index
@@ -330,14 +354,57 @@ def convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=-1)
     return result
 
 
-def parse_input_files(file_list):
+# The current TNL benchmark logger writes "time_median"/"time_stddev", older
+# builds (e.g. of tnl-benchmark-spmv-reference) wrote "time median"/"time
+# stddev" - normalize to the latter, which is what the rest of the scripts use.
+time_column_aliases = {
+    "time median": "time_median",
+    "time stddev": "time_stddev",
+}
+
+
+def normalize_time_columns(df):
+    """
+    Fill the "time median"/"time stddev" columns from their new-style aliases,
+    so that logs from both old and new TNL builds can be mixed.
+    """
+    for column, alias in time_column_aliases.items():
+        if alias not in df.columns:
+            continue
+        if column in df.columns:
+            df[column] = df[column].fillna(df[alias])
+        else:
+            df[column] = df[alias]
+        df.drop(columns=[alias], inplace=True)
+    return df
+
+
+def filter_transposed(df, transposed):
+    """
+    Keep only the results for the original (transposed=False) or the transposed
+    (transposed=True) matrices. Logs from older builds have no "transposed"
+    column, their results are taken as non-transposed.
+    """
+    if "transposed" not in df.columns:
+        is_transposed = pd.Series(False, index=df.index)
+    else:
+        is_transposed = df["transposed"].astype(str).str.lower() == "true"
+    return df[is_transposed == transposed]
+
+
+def parse_input_files(file_list, transposed=False):
     """
     Parse input files and return a single dataframe
     """
     input_df = pd.DataFrame()
     for file in file_list:
         df = get_benchmark_dataframe(file)
+        df = normalize_time_columns(df)
+        df = filter_transposed(df, transposed)
         input_df = pd.concat([input_df, df])
+    if "time median" not in input_df.columns:
+        raise ValueError("No 'time median' (or 'time_median') column found in the input files.")
+    print(f"Using {'transposed' if transposed else 'non-transposed'} matrices: {len(input_df.index)} records")
     return input_df
 
 
@@ -481,12 +548,38 @@ def write_matrices_list(df, file_name):
     print(f"List of {len(names)} processed matrices ({len(set(names))} unique names) written to {file_name}")
 
 
-def main():
-    argparser = get_arg_parser()
-    args = argparser.parse_args()
+def save_table(file_name, df, formats, launch_configs, accelerator_devices):
+    """
+    Store the complete table together with the metadata needed by analyze_df()
+    in a binary file, so that it can be loaded by load_table()
+    """
+    data = {
+        "df": df,
+        "formats": formats,
+        "launch_configs": launch_configs,
+        "accelerator_devices": accelerator_devices,
+    }
+    with open(file_name, "wb") as f:
+        pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
+    print(f"Complete table written to {file_name}")
 
+
+def load_table(file_name):
+    """
+    Load the complete table and its metadata stored by save_table()
+    """
+    print(f"Loading complete table from {file_name} ...")
+    with open(file_name, "rb") as f:
+        data = pickle.load(f)
+    return data["df"], data["formats"], data["launch_configs"], data["accelerator_devices"]
+
+
+def build_table(args):
+    """
+    Parse the input files, convert them to the multiindex table and compute speed-ups
+    """
     print(f"Parsing input files: {args.input}")
-    input_df = parse_input_files(args.input)
+    input_df = parse_input_files(args.input, args.transposed)
     formats = get_formats(input_df)
     accelerator_devices = get_accelerator_devices(input_df)
     print(f"Accelerator devices found in the data: {accelerator_devices}")
@@ -508,11 +601,27 @@ def main():
     )
     result = speedup_getter.compute_speedup()
     result.replace(to_replace=" ", value=np.nan, inplace=True)
+    return result, formats, launch_configs, accelerator_devices
+
+
+def main():
+    argparser = get_arg_parser()
+    args = argparser.parse_args()
+
+    if args.load_table:
+        result, formats, launch_configs, accelerator_devices = load_table(args.load_table)
+        if args.verbose:
+            print_formats_and_launch_configs(formats, launch_configs, accelerator_devices)
+    else:
+        result, formats, launch_configs, accelerator_devices = build_table(args)
 
     output_dir = args.output_dir
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
     os.chdir(output_dir)
+
+    if args.save_table and not args.load_table:
+        save_table(args.save_table, result, formats, launch_configs, accelerator_devices)
 
     if args.list_matrices:
         write_matrices_list(result, args.list_matrices)

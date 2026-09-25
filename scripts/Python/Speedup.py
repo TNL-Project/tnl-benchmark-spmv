@@ -62,8 +62,8 @@ class Speedup:
             threads = int(launch_config.split(" ")[0])
             divide_columns(
                 self.df,
-                ("CSR", "CPU", "1 thread", "time mean", ""),
-                ("CSR", "CPU", launch_config, "time mean", ""),
+                ("CSR", "CPU", "1 thread", "time median", ""),
+                ("CSR", "CPU", launch_config, "time median", ""),
                 ("CSR", "CPU", launch_config, "speed-up", ""),
             )
             divide_column_by_number(
@@ -82,8 +82,8 @@ class Speedup:
                 for launch_config in self.launch_configs[(format, device)]:
                     divide_columns(
                         self.df,
-                        ("CSR", "CPU", "1 thread", "time mean", ""),
-                        (format, device, launch_config, "time mean", ""),
+                        ("CSR", "CPU", "1 thread", "time median", ""),
+                        (format, device, launch_config, "time median", ""),
                         (format, device, launch_config, "speed-up", "CSR CPU"),
                     )
 
@@ -101,8 +101,8 @@ class Speedup:
                             for launch_config in self.launch_configs[(format, device)]:
                                 divide_columns(
                                     self.df,
-                                    ("cusparse", device, "Default", "time mean", ""),
-                                    (format, device, launch_config, "time mean", ""),
+                                    ("cusparse", device, "Default", "time median", ""),
+                                    (format, device, launch_config, "time median", ""),
                                     (
                                         format,
                                         device,
@@ -132,13 +132,13 @@ class Speedup:
                                         ref_format,
                                         device,
                                         "Default",
-                                        "time mean",
+                                        "time median",
                                         "",
                                     ) in self.df.columns:
                                         divide_columns(
                                             self.df,
-                                            (ref_format, device, "Default", "time mean", ""),
-                                            (format, device, launch_config, "time mean", ""),
+                                            (ref_format, device, "Default", "time median", ""),
+                                            (format, device, launch_config, "time median", ""),
                                             (
                                                 format,
                                                 device,
@@ -151,16 +151,16 @@ class Speedup:
                 for launch_config in self.launch_configs[(ref_format, "CPU")]:
                     divide_columns(
                         self.df,
-                        (ref_format, "CPU", launch_config, "time mean", ""),
-                        ("CSR", "CPU", launch_config, "time mean", ""),
+                        (ref_format, "CPU", launch_config, "time median", ""),
+                        ("CSR", "CPU", launch_config, "time median", ""),
                         (ref_format, "CPU", launch_config, "TNL speed-up", ""),
                     )
                     threads = int(launch_config.split(" ")[0])
                     if threads != 1:
                         divide_columns(
                             self.df,
-                            (ref_format, "CPU", "1 thread", "time mean", ""),
-                            (ref_format, "CPU", launch_config, "time mean", ""),
+                            (ref_format, "CPU", "1 thread", "time median", ""),
+                            (ref_format, "CPU", launch_config, "time median", ""),
                             (ref_format, "CPU", launch_config, "speed-up", ""),
                         )
                         divide_column_by_number(
@@ -197,8 +197,8 @@ class Speedup:
                             non_binary_format = format.replace("Binary ", "")
                             divide_columns(
                                 self.df,
-                                (non_binary_format, device, launch_config, "time mean", ""),
-                                (format, device, launch_config, "time mean", ""),
+                                (non_binary_format, device, launch_config, "time median", ""),
+                                (format, device, launch_config, "time median", ""),
                                 (format, device, launch_config, "speed-up", "non-binary"),
                             )
 
@@ -214,8 +214,8 @@ class Speedup:
                             non_symmetric_format = format.replace("Symmetric ", "")
                             divide_columns(
                                 self.df,
-                                (non_symmetric_format, device, launch_config, "time mean", ""),
-                                (format, device, launch_config, "time mean", ""),
+                                (non_symmetric_format, device, launch_config, "time median", ""),
+                                (format, device, launch_config, "time median", ""),
                                 (format, device, launch_config, "speed-up", "non-symmetric"),
                             )
 
@@ -231,8 +231,8 @@ class Speedup:
                             non_sorted_format = re.sub(r"Sigma-\d+-Sorted ", "", format)
                             divide_columns(
                                 self.df,
-                                (non_sorted_format, device, launch_config, "time mean", ""),
-                                (format, device, launch_config, "time mean", ""),
+                                (non_sorted_format, device, launch_config, "time median", ""),
+                                (format, device, launch_config, "time median", ""),
                                 (format, device, launch_config, "speed-up", "non-sorted"),
                             )
 
@@ -254,8 +254,8 @@ class Speedup:
                             ) in self.launch_configs:
                                 divide_columns(
                                     self.df,
-                                    (legacy_format, device, "Default", "time mean", ""),
-                                    (format, device, launch_config, "time mean", ""),
+                                    (legacy_format, device, "Default", "time median", ""),
+                                    (format, device, launch_config, "time median", ""),
                                     (
                                         format,
                                         device,

@@ -139,7 +139,7 @@ class BestFormats:
                         if bw is not None and bw > max_bandwidth:
                             max_bandwidth = bw
                             best_config = config
-                            time = row[("CSR", "CPU", config, "time mean", "")]
+                            time = row[("CSR", "CPU", config, "time median", "")]
                 launch_config_list.append(best_config)
                 bandwidth_list.append(max_bandwidth)
                 time_list.append(time)
@@ -184,7 +184,7 @@ class BestFormats:
                             speedup_ginkgo[1] = speedup_ginkgo[0]
                             max_bandwidth[0] = bw
                             best_config[0] = config
-                            time[0] = row[("CSR", device, config, "time mean", "")]
+                            time[0] = row[("CSR", device, config, "time median", "")]
                             diff_max[0] = row[("CSR", device, config, "diff.max", "")]
                             speedup_cusparse[0] = row[
                                 ("CSR", device, config, "speed-up", "cusparse")
@@ -313,7 +313,7 @@ class BestFormats:
                                 best_device[0] = device
                                 best_launch_config[0] = launch_config
                                 time[0] = row[
-                                    (format, device, launch_config, "time mean", "")
+                                    (format, device, launch_config, "time median", "")
                                 ]
                                 if time[0] != "" and time[1] != "":
                                     speedup_second_best = time[1] / time[0]
@@ -433,7 +433,7 @@ class BestFormats:
                                 best_device[0] = device
                                 best_launch_config[0] = launch_config
                                 time[0] = row[
-                                    (format, device, launch_config, "time mean", "")
+                                    (format, device, launch_config, "time median", "")
                                 ]
                                 if time[0] != "" and time[1] != "":
                                     speedup_second_best = time[1] / time[0]

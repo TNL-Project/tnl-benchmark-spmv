@@ -65,7 +65,7 @@ def _write_tikz_standalone_wrapper(filename):
 
 def _min_time_per_matrix(df, device, format_ok):
     """
-    Per-matrix minimum of "time mean" across all (format, launch_config)
+    Per-matrix minimum of "time median" across all (format, launch_config)
     columns on `device` whose format passes `format_ok` - i.e. the best time
     achievable on that matrix by picking the best launch config (and, when
     format_ok matches several formats, the best format) from the group.
@@ -75,7 +75,7 @@ def _min_time_per_matrix(df, device, format_ok):
     cols = [
         col
         for col in df.columns
-        if len(col) == 5 and col[1] == device and col[3] == "time mean" and format_ok(col[0])
+        if len(col) == 5 and col[1] == device and col[3] == "time median" and format_ok(col[0])
     ]
     if not cols:
         return None
