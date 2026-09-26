@@ -15,6 +15,7 @@
 #  HYPRE_INCLUDE_DIRS - The Hypre include directory
 #  HYPRE_LIBRARIES - The libraries needed to use Hypre
 #  HYPRE_WITH_CUDA - ON if Hypre was built with CUDA (HYPRE_USING_CUDA in HYPRE_config.h)
+#  HYPRE_WITH_HIP - ON if Hypre was built with HIP (HYPRE_USING_HIP in HYPRE_config.h)
 #
 #  Set HYPRE_ROOT before calling find_package to a path to add an additional
 #  search path, e.g.,
@@ -104,10 +105,18 @@ if(HYPRE_INCLUDE_DIR)
     else()
         set(HYPRE_WITH_CUDA OFF)
     endif()
+    # Hypre built with HIP has "#define HYPRE_USING_HIP 1" in HYPRE_config.h
+    _hypre_config_defined(_hypre_using_hip ${HYPRE_INCLUDE_DIR}/HYPRE_config.h HYPRE_USING_HIP)
+    if(_hypre_using_hip)
+        set(HYPRE_WITH_HIP ON)
+    else()
+        set(HYPRE_WITH_HIP OFF)
+    endif()
 else()
     set(HYPRE_VERSION 0.0.0)
     set(HYPRE_INCLUDE_DIRS "")
     set(HYPRE_WITH_CUDA OFF)
+    set(HYPRE_WITH_HIP OFF)
 endif()
 
 find_library(HYPRE_LIBRARY NAMES HYPRE HINTS ${HYPRE_ROOT}/lib ${HYPRE_ROOT}/lib64 ${HYPRE_SEARCH_OPTS})
@@ -157,6 +166,26 @@ if(HYPRE_INCLUDE_DIR AND HYPRE_LIBRARY)
             message(WARNING "Hypre was built with CUDA but the CUDA toolkit was not found.")
         endif()
     endif()
+
+    # ROCm libraries
+    if(HYPRE_WITH_HIP)
+        find_package(hip QUIET)
+        if(TARGET hip::host)
+            list(APPEND HYPRE_LIBRARIES hip::host)
+        endif()
+        foreach(_lib rocsparse rocrand rocblas rocsolver)
+            string(TOUPPER ${_lib} _LIB)
+            _hypre_config_defined(_hypre_using_lib ${_hypre_config_hdr} HYPRE_USING_${_LIB})
+            if(_hypre_using_lib)
+                find_package(${_lib} QUIET)
+                if(TARGET roc::${_lib})
+                    list(APPEND HYPRE_LIBRARIES roc::${_lib})
+                else()
+                    message(WARNING "Hypre was built with ${_lib} but it was not found.")
+                endif()
+            endif()
+        endforeach()
+    endif()
 endif()
 
 # Handle the QUIETLY and REQUIRED arguments and set HYPRE_FOUND to TRUE if
@@ -169,7 +198,7 @@ find_package_handle_standard_args(
 )
 
 if(HYPRE_FOUND)
-    message(STATUS "Hypre built with CUDA: ${HYPRE_WITH_CUDA}")
+    message(STATUS "Hypre built with CUDA: ${HYPRE_WITH_CUDA}, HIP: ${HYPRE_WITH_HIP}")
     message(STATUS "Hypre libraries: ${HYPRE_LIBRARIES}")
 endif()
 

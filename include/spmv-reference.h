@@ -176,7 +176,7 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
    benchmark.time< Devices::Host >( resetPetscVectors, "CPU", petscSpmvCSRHost, petscBenchmarkResults );
 #endif
 
-#if defined( HAVE_HYPRE ) && ! defined( HYPRE_USING_CUDA )
+#if defined( HAVE_HYPRE ) && ! defined( HYPRE_USING_GPU )
    // Initialize HYPRE and set some global options, notably HYPRE_SetSpGemmUseCusparse(0);
    if constexpr( std::is_same< HYPRE_Real, Real >::value && std::is_same< HYPRE_Int, int >::value ) {
       TNL::Hypre hypre;
@@ -425,7 +425,7 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
 #ifdef __HIP__
    using HipVector = Containers::Vector< Real, Devices::Hip, int >;
    ////
-   // Perform benchmark on CUDA device with cuSparse as a reference GPU format
+   // Perform benchmark on HIP device with hipSPARSE as a reference GPU format
    //
    hipsparseHandle_t hipsparseHandle;
    hipsparseCreate( &hipsparseHandle );
@@ -451,11 +451,40 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
 
    SpmvBenchmarkResult< Real, Devices::Hip, int > hipBenchmarkResults( hostOutVector, hipOutVector );
    benchmark.setMetadataElement( { "format", "hipsparse" } );
+   benchmark.setMetadataElement( { "launch cfg.", "Default" } );
    benchmark.time< Devices::Hip >( resetHipVectors, "HIP", spmvHipsparse, hipBenchmarkResults );
+
+   #if defined( HAVE_HYPRE ) && defined( HYPRE_USING_HIP )
+   // Initialize HYPRE and set some global options
+   if constexpr( std::is_same< HYPRE_Real, Real >::value && std::is_same< HYPRE_Int, int >::value ) {
+      TNL::Hypre hypre;
+      using HypreCSR = TNL::Matrices::HypreCSRMatrix;
+      HypreCSR hypreCSRMatrix( csrHipMatrix.getRows(),
+                               csrHipMatrix.getColumns(),
+                               csrHipMatrix.getValues().getView(),
+                               csrHipMatrix.getColumnIndexes().getView(),
+                               csrHipMatrix.getSegments().getOffsets().getView() );
+      auto hipInVectorView = hipInVector.getView();
+      auto hipOutVectorView = hipOutVector.getView();
+
+      auto spmvHypreCSRHip = [ & ]()
+      {
+         hypreCSRMatrix.vectorProduct( hipInVectorView, hipOutVectorView );
+      };
+
+      SpmvBenchmarkResult< Real, Devices::Hip, int > hypreHipBenchmarkResults( hostOutVector, hipOutVector );
+      benchmark.setMetadataElement( { "format", "Hypre" } );
+      benchmark.setMetadataElement( { "launch cfg.", "Default" } );
+      benchmark.time< Devices::Hip >( resetHipVectors, "HIP", spmvHypreCSRHip, hypreHipBenchmarkResults );
+   }
+   else {
+      std::cerr << "Current Real or Index type does not agree with HYPRE_Real or HYPRE_Index." << std::endl;
+   }
+   #endif
 
    #ifdef HAVE_GINKGO
    // Create a Ginkgo Csr view
-   auto gko_hip_exec = gko::CudaExecutor::create( 0, gko_host_exec );
+   auto gko_hip_exec = gko::HipExecutor::create( 0, gko_host_exec );
    auto gko_hip_A = gko::share( getGinkgoMatrixCsrView( gko_hip_exec, csrHipMatrix ) );
 
    // Wrap the vectors
@@ -468,7 +497,8 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
    };
 
    SpmvBenchmarkResult< Real, Devices::Hip, int > ginkgoHipBenchmarkResults( hostOutVector, hipOutVector );
-   benchmark.setMetadataElement( { "format", "Ginkgo CSR" } );
+   benchmark.setMetadataElement( { "format", "Ginkgo" } );
+   benchmark.setMetadataElement( { "launch cfg.", "Default" } );
    benchmark.time< Devices::Hip >( resetHipVectors, "HIP", spmvGinkgoCSRHip, ginkgoHipBenchmarkResults );
    #endif
 
