@@ -19,7 +19,6 @@
 
 #ifdef HAVE_GINKGO
    #include <TNL/Containers/GinkgoVector.h>
-   #include <TNL/Matrices/GinkgoOperator.h>
 #endif
 
 #ifdef HAVE_HYPRE
@@ -36,6 +35,24 @@
 namespace TNL::Benchmarks::SpMV {
 
 using BenchmarkType = TNL::Benchmarks::Benchmark;
+
+#ifdef HAVE_GINKGO
+// Creates a Ginkgo Csr matrix view of a TNL CSR matrix. This is the same as
+// TNL::Matrices::getGinkgoMatrixCsrView, but TNL/Matrices/GinkgoOperator.h
+// cannot be included with Ginkgo >= 2.0 (gko::EnableLinOp was removed).
+template< typename Matrix >
+auto
+getGinkgoMatrixCsrView( std::shared_ptr< const gko::Executor > exec, Matrix& matrix )
+   -> std::unique_ptr< gko::matrix::Csr< typename Matrix::RealType, typename Matrix::IndexType > >
+{
+   return gko::matrix::Csr< typename Matrix::RealType, typename Matrix::IndexType >::create(
+      exec,
+      gko::dim< 2 >{ static_cast< std::size_t >( matrix.getRows() ), static_cast< std::size_t >( matrix.getColumns() ) },
+      gko::make_array_view( exec, matrix.getNonzeroElementsCount(), matrix.getValues().getData() ),
+      gko::make_array_view( exec, matrix.getNonzeroElementsCount(), matrix.getColumnIndexes().getData() ),
+      gko::make_array_view( exec, matrix.getRows() + 1, matrix.getSegments().getOffsets().getData() ) );
+}
+#endif
 
 #ifdef __CUDACC__
 // cuSPARSE's Sliced ELLPACK matches TNL's column-major SlicedEllpack segments,
@@ -203,7 +220,7 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
 #ifdef HAVE_GINKGO
    // Create a Ginkgo Csr view
    auto gko_host_exec = gko::OmpExecutor::create();
-   auto gko_host_A = gko::share( TNL::Matrices::getGinkgoMatrixCsrView( gko_host_exec, csrHostMatrix ) );
+   auto gko_host_A = gko::share( getGinkgoMatrixCsrView( gko_host_exec, csrHostMatrix ) );
 
    // Wrap the vectors
    auto gko_host_b = Containers::GinkgoVector< Real, Devices::Host >::create( gko_host_exec, hostOutVector.getView() );
@@ -338,7 +355,7 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
    #ifdef HAVE_GINKGO
    // Create a Ginkgo Csr view
    auto gko_cuda_exec = gko::CudaExecutor::create( 0, gko_host_exec );
-   auto gko_cuda_A = gko::share( TNL::Matrices::getGinkgoMatrixCsrView( gko_cuda_exec, csrCudaMatrix ) );
+   auto gko_cuda_A = gko::share( getGinkgoMatrixCsrView( gko_cuda_exec, csrCudaMatrix ) );
 
    // Wrap the vectors
    auto gko_cuda_b = Containers::GinkgoVector< Real, Devices::Cuda >::create( gko_cuda_exec, cudaOutVector.getView() );
@@ -439,7 +456,7 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
    #ifdef HAVE_GINKGO
    // Create a Ginkgo Csr view
    auto gko_hip_exec = gko::CudaExecutor::create( 0, gko_host_exec );
-   auto gko_hip_A = gko::share( TNL::Matrices::getGinkgoMatrixCsrView( gko_hip_exec, csrHipMatrix ) );
+   auto gko_hip_A = gko::share( getGinkgoMatrixCsrView( gko_hip_exec, csrHipMatrix ) );
 
    // Wrap the vectors
    auto gko_hip_b = Containers::GinkgoVector< Real, Devices::Hip >::create( gko_hip_exec, hipOutVector.getView() );
