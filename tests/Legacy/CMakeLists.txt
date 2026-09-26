@@ -14,7 +14,11 @@ set(COMMON_TESTS
 )
 
 set(CPP_TESTS ${COMMON_TESTS})
-set(CUDA_TESTS ${COMMON_TESTS})
+if(BUILD_CUDA)
+    set(CUDA_TESTS ${COMMON_TESTS})
+else()
+    set(CUDA_TESTS)
+endif()
 
 foreach(target IN ITEMS ${CPP_TESTS})
     add_executable(${target} ${target}.cpp)

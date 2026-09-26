@@ -37,7 +37,7 @@ else()
 endif()
 
 # separate CUDA binaries
-if(CMAKE_CUDA_COMPILER)
+if(BUILD_CUDA)
     add_executable(tnl-benchmark-spmv-cuda tnl-benchmark-spmv.cu)
     target_link_libraries(tnl-benchmark-spmv-cuda PUBLIC TNL::TNL)
 
@@ -65,7 +65,7 @@ if(CMAKE_CUDA_COMPILER)
 endif()
 
 # separate HIP binaries
-if(CMAKE_HIP_COMPILER)
+if(BUILD_HIP)
     add_executable(tnl-benchmark-spmv-hip tnl-benchmark-spmv.hip)
     target_link_libraries(tnl-benchmark-spmv-hip PUBLIC TNL::TNL)
     target_compile_definitions(
@@ -136,7 +136,7 @@ if(MPI_CXX_FOUND)
             )
         endif()
 
-        if(CMAKE_CUDA_COMPILER AND HYPRE_WITH_CUDA)
+        if(BUILD_CUDA AND HYPRE_WITH_CUDA)
             # enable MPI support in TNL
             target_compile_definitions(
                 tnl-benchmark-spmv-reference-cuda
@@ -182,7 +182,7 @@ if(MPI_CXX_FOUND)
             )
         endif()
 
-        if(CMAKE_CUDA_COMPILER AND (NOT HYPRE_FOUND OR HYPRE_WITH_CUDA))
+        if(BUILD_CUDA AND (NOT HYPRE_FOUND OR HYPRE_WITH_CUDA))
             # enable Ginkgo support in TNL
             target_compile_definitions(
                 tnl-benchmark-spmv-reference-cuda

@@ -83,11 +83,23 @@ if(
     endif()
 endif()
 
+# The same options as in TNL - they are passed to TNL as well. TNL cannot be
+# built with both CUDA and HIP, so if both are available, CUDA is used and HIP
+# is disabled (same as in TNL). To build with HIP, use -DTNL_USE_CUDA=OFF.
+option(TNL_USE_CUDA "Build with CUDA support" ON)
+option(TNL_USE_HIP "Build with HIP support" ON)
+
 include(CheckLanguage)
 
-check_language(CUDA)
-if(CMAKE_CUDA_COMPILER)
+set(BUILD_CUDA FALSE)
+set(BUILD_HIP FALSE)
+
+if(TNL_USE_CUDA)
+    check_language(CUDA)
+endif()
+if(TNL_USE_CUDA AND CMAKE_CUDA_COMPILER)
     enable_language(CUDA)
+    set(BUILD_CUDA TRUE)
 
     # Require C++17, and disable compiler-specific extensions (if possible).
     set(CMAKE_CUDA_STANDARD 17)
@@ -106,9 +118,14 @@ if(CMAKE_CUDA_COMPILER)
     set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
 endif()
 
-check_language(HIP)
-if(CMAKE_HIP_COMPILER)
+if(TNL_USE_HIP AND BUILD_CUDA)
+    message(STATUS "CUDA is enabled, HIP is disabled (use -DTNL_USE_CUDA=OFF to build with HIP).")
+elseif(TNL_USE_HIP)
+    check_language(HIP)
+endif()
+if(TNL_USE_HIP AND NOT BUILD_CUDA AND CMAKE_HIP_COMPILER)
     enable_language(HIP)
+    set(BUILD_HIP TRUE)
 
     # Require C++17, and disable compiler-specific extensions (if possible).
     set(CMAKE_HIP_STANDARD 17)
