@@ -1,5 +1,7 @@
 # build directory
 /build
+/build-cuda
+/build-hip
 
 # VSCode cache
 /.cache
