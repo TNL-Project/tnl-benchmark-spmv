@@ -140,9 +140,11 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
       csrHostMatrix.vectorProduct( hostInVector, hostOutVector );
    };
 
-   // no benchmark, just initialize hostOutVector
+   // no benchmark, just compute the reference result the other formats are compared with - it must be a separate
+   // vector, because hostOutVector is overwritten by the benchmarks on the host
    resetHostVectors();
    spmvCSRHost();
+   const HostVector csrResultVector( hostOutVector );
 
 #ifdef HAVE_PETSC
    Mat petscMatrix;
@@ -171,7 +173,7 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
       MatMult( petscMatrix, inVector, outVector );
    };
 
-   SpmvBenchmarkResult< Real, Devices::Host, int > petscBenchmarkResults( hostOutVector, outVector );
+   SpmvBenchmarkResult< Real, Devices::Host, int > petscBenchmarkResults( csrResultVector, outVector );
    benchmark.setMetadataElement( { "format", "Petsc" } );
    benchmark.time< Devices::Host >( resetPetscVectors, "CPU", petscSpmvCSRHost, petscBenchmarkResults );
 #endif
@@ -194,7 +196,7 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
          hypreCSRMatrix.vectorProduct( hostInVectorView, hostOutVectorView );
       };
 
-      SpmvBenchmarkResult< Real, Devices::Host, int > hypreBenchmarkResults( hostOutVector, hostOutVector );
+      SpmvBenchmarkResult< Real, Devices::Host, int > hypreBenchmarkResults( csrResultVector, hostOutVector );
       const int maxThreadsCount =
          max( 1, Devices::Host::getMaxThreadsCount() );  // TODO: This si workaround for getMaxThreadsCoutn returning 0 if
                                                          // OpenMP is disabled
@@ -223,15 +225,16 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
    auto gko_host_A = gko::share( getGinkgoMatrixCsrView( gko_host_exec, csrHostMatrix ) );
 
    // Wrap the vectors
-   auto gko_host_b = Containers::GinkgoVector< Real, Devices::Host >::create( gko_host_exec, hostOutVector.getView() );
-   auto gko_host_x = Containers::GinkgoVector< Real, Devices::Host >::create( gko_host_exec, hostInVector.getView() );
+   // apply( b, x ) computes x = A * b
+   auto gko_host_b = Containers::GinkgoVector< Real, Devices::Host >::create( gko_host_exec, hostInVector.getView() );
+   auto gko_host_x = Containers::GinkgoVector< Real, Devices::Host >::create( gko_host_exec, hostOutVector.getView() );
 
    auto spmvGinkgoCSRHost = [ & ]()
    {
       gko_host_A->apply( gko_host_b.get(), gko_host_x.get() );
    };
 
-   SpmvBenchmarkResult< Real, Devices::Host, int > ginkgoHostBenchmarkResults( hostOutVector, hostOutVector );
+   SpmvBenchmarkResult< Real, Devices::Host, int > ginkgoHostBenchmarkResults( csrResultVector, hostOutVector );
    const int maxThreadsCount =
       max( 1, Devices::Host::getMaxThreadsCount() );  // TODO: This si workaround for getMaxThreadsCoutn returning 0 if OpenMP
                                                       // is disabled
@@ -272,7 +275,7 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
       cudaOutVector = 0.0;
    };
 
-   SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( hostOutVector, cudaOutVector );
+   SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( csrResultVector, cudaOutVector );
 
    // Compare the algorithm cuSPARSE picks automatically (Default) against explicitly
    // requesting the CSR-specific algorithms, to check whether Default is actually optimal.
@@ -342,7 +345,7 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
          hypreCSRMatrix.vectorProduct( cudaInVectorView, cudaOutVectorView );
       };
 
-      SpmvBenchmarkResult< Real, Devices::Cuda, int > hypreCudaBenchmarkResults( hostOutVector, cudaOutVector );
+      SpmvBenchmarkResult< Real, Devices::Cuda, int > hypreCudaBenchmarkResults( csrResultVector, cudaOutVector );
       benchmark.setMetadataElement( { "format", "Hypre" } );
       benchmark.setMetadataElement( { "launch cfg.", "Default" } );
       benchmark.time< Devices::Cuda >( resetCudaVectors, "CUDA", spmvHypreCSRCuda, hypreCudaBenchmarkResults );
@@ -358,15 +361,16 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
    auto gko_cuda_A = gko::share( getGinkgoMatrixCsrView( gko_cuda_exec, csrCudaMatrix ) );
 
    // Wrap the vectors
-   auto gko_cuda_b = Containers::GinkgoVector< Real, Devices::Cuda >::create( gko_cuda_exec, cudaOutVector.getView() );
-   auto gko_cuda_x = Containers::GinkgoVector< Real, Devices::Cuda >::create( gko_cuda_exec, cudaInVector.getView() );
+   // apply( b, x ) computes x = A * b
+   auto gko_cuda_b = Containers::GinkgoVector< Real, Devices::Cuda >::create( gko_cuda_exec, cudaInVector.getView() );
+   auto gko_cuda_x = Containers::GinkgoVector< Real, Devices::Cuda >::create( gko_cuda_exec, cudaOutVector.getView() );
 
    auto spmvGinkgoCSRCuda = [ & ]()
    {
       gko_cuda_A->apply( gko_cuda_b.get(), gko_cuda_x.get() );
    };
 
-   SpmvBenchmarkResult< Real, Devices::Cuda, int > ginkgoCudaBenchmarkResults( hostOutVector, cudaOutVector );
+   SpmvBenchmarkResult< Real, Devices::Cuda, int > ginkgoCudaBenchmarkResults( csrResultVector, cudaOutVector );
    benchmark.setMetadataElement( { "format", "Ginkgo" } );
    benchmark.setMetadataElement( { "launch cfg.", "Default" } );
    benchmark.time< Devices::Cuda >( resetCudaVectors, "CUDA", spmvGinkgoCSRCuda, ginkgoCudaBenchmarkResults );
@@ -449,7 +453,7 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
       hipsparseMatrix.vectorProduct( hipInVector, hipOutVector );
    };
 
-   SpmvBenchmarkResult< Real, Devices::Hip, int > hipBenchmarkResults( hostOutVector, hipOutVector );
+   SpmvBenchmarkResult< Real, Devices::Hip, int > hipBenchmarkResults( csrResultVector, hipOutVector );
    benchmark.setMetadataElement( { "format", "hipsparse" } );
    benchmark.setMetadataElement( { "launch cfg.", "Default" } );
    benchmark.time< Devices::Hip >( resetHipVectors, "HIP", spmvHipsparse, hipBenchmarkResults );
@@ -472,7 +476,7 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
          hypreCSRMatrix.vectorProduct( hipInVectorView, hipOutVectorView );
       };
 
-      SpmvBenchmarkResult< Real, Devices::Hip, int > hypreHipBenchmarkResults( hostOutVector, hipOutVector );
+      SpmvBenchmarkResult< Real, Devices::Hip, int > hypreHipBenchmarkResults( csrResultVector, hipOutVector );
       benchmark.setMetadataElement( { "format", "Hypre" } );
       benchmark.setMetadataElement( { "launch cfg.", "Default" } );
       benchmark.time< Devices::Hip >( resetHipVectors, "HIP", spmvHypreCSRHip, hypreHipBenchmarkResults );
@@ -488,15 +492,16 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
    auto gko_hip_A = gko::share( getGinkgoMatrixCsrView( gko_hip_exec, csrHipMatrix ) );
 
    // Wrap the vectors
-   auto gko_hip_b = Containers::GinkgoVector< Real, Devices::Hip >::create( gko_hip_exec, hipOutVector.getView() );
-   auto gko_hip_x = Containers::GinkgoVector< Real, Devices::Hip >::create( gko_hip_exec, hipInVector.getView() );
+   // apply( b, x ) computes x = A * b
+   auto gko_hip_b = Containers::GinkgoVector< Real, Devices::Hip >::create( gko_hip_exec, hipInVector.getView() );
+   auto gko_hip_x = Containers::GinkgoVector< Real, Devices::Hip >::create( gko_hip_exec, hipOutVector.getView() );
 
    auto spmvGinkgoCSRHip = [ & ]()
    {
       gko_hip_A->apply( gko_hip_b.get(), gko_hip_x.get() );
    };
 
-   SpmvBenchmarkResult< Real, Devices::Hip, int > ginkgoHipBenchmarkResults( hostOutVector, hipOutVector );
+   SpmvBenchmarkResult< Real, Devices::Hip, int > ginkgoHipBenchmarkResults( csrResultVector, hipOutVector );
    benchmark.setMetadataElement( { "format", "Ginkgo" } );
    benchmark.setMetadataElement( { "launch cfg.", "Default" } );
    benchmark.time< Devices::Hip >( resetHipVectors, "HIP", spmvGinkgoCSRHip, ginkgoHipBenchmarkResults );
