@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
+#include <utility>
 
 #include <TNL/Benchmarks/Benchmark.h>
 #include "SpmvBenchmarkResult.h"
@@ -60,6 +62,15 @@ getGinkgoMatrixCsrView( std::shared_ptr< const gko::Executor > exec, Matrix& mat
 // namespace scope, so this cannot be declared inside benchmarkSpmv().
 template< typename Device_, typename Index_, typename IndexAllocator_ >
 using SlicedEllpackSegments = TNL::Algorithms::Segments::ColumnMajorSlicedEllpack< Device_, Index_, IndexAllocator_ >;
+
+// A cuSPARSE SpMV algorithm to benchmark and its name for the "launch cfg." column.
+// It is declared at namespace scope, because some nvcc versions fail to compile
+// a local struct used in a function template.
+struct CusparseAlgVariant
+{
+   std::string name;
+   cusparseSpMVAlg_t alg;
+};
 #endif
 
 // Runs the full reference-library benchmark suite (PETSc/HYPRE/Ginkgo/cuSPARSE/
@@ -285,11 +296,6 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
 
    // Compare the algorithm cuSPARSE picks automatically (Default) against explicitly
    // requesting the CSR-specific algorithms, to check whether Default is actually optimal.
-   struct CusparseAlgVariant
-   {
-      const char* name;
-      cusparseSpMVAlg_t alg;
-   };
    const CusparseAlgVariant cusparseAlgorithms[] = {
       { "Default", CUSPARSE_SPMV_ALG_DEFAULT },
       { "CSR ALG1", CUSPARSE_SPMV_CSR_ALG1 },
@@ -305,7 +311,7 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
       };
 
       benchmark.setMetadataElement( { "format", "cusparse" } );
-      benchmark.setMetadataElement( { "launch cfg.", variant.name } );
+      benchmark.setMetadataElement( std::make_pair( std::string( "launch cfg." ), variant.name ) );
       benchmark.time< Devices::Cuda >( resetCudaVectors, "CUDA", spmvCusparse, cudaBenchmarkResults );
    }
 
@@ -329,7 +335,7 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
       };
 
       benchmark.setMetadataElement( { "format", "cusparse SlicedEll" } );
-      benchmark.setMetadataElement( { "launch cfg.", variant.name } );
+      benchmark.setMetadataElement( std::make_pair( std::string( "launch cfg." ), variant.name ) );
       benchmark.time< Devices::Cuda >( resetCudaVectors, "CUDA", spmvCusparseSlicedEll, cudaBenchmarkResults );
    }
 
