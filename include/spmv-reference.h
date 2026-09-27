@@ -220,8 +220,14 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
 #endif
 
 #ifdef HAVE_GINKGO
-   // Create a Ginkgo Csr view
+   // The host executor is also the master executor of the GPU executors below.
    auto gko_host_exec = gko::OmpExecutor::create();
+#endif
+
+#if defined( HAVE_GINKGO ) && ! defined( __CUDACC__ ) && ! defined( __HIP__ )
+   // Ginkgo on the CPU is benchmarked only in the host binary, the GPU binaries
+   // would just repeat the same measurements.
+   // Create a Ginkgo Csr view
    auto gko_host_A = gko::share( getGinkgoMatrixCsrView( gko_host_exec, csrHostMatrix ) );
 
    // Wrap the vectors
