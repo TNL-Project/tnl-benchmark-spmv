@@ -1,6 +1,8 @@
 import re
 import sys
 
+from VendorLibraries import vendor_format
+
 
 def _missing_columns(df, columns):
     """
@@ -74,10 +76,8 @@ class Speedup:
             )
 
         for format in self.formats:
-            if "cusparse" in format:
-                continue
             for device in self.accelerator_devices:
-                if not (format, device) in self.launch_configs:
+                if format == vendor_format(device) or not (format, device) in self.launch_configs:
                     continue
                 for launch_config in self.launch_configs[(format, device)]:
                     divide_columns(
@@ -87,30 +87,24 @@ class Speedup:
                         (format, device, launch_config, "speed-up", "CSR CPU"),
                     )
 
-    def compute_cusparse_speedup(self):
+    def compute_vendor_speedup(self):
         """
-        Compute speed-up of particular formats compared to Cusparse on the same accelerator device
+        Compute speed-up of particular formats compared to the vendor library on the
+        same accelerator device (cusparse on CUDA, hipsparse on HIP)
         """
-        if "cusparse" in self.formats:
-            for device in self.accelerator_devices:
-                if not ("cusparse", device) in self.launch_configs:
-                    continue
-                for format in self.formats:
-                    if not format in ["cusparse"]:
-                        if (format, device) in self.launch_configs:
-                            for launch_config in self.launch_configs[(format, device)]:
-                                divide_columns(
-                                    self.df,
-                                    ("cusparse", device, "Default", "time median", ""),
-                                    (format, device, launch_config, "time median", ""),
-                                    (
-                                        format,
-                                        device,
-                                        launch_config,
-                                        "speed-up",
-                                        "cusparse",
-                                    ),
-                                )
+        for device in self.accelerator_devices:
+            vendor = vendor_format(device)
+            if not (vendor, device) in self.launch_configs:
+                continue
+            for format in self.formats:
+                if format != vendor and (format, device) in self.launch_configs:
+                    for launch_config in self.launch_configs[(format, device)]:
+                        divide_columns(
+                            self.df,
+                            (vendor, device, "Default", "time median", ""),
+                            (format, device, launch_config, "time median", ""),
+                            (format, device, launch_config, "speed-up", vendor),
+                        )
 
     def compute_hypre_and_ginkgo_speedup(self):
         """
@@ -120,7 +114,7 @@ class Speedup:
             if ref_format in self.formats:
                 for device in self.accelerator_devices:
                     for format in self.formats:
-                        if not format in ["cusparse", "CSR", "Ginkgo", "Hypre"]:
+                        if not format in [vendor_format(device), "CSR", "Ginkgo", "Hypre"]:
                             if (format, device) in self.launch_configs and (
                                 format,
                                 device,
@@ -268,7 +262,7 @@ class Speedup:
     def compute_speedup(self):
 
         self.compute_csr_cpu_speedup()
-        self.compute_cusparse_speedup()
+        self.compute_vendor_speedup()
         self.compute_hypre_and_ginkgo_speedup()
         self.compute_csr_light_speedup()
         self.compute_binary_speedup()

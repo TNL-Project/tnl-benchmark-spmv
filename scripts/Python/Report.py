@@ -5,6 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import Graphs
 import LatexLabels
+from VendorLibraries import vendor_format
 
 ####
 # A map of rgb points in your distribution
@@ -106,7 +107,7 @@ class Report:
                     )
                     copy_df = df.copy()
                     for f in self.formats:
-                        if not f in ["cusparse", "CSR", format]:
+                        if not f in [vendor_format(device), "CSR", format]:
                             copy_df.drop(
                                 labels=f, axis="columns", level=0, inplace=True
                             )
@@ -114,8 +115,9 @@ class Report:
 
     def ellpack_bw_profiles(self):
         """
-        Draw a graph with all Ellpack based formats and cuSparse for comparison,
-        separately for each accelerator device.
+        Draw a graph with all Ellpack based formats and the vendor library of the
+        device (cuSPARSE on CUDA, hipSPARSE on HIP) for comparison, separately for
+        each accelerator device.
         """
         for device in self.accelerator_devices:
             current_formats = []
@@ -133,7 +135,7 @@ class Report:
                             and not "Symmetric" in format
                             and not "Legacy" in format
                             and not "Sorted" in format
-                        ) or format == "cusparse":
+                        ) or format == vendor_format(device):
                             label = f"{format} {launch_config}"
                             current_formats.append(label)
                             profiles[label] = extract_sorted(
@@ -156,7 +158,8 @@ class Report:
     def csr_bw_profiles(self):
         """
         Draw a graph with all launch configurations of the CSR format and compares
-        them with cuSparse, separately for each accelerator device.
+        them with the vendor library of the device (cuSPARSE on CUDA, hipSPARSE on
+        HIP), separately for each accelerator device.
         """
         for device in self.accelerator_devices:
             current_formats = []
@@ -173,7 +176,7 @@ class Report:
                     and not "Legacy" in format
                     and not "Sorted" in format
                     and not "CSR Best" in format
-                ) or format == "cusparse":
+                ) or format == vendor_format(device):
                     print(f"Processing format {format}")
                     if (format, device) in self.launch_configs:
                         for launch_config in self.launch_configs[(format, device)]:
@@ -201,7 +204,9 @@ class Report:
 
     def comparison_bandwidth(self):
         """
-        Writes figures and HTML tables comparing formats with cuSPARSE by the effective bandwidth.
+        Writes figures and HTML tables comparing formats with CSR on CPU and with the
+        vendor library of each device (cuSPARSE on CUDA, hipSPARSE on HIP) by the
+        effective bandwidth.
         """
         df = self.df
         if not os.path.exists("Comparison"):
@@ -211,7 +216,7 @@ class Report:
 
         comparisons = [(("CSR", "CPU"), "1 thread")]
         for device in self.accelerator_devices:
-            comparisons.append((("cusparse", device), "Default"))
+            comparisons.append(((vendor_format(device), device), "Default"))
         for (
             reference_format,
             reference_device,
@@ -237,15 +242,16 @@ class Report:
                 ),
                 ascending=False,
             )
+            vendor = vendor_format(reference_device)
             for format in self.formats:
-                if not format in ["cusparse", reference_format]:
+                if not format in [vendor, reference_format]:
                     if (format, reference_device) in self.launch_configs:
                         for launch_config in self.launch_configs[
                             (format, reference_device)
                         ]:
                             label = f"{format} {launch_config}"
                             print(
-                                f"Writing comparison of {format} with '{launch_config}' launch config and cuSPARSE"
+                                f"Writing comparison of {format} with '{launch_config}' launch config and {reference_label}"
                             )
                             profiles[label] = extract_sorted(
                                 df,
@@ -280,7 +286,7 @@ class Report:
                             )
                             copy_df = df.copy()
                             for f in self.formats:
-                                if not f in ["cusparse", reference_format, format]:
+                                if not f in [vendor, reference_format, format]:
                                     copy_df.drop(
                                         labels=f, axis="columns", level=0, inplace=True
                                     )
@@ -350,7 +356,7 @@ class Report:
 
                 copy_df = df.copy()
                 for f in self.formats:
-                    if not f in ["cusparse", "CSR", legacy_format]:
+                    if not f in [vendor_format(device), "CSR", legacy_format]:
                         copy_df.drop(labels=f, axis="columns", level=0, inplace=True)
                 copy_df.sort_index(inplace=True)
                 copy_df.to_html(
@@ -359,7 +365,9 @@ class Report:
 
     def comparison_speedup(self):
         """
-        Writes figures and HTML tables comparing formats with cuSPARSE by the effective bandwidth.
+        Writes figures and HTML tables comparing formats with the vendor library of
+        each device (cuSPARSE on CUDA, hipSPARSE on HIP), CSR on CPU, Hypre and
+        Ginkgo by the speed-up.
         """
         df = self.df
         if not os.path.exists("Comparison"):
@@ -367,16 +375,20 @@ class Report:
         if not os.path.exists("Comparison/Speedup"):
             os.mkdir("Comparison/Speedup")
 
-        comparisons = ["cusparse", "CSR", "Hypre", "Ginkgo"]
-        for reference_format in comparisons:
-            if not reference_format in self.formats:
-                continue
-
-            speedup = f"{reference_format}"
-            if reference_format == "CSR":
-                speedup = "CSR CPU"
-
+        # None stands for the vendor library of the device (cusparse on CUDA,
+        # hipsparse on HIP)
+        comparisons = [None, "CSR", "Hypre", "Ginkgo"]
+        for comparison in comparisons:
             for device in self.accelerator_devices:
+                vendor = vendor_format(device)
+                reference_format = vendor if comparison is None else comparison
+                if not reference_format in self.formats:
+                    continue
+
+                speedup = f"{reference_format}"
+                if reference_format == "CSR":
+                    speedup = "CSR CPU"
+
                 reference_label = f"{reference_format}"
                 if reference_format == "CSR":
                     reference_label = "CSR CPU 1 thread"
@@ -387,7 +399,7 @@ class Report:
                     os.mkdir(f"Comparison/Speedup/{reference_label}")
 
                 for format in self.formats:
-                    if format == reference_format or format == "cusparse":
+                    if format == reference_format or format == vendor:
                         continue
                     if (format, device) in self.launch_configs:
                         for launch_config in self.launch_configs[(format, device)]:
@@ -455,7 +467,7 @@ class Report:
 
                             copy_df = df.copy()
                             for f in self.formats:
-                                if not f in ["cusparse", reference_format, format]:
+                                if not f in [vendor, reference_format, format]:
                                     copy_df.drop(
                                         labels=f, axis="columns", level=0, inplace=True
                                     )
@@ -584,18 +596,23 @@ class Report:
                 copy_df.to_html(f"Comparison/Speedup/Legacy/{ref_label}-{device}.html")
 
     ####
-    # Comparison of speed-up w.r.t. Cusparse
+    # Comparison of speed-up w.r.t. the vendor library of the device (cuSPARSE on
+    # CUDA, hipSPARSE on HIP), Hypre and Ginkgo
     def comparison_speedup_groups_vs_reference_formats(self):
         df = self.df
-        for comparison in ["cusparse", "Hypre", "Ginkgo"]:
+        # None stands for the vendor library of the device (cusparse on CUDA,
+        # hipsparse on HIP)
+        for reference in [None, "Hypre", "Ginkgo"]:
             for device in self.accelerator_devices:
+                vendor = vendor_format(device)
+                comparison = vendor if reference is None else reference
                 profiles = {}
                 print(f"Comparison with {comparison} on {device}")
                 if comparison in self.formats:
                     for format in self.formats:
                         print(f"  Processing format {format}")
                         if (
-                            not format in ["cusparse", "Hypre", "Ginkgo"]
+                            not format in [vendor, "Hypre", "Ginkgo"]
                             and (format, device) in self.launch_configs
                         ):
                             for launch_config in self.launch_configs[(format, device)]:
@@ -800,7 +817,7 @@ class Report:
                             ]
                         ).copy()
                         for f in self.formats:
-                            if not f in ["cusparse", "CSR", format, "Hypre"]:
+                            if not f in [vendor_format(device), "CSR", format, "Hypre"]:
                                 copy_df.drop(
                                     labels=f, axis="columns", level=0, inplace=True
                                 )
@@ -867,7 +884,7 @@ class Report:
 
                 copy_df = df.copy()
                 for f in self.formats:
-                    if not f in ["cusparse", "CSR"]:
+                    if not f in [vendor_format(device), "CSR"]:
                         copy_df.drop(labels=f, axis="columns", level=0, inplace=True)
                 copy_df.sort_index(inplace=True)
                 copy_df.to_html(f"LightSpMV-speed-up-bottom-{device}.html")

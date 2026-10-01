@@ -7,6 +7,8 @@ def latex_label(label):
         return "CSR on CPU"
     if label == "cusparse":
         return "cuSPARSE"
+    if label == "hipsparse":
+        return "hipSPARSE"
     if "SlicedEllpack SlicedEllpack" in label:
         return label.replace("SlicedEllpack SlicedEllpack", "Sliced Ellpack")
     if "ChunkedEllpack ChunkedEllpack" in label:

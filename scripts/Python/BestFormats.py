@@ -2,6 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 import MultiindexCreator as mic
+from VendorLibraries import vendor_format, is_vendor_format
 
 
 class BestFormats:
@@ -18,11 +19,13 @@ class BestFormats:
         mc_csr.add_entry(["CSR Best", "CPU", "bandwidth", ""])
         mc_csr.add_entry(["CSR Best", "CPU", "time", ""])
         for device in accelerator_devices:
+            vendor = vendor_format(device)
             mc_csr.add_entry(["CSR Best", device, "launch cfg.", ""])
             mc_csr.add_entry(["CSR Best", device, "bandwidth", ""])
             mc_csr.add_entry(["CSR Best", device, "time", ""])
             mc_csr.add_entry(["CSR Best", device, "diff.max", ""])
-            mc_csr.add_entry(["CSR Best", device, "speed-up", "cusparse"])
+            if vendor is not None:
+                mc_csr.add_entry(["CSR Best", device, "speed-up", vendor])
             mc_csr.add_entry(["CSR Best", device, "speed-up", "CSR CPU"])
             mc_csr.add_entry(["CSR Best", device, "speed-up", "Hypre"])
             mc_csr.add_entry(["CSR Best", device, "speed-up", "Ginkgo"])
@@ -32,7 +35,8 @@ class BestFormats:
             mc_csr.add_entry(["CSR 2nd Best", device, "bandwidth", ""])
             mc_csr.add_entry(["CSR 2nd Best", device, "time", ""])
             mc_csr.add_entry(["CSR 2nd Best", device, "diff.max", ""])
-            mc_csr.add_entry(["CSR 2nd Best", device, "speed-up", "cusparse"])
+            if vendor is not None:
+                mc_csr.add_entry(["CSR 2nd Best", device, "speed-up", vendor])
             mc_csr.add_entry(["CSR 2nd Best", device, "speed-up", "CSR CPU"])
             mc_csr.add_entry(["CSR 2nd Best", device, "speed-up", "Hypre"])
             mc_csr.add_entry(["CSR 2nd Best", device, "speed-up", "Ginkgo"])
@@ -61,7 +65,7 @@ class BestFormats:
         mc_tnl_best.add_entry(["TNL Best", "bandwidth", "", ""])
         mc_tnl_best.add_entry(["TNL Best", "time", "", ""])
         mc_tnl_best.add_entry(["TNL Best", "speed-up", "CSR CPU", ""])
-        mc_tnl_best.add_entry(["TNL Best", "speed-up", "cusparse", ""])
+        mc_tnl_best.add_entry(["TNL Best", "speed-up", "vendor library", ""])
         mc_tnl_best.add_entry(["TNL Best", "speed-up", "2nd best", ""])
 
         mc_tnl_best.add_entry(["TNL 2nd Best", "format", "", ""])
@@ -70,7 +74,7 @@ class BestFormats:
         mc_tnl_best.add_entry(["TNL 2nd Best", "bandwidth", "", ""])
         mc_tnl_best.add_entry(["TNL 2nd Best", "time", "", ""])
         mc_tnl_best.add_entry(["TNL 2nd Best", "speed-up", "CSR CPU", ""])
-        mc_tnl_best.add_entry(["TNL 2nd Best", "speed-up", "cusparse", ""])
+        mc_tnl_best.add_entry(["TNL 2nd Best", "speed-up", "vendor library", ""])
 
         multicolumns, df_data = mc_tnl_best.get_multiindex()
         self.best_tnl_df = pd.DataFrame(
@@ -150,11 +154,12 @@ class BestFormats:
         for device in self.accelerator_devices:
             if ("CSR", device) not in self.launch_configs:
                 continue
+            vendor = vendor_format(device)
             launch_config_list = [[], []]
             bandwidth_list = [[], []]
             time_list = [[], []]
             diff_max_list = [[], []]
-            speedup_cusparse_list = [[], []]
+            speedup_vendor_list = [[], []]
             speedup_csr_cpu_list = [[], []]
             speedup_hypre_list = [[], []]
             speedup_ginkgo_list = [[], []]
@@ -164,7 +169,7 @@ class BestFormats:
                 best_config = [None, None]
                 time = [0, 0]
                 diff_max = [None, None]
-                speedup_cusparse = [None, None]
+                speedup_vendor = [None, None]
                 speedup_csr_cpu = [None, None]
                 speedup_hypre = [None, None]
                 speedup_ginkgo = [None, None]
@@ -178,7 +183,7 @@ class BestFormats:
                             best_config[1] = best_config[0]
                             time[1] = time[0]
                             diff_max[1] = diff_max[0]
-                            speedup_cusparse[1] = speedup_cusparse[0]
+                            speedup_vendor[1] = speedup_vendor[0]
                             speedup_csr_cpu[1] = speedup_csr_cpu[0]
                             speedup_hypre[1] = speedup_hypre[0]
                             speedup_ginkgo[1] = speedup_ginkgo[0]
@@ -186,9 +191,10 @@ class BestFormats:
                             best_config[0] = config
                             time[0] = row[("CSR", device, config, "time median", "")]
                             diff_max[0] = row[("CSR", device, config, "diff.max", "")]
-                            speedup_cusparse[0] = row[
-                                ("CSR", device, config, "speed-up", "cusparse")
-                            ]
+                            if vendor is not None:
+                                speedup_vendor[0] = row[
+                                    ("CSR", device, config, "speed-up", vendor)
+                                ]
                             speedup_csr_cpu[0] = row[
                                 ("CSR", device, config, "speed-up", "CSR CPU")
                             ]
@@ -205,7 +211,7 @@ class BestFormats:
                 bandwidth_list[0].append(max_bandwidth[0])
                 time_list[0].append(time[0])
                 diff_max_list[0].append(diff_max[0])
-                speedup_cusparse_list[0].append(speedup_cusparse[0])
+                speedup_vendor_list[0].append(speedup_vendor[0])
                 speedup_csr_cpu_list[0].append(speedup_csr_cpu[0])
                 speedup_hypre_list[0].append(speedup_hypre[0])
                 speedup_ginkgo_list[0].append(speedup_ginkgo[0])
@@ -216,7 +222,7 @@ class BestFormats:
                 bandwidth_list[1].append(max_bandwidth[1])
                 time_list[1].append(time[1])
                 diff_max_list[1].append(diff_max[1])
-                speedup_cusparse_list[1].append(speedup_cusparse[1])
+                speedup_vendor_list[1].append(speedup_vendor[1])
                 speedup_csr_cpu_list[1].append(speedup_csr_cpu[1])
                 speedup_hypre_list[1].append(speedup_hypre[1])
                 speedup_ginkgo_list[1].append(speedup_ginkgo[1])
@@ -226,9 +232,10 @@ class BestFormats:
             self.best_csr_df[("CSR Best", device, "bandwidth", "")] = bandwidth_list[0]
             self.best_csr_df[("CSR Best", device, "time", "")] = time_list[0]
             self.best_csr_df[("CSR Best", device, "diff.max", "")] = diff_max_list[0]
-            self.best_csr_df[("CSR Best", device, "speed-up", "cusparse")] = (
-                speedup_cusparse_list[0]
-            )
+            if vendor is not None:
+                self.best_csr_df[("CSR Best", device, "speed-up", vendor)] = (
+                    speedup_vendor_list[0]
+                )
             self.best_csr_df[("CSR Best", device, "speed-up", "CSR CPU")] = (
                 speedup_csr_cpu_list[0]
             )
@@ -249,9 +256,10 @@ class BestFormats:
             self.best_csr_df[("CSR 2nd Best", device, "bandwidth", "")] = bandwidth_list[1]
             self.best_csr_df[("CSR 2nd Best", device, "time", "")] = time_list[1]
             self.best_csr_df[("CSR 2nd Best", device, "diff.max", "")] = diff_max_list[1]
-            self.best_csr_df[("CSR 2nd Best", device, "speed-up", "cusparse")] = (
-                speedup_cusparse_list[1]
-            )
+            if vendor is not None:
+                self.best_csr_df[("CSR 2nd Best", device, "speed-up", vendor)] = (
+                    speedup_vendor_list[1]
+                )
             self.best_csr_df[("CSR 2nd Best", device, "speed-up", "CSR CPU")] = (
                 speedup_csr_cpu_list[1]
             )
@@ -273,7 +281,7 @@ class BestFormats:
         time_list = [[], []]
         diff_max_list = [[], []]
         speedup_csr_cpu_list = [[], []]
-        speedup_cusparse_list = [[], []]
+        speedup_vendor_list = [[], []]
         speedup_second_best_list = []
         for idx, row in self.df.iterrows():
             max_bandwidth = [float("-inf"), float("-inf")]
@@ -282,13 +290,13 @@ class BestFormats:
             best_device = ["", ""]
             time = ["", ""]
             speedup_csr_cpu = ["", ""]
-            speedup_cusparse = ["", ""]
+            speedup_vendor = ["", ""]
             speedup_second_best = ""
             for format in self.formats:
                 if (
                     "Binary" in format
                     or "Symmetric" in format
-                    or "cusparse" in format
+                    or is_vendor_format(format)
                     or "Hypre" in format
                     or "Ginkgo" in format
                 ):
@@ -307,7 +315,7 @@ class BestFormats:
                                 best_launch_config[1] = best_launch_config[0]
                                 time[1] = time[0]
                                 speedup_csr_cpu[1] = speedup_csr_cpu[0]
-                                speedup_cusparse[1] = speedup_cusparse[0]
+                                speedup_vendor[1] = speedup_vendor[0]
                                 max_bandwidth[0] = bw
                                 best_format[0] = format
                                 best_device[0] = device
@@ -317,16 +325,13 @@ class BestFormats:
                                 ]
                                 if time[0] != "" and time[1] != "":
                                     speedup_second_best = time[1] / time[0]
-                                if (
-                                    "cusparse" in self.formats
-                                    and device != "CPU"
-                                    and ("cusparse", device) in self.launch_configs
-                                ):
-                                    speedup_cusparse[0] = (
+                                vendor = vendor_format(device)
+                                if (vendor, device) in self.launch_configs:
+                                    speedup_vendor[0] = (
                                         max_bandwidth[0]
                                         / row[
                                             (
-                                                "cusparse",
+                                                vendor,
                                                 device,
                                                 "Default",
                                                 "bandwidth",
@@ -356,7 +361,7 @@ class BestFormats:
             bandwidth_list[0].append(max_bandwidth[0])
             time_list[0].append(time[0])
             speedup_csr_cpu_list[0].append(speedup_csr_cpu[0])
-            speedup_cusparse_list[0].append(speedup_cusparse[0])
+            speedup_vendor_list[0].append(speedup_vendor[0])
             speedup_second_best_list.append(speedup_second_best)
             format_list[1].append(best_format[1])
             device_list[1].append(best_device[1])
@@ -364,7 +369,7 @@ class BestFormats:
             bandwidth_list[1].append(max_bandwidth[1])
             time_list[1].append(time[1])
             speedup_csr_cpu_list[1].append(speedup_csr_cpu[1])
-            speedup_cusparse_list[1].append(speedup_cusparse[1])
+            speedup_vendor_list[1].append(speedup_vendor[1])
         # 1st best
         self.best_tnl_df[("TNL Best", "format", "", "")] = format_list[0]
         self.best_tnl_df[("TNL Best", "device", "", "")] = device_list[0]
@@ -372,9 +377,9 @@ class BestFormats:
         self.best_tnl_df[("TNL Best", "bandwidth", "", "")] = bandwidth_list[0]
         self.best_tnl_df[("TNL Best", "time", "", "")] = time_list[0]
         self.best_tnl_df[("TNL Best", "speed-up", "CSR CPU", "")] = speedup_csr_cpu_list[0]
-        self.best_tnl_df[("TNL Best", "speed-up", "cusparse", "")] = speedup_cusparse_list[
-            0
-        ]
+        self.best_tnl_df[("TNL Best", "speed-up", "vendor library", "")] = (
+            speedup_vendor_list[0]
+        )
         self.best_tnl_df[("TNL Best", "speed-up", "2nd best", "")] = (
             speedup_second_best_list
         )
@@ -388,8 +393,8 @@ class BestFormats:
         self.best_tnl_df[("TNL 2nd Best", "speed-up", "CSR CPU", "")] = (
             speedup_csr_cpu_list[1]
         )
-        self.best_tnl_df[("TNL 2nd Best", "speed-up", "cusparse", "")] = (
-            speedup_cusparse_list[1]
+        self.best_tnl_df[("TNL 2nd Best", "speed-up", "vendor library", "")] = (
+            speedup_vendor_list[1]
         )
 
     def get_total_best_format(self):
@@ -403,7 +408,7 @@ class BestFormats:
         time_list = [[], []]
         diff_max_list = [[], []]
         speedup_csr_cpu_list = [[], []]
-        speedup_cusparse_list = [[], []]
+        speedup_vendor_list = [[], []]
         speedup_second_best_list = []
         for idx, row in self.df.iterrows():
             max_bandwidth = [float("-inf"), float("-inf")]

@@ -15,6 +15,7 @@ import Speedup
 import Report
 import BestFormats
 import LatexLabels
+from VendorLibraries import vendor_format
 import PosterOverviewGraphs
 import PosterHeatmapGraphs
 import PosterCoverageGraphs
@@ -117,8 +118,10 @@ def add_to_multiindex(mc, format, device, launch_config, launch_configs):
     below adds one column, addressed later as a 5-tuple
     (format, device, launch_config, metric, reference) - `reference` is only
     meaningful for "speed-up" columns (empty string otherwise) and names what
-    the speed-up was computed against, e.g. speed-up vs. "cusparse" or vs.
-    "non-binary" (the same format's non-Binary counterpart).
+    the speed-up was computed against, e.g. speed-up vs. the vendor library of
+    the device ("cusparse" on CUDA, "hipsparse" on HIP, see
+    VendorLibraries.py) or vs. "non-binary" (the same format's non-Binary
+    counterpart).
 
     There are two branches:
       - CPU-threaded CSR/Hypre/Ginkgo: these report a "1 threads" launch
@@ -154,10 +157,12 @@ def add_to_multiindex(mc, format, device, launch_config, launch_configs):
             mc.add_entry([format, device, launch_config, "speed-up", legacy_format])
             #print(f"   >>> {format} {device} {launch_config} speed-up {legacy_format}")
 
-        # Here we add speed-up comparisons  with cusparse, CSR on CPU, Hypre and Ginkgo Libraries
-        if device != "CPU" and not format in ["cusparse"]:
-            for speedup in ["cusparse", "CSR CPU", "Hypre", "Ginkgo"]:
-                if speedup != format:
+        # Here we add speed-up comparisons with the vendor library of the device
+        # (cusparse on CUDA, hipsparse on HIP), CSR on CPU, Hypre and Ginkgo Libraries
+        vendor = vendor_format(device)
+        if device != "CPU" and format != vendor:
+            for speedup in [vendor, "CSR CPU", "Hypre", "Ginkgo"]:
+                if speedup is not None and speedup != format:
                     mc.add_entry([format, device, launch_config, "speed-up", speedup])
                     #print(f"   >>> {format} {device} {launch_config} speed-up {speedup}")
         # Add speedup of CSR Light compared to Light SpMV
