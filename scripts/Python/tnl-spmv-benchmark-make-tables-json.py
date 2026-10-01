@@ -496,10 +496,10 @@ def analyze_df(df, args, formats, launch_configs, accelerator_devices):
     Analyze the dataframe and generate reports.
     """
     if args.poster_graphs:
-        PosterOverviewGraphs.speedup_overview_vs_vendor(
+        PosterOverviewGraphs.speedup_overview_vs_libraries(
             df, formats, launch_configs, accelerator_devices
         )
-        PosterOverviewGraphs.speedup_overview_csr_vs_vendor(
+        PosterOverviewGraphs.speedup_overview_csr_vs_libraries(
             df, formats, launch_configs, accelerator_devices
         )
         PosterOverviewGraphs.speedup_overview_sliced_ellpack_vs_vendor(df, accelerator_devices)
