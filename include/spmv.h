@@ -491,10 +491,14 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
    csrHostMatrix.getCompressedRowLengths( nonzerosPerRow );
    MatrixStatistics< CSRHostMatrix > matrixStats( csrHostMatrix );
 
+   String matrixName = parameters.getParameter< String >( "matrix-name" );
+   if( matrixName.empty() )
+      matrixName = inputFileName;
+
    ////
    // Perform benchmark on host with CSR as a reference CPU format
    //
-   benchmark.setMetadataColumns( { { "matrix name", inputFileName },
+   benchmark.setMetadataColumns( { { "matrix name", matrixName },
                                    { "transposed", transposed ? "true" : "false" },
                                    { "precision", getType< Real >() },
                                    { "rows", convertToString( csrHostMatrix.getRows() ) },

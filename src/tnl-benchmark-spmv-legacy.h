@@ -40,6 +40,7 @@ setupConfig( Config::ConfigDescription& config )
 
    config.addDelimiter( "SpMV legacy benchmark settings:" );
    config.addRequiredEntry< String >( "input-file", "Input file name." );
+   config.addEntry< String >( "matrix-name", "Matrix name used in the log. Defaults to the input file name.", "" );
    config.addEntry< bool >( "with-ellpack-formats", "Perform benchmark for Ellpack based matrix formats.", true );
    config.addEntry< bool >( "with-all-cpu-tests", "All matrix formats are tested on both CPU and GPU. ", false );
    config.addEntry< String >( "precision", "Precision of the arithmetics.", "double" );

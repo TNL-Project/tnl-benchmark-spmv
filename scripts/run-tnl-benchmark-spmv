@@ -33,6 +33,29 @@ run_command() {
     return $status
 }
 
+# Derive a system-independent matrix name from its path, e.g.
+# ./mtx_matrices/suitesparse-collection-website.herokuapp.com/MM/ANSYS/Delor64K/Delor64K.mtx
+# becomes ANSYS/Delor64K.mtx.
+matrix_name_from_path() {
+    local name="${1#"${matrices_base_path%/}"/}"
+    name="${name##/}"
+    # strip the prefix of known matrix collections
+    case "$name" in
+        */MM/*)              name="${name##*/MM/}" ;;               # SuiteSparse
+        */MatrixMarket2/*)   name="${name##*/MatrixMarket2/}" ;;    # Matrix Market (NIST)
+    esac
+    # SuiteSparse archives unpack into a directory named after the matrix,
+    # so Group/Name/Name.mtx is collapsed into Group/Name.mtx
+    local file dir
+    file="$(basename "$name")"
+    dir="$(dirname "$name")"
+    if [[ "$(basename "$dir")" == "${file%.mtx}" ]]; then
+        name="$(dirname "$dir")/$file"
+        name="${name#./}"
+    fi
+    echo "$name"
+}
+
 # Loop through all the positional arguments
 while [[ "$#" -gt 0 ]]; do
     case $1 in
@@ -177,11 +200,12 @@ do
    matrix=$(head -n 1 input-files)
    lines=$(wc -l < input-files)
    lines=$((total_lines - lines))
-   echo "$lines / $total_lines : Benchmarking matrix $matrix ..."
+   matrix_name=$(matrix_name_from_path "$matrix")
+   echo "$lines / $total_lines : Benchmarking matrix $matrix_name ($matrix) ..."
    if [[ "$DEBUG" == "yes" ]]; then
-      gdb --args "${COMMAND[@]}" --input-file "$matrix"
+      gdb --args "${COMMAND[@]}" --input-file "$matrix" --matrix-name "$matrix_name"
    else
-      run_command "${COMMAND[@]}" --input-file "$matrix"
+      run_command "${COMMAND[@]}" --input-file "$matrix" --matrix-name "$matrix_name"
    fi
    sed -i '1d' input-files
 done

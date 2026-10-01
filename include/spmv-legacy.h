@@ -224,11 +224,15 @@ benchmarkSpmv( BenchmarkType& benchmark,
    double percentile_50 = nonzerosPerRow[ nonzerosPerRow.getSize() * 0.5 ];
    double percentile_75 = nonzerosPerRow[ nonzerosPerRow.getSize() * 0.75 ];
 
+   String matrixName = parameters.getParameter< String >( "matrix-name" );
+   if( matrixName.empty() )
+      matrixName = inputFileName;
+
    ////
    // Perform benchmark on host with CSR as a reference CPU format
    //
    benchmark.setMetadataColumns( {
-      { "matrix name", inputFileName },
+      { "matrix name", matrixName },
       { "precision", getType< Real >() },
       { "rows", convertToString( csrHostMatrix.getRows() ) },
       { "columns", convertToString( csrHostMatrix.getColumns() ) },

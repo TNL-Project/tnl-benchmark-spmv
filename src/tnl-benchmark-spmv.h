@@ -34,6 +34,7 @@ setupConfig( Config::ConfigDescription& config )
 
    config.addDelimiter( "SpMV benchmark settings:" );
    config.addRequiredEntry< String >( "input-file", "Input file name." );
+   config.addEntry< String >( "matrix-name", "Matrix name used in the log. Defaults to the input file name.", "" );
    config.addEntry< bool >( "with-symmetric-matrices", "Perform benchmark even for symmetric matrix formats.", true );
    config.addEntry< String >(
       "with-transposed-matrix", "Benchmark also (false/true) or only (only) the transposed matrix.", "true" );

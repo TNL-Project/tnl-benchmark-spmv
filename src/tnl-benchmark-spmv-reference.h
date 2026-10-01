@@ -41,6 +41,7 @@ setupConfig( Config::ConfigDescription& config )
 
    config.addDelimiter( "SpMV reference benchmark settings:" );
    config.addRequiredEntry< String >( "input-file", "Input file name." );
+   config.addEntry< String >( "matrix-name", "Matrix name used in the log. Defaults to the input file name.", "" );
    config.addEntry< String >(
       "with-transposed-matrix", "Benchmark also (false/true) or only (only) the transposed matrix.", "true" );
    config.addEntryEnum( "false" );
