@@ -18,7 +18,8 @@ Entry point:
     BiEllpack, ChunkedEllpack),
     showing what percentage of matrices are "won" by the portfolio built so
     far - i.e. the portfolio's best time on that matrix equals the true best
-    time achievable by any format/library available for that device.
+    time achievable by any format/library available for that device
+    (except the Binary formats, see COVERAGE_EXCLUDE_TAGS).
 """
 
 import os
@@ -65,6 +66,12 @@ TNL_COVERAGE_STEPS = (
 )
 
 
+# Formats left out of the "true best time" every portfolio is measured
+# against: Binary formats only store the sparsity pattern (all values are
+# 1), so they solve a different problem than the rest of the portfolio.
+COVERAGE_EXCLUDE_TAGS = ("Binary",)
+
+
 def _default_coverage_steps(device):
     """
     Vendor library of `device` (all its formats/algorithms) followed by
@@ -84,9 +91,9 @@ def collect_cumulative_coverage(df, device, steps=None):
     _default_coverage_steps()), compute for each step the percentage of
     matrices "won" by the portfolio built so far - i.e. the portfolio's best
     time on that matrix equals the true best time achievable by ANY
-    format/library available for this device (not just the ones in `steps`),
-    so 100% is only reached if the portfolio's formats happen to cover every
-    actual winner.
+    format/library available for this device except the Binary formats (see
+    COVERAGE_EXCLUDE_TAGS; not just the ones in `steps`), so 100% is only
+    reached if the portfolio's formats happen to cover every actual winner.
 
     Returns a list of (label, cumulative_pct, delta_pct, n) tuples, or [] if
     there is no data at all for this device.
@@ -96,7 +103,11 @@ def collect_cumulative_coverage(df, device, steps=None):
         if steps is None:
             return []
 
-    global_time = _min_time_per_matrix(df, device, lambda _format: True)
+    global_time = _min_time_per_matrix(
+        df,
+        device,
+        lambda format: not any(tag in format for tag in COVERAGE_EXCLUDE_TAGS),
+    )
     if global_time is None:
         return []
     valid_global = global_time.notna().to_numpy()
@@ -125,10 +136,11 @@ def collect_cumulative_coverage(df, device, steps=None):
             # so they can never "win" the comparison below.
             portfolio_values = portfolio_time.fillna(np.inf).to_numpy()
         # A matrix counts as "won" if the portfolio's best time here is the
-        # same value as the best time achievable by ANY format/library for
-        # this device (global_time) - i.e. the portfolio already contains
-        # this matrix's true winner. np.isclose rather than == to tolerate
-        # floating-point noise from the min() reductions on both sides.
+        # same value as the best time achievable by ANY non-Binary
+        # format/library for this device (global_time) - i.e. the portfolio
+        # already contains this matrix's true winner. np.isclose rather than
+        # == to tolerate floating-point noise from the min() reductions on
+        # both sides.
         won = np.isclose(portfolio_values, global_values, rtol=1e-9, atol=0) & valid_global
         cumulative_pct = 100.0 * int(won.sum()) / total
         rows.append((label, cumulative_pct, cumulative_pct - previous_pct, total))
