@@ -12,28 +12,35 @@ while we figure out how the results should be presented. Nothing here is
 expected to be stable API - once we settle on a presentation, it should move
 into Report.py as a proper, systematic report.
 
+Every comparison with a vendor library stays on one device: CUDA results
+are compared with cuSPARSE, HIP results with hipSPARSE (see
+VendorLibraries.py), and the reference is the vendor library's best
+format/algorithm on each matrix.
+
 Entry points:
-  - speedup_overview_vs_cusparse: for every TNL format/launch-config on a
+  - speedup_overview_vs_vendor: for every TNL format/launch-config on a
     given accelerator device, computes the percentage of matrices where the
-    format is clearly faster than cuSPARSE, comparable (within a threshold),
-    or clearly slower - and draws it as a 100% stacked horizontal bar chart.
+    format is clearly faster than the best vendor library time, comparable
+    (within a threshold), or clearly slower - and draws it as a 100% stacked
+    horizontal bar chart.
     Alongside the PDF, also writes the same chart as a self-contained TikZ
     picture (write_speedup_overview_tikz) - a ".tex" file ready to \\input
     into a paper/poster (bar width/row height, and other layout offsets, are
     \\providecommand macros so they're retunable without regenerating the
     file), plus a "-standalone.tex" wrapper for quick previewing.
-  - speedup_overview_csr_vs_cusparse: the same chart (PDF + TikZ), restricted
+  - speedup_overview_csr_vs_vendor: the same chart (PDF + TikZ), restricted
     to CSR-family formats only - a narrower companion to
-    speedup_overview_vs_cusparse for when only the CSR kernels matter.
+    speedup_overview_vs_vendor for when only the CSR kernels matter.
   - speedup_overview_variants: same breakdown, but one chart per
     "Binary"/"Symmetric"/"Sorted" variant tag, comparing each variant against
     its own non-variant counterpart (e.g. "Sorted CSR" vs "CSR") rather than
-    against cuSPARSE - these tags are left out of speedup_overview_vs_cusparse
-    to keep that chart to one row per base format/launch-config.
+    against the vendor library - these tags are left out of
+    speedup_overview_vs_vendor to keep that chart to one row per base
+    format/launch-config.
   - speedup_overview_csr_binary_vs_nonbinary: the Binary-vs-non-binary slice
     of speedup_overview_variants (PDF + TikZ), restricted to CSR-family
     formats only (i.e. "Binary CSR" vs "CSR") - the Binary/CSR-only
-    counterpart to speedup_overview_csr_vs_cusparse.
+    counterpart to speedup_overview_csr_vs_vendor.
   - speedup_overview_sorted_segments: the impact of sorted segments (PDF +
     TikZ), one row per class (CSR, RowMajor/ColumnMajor SlicedEllpack)
     rather than one row per format/launch-config - each row compares the
@@ -51,6 +58,7 @@ from matplotlib.ticker import FuncFormatter
 from matplotlib.patches import Patch
 
 import LatexLabels
+from VendorLibraries import is_vendor_format, vendor_label
 from PosterGraphsCommon import (
     COLOR_FASTER,
     COLOR_SIMILAR,
@@ -64,6 +72,7 @@ from PosterGraphsCommon import (
     _min_time_per_matrix,
     FAMILY_FILTERS,
     _is_csr_baseline_format,
+    _best_vendor_time,
 )
 
 # ---------------------------------------------------------------------------
@@ -103,7 +112,7 @@ def _speedup_breakdown(speedup_values, threshold):
     }
 
 
-def compute_speedup_breakdown(df, format, device, launch_config, reference="cusparse", threshold=0.10):
+def compute_speedup_breakdown(df, format, device, launch_config, reference, threshold=0.10):
     """
     Compute the percentage of matrices for which `format` on `device` with
     `launch_config` is faster than / comparable to / slower than `reference`,
@@ -117,6 +126,22 @@ def compute_speedup_breakdown(df, format, device, launch_config, reference="cusp
     if col not in df.columns:
         return None
     values = pd.to_numeric(df[col], errors="coerce")
+    return _speedup_breakdown(values, threshold)
+
+
+def compute_speedup_breakdown_vs_time(df, format, device, launch_config, reference_time, threshold=0.10):
+    """
+    Same as compute_speedup_breakdown(), but against a per-matrix reference
+    time Series (e.g. the best vendor library time, see _best_vendor_time())
+    instead of a precomputed "speed-up" column: speed-up = reference_time /
+    format_time.
+
+    Returns None if the format has no "time median" column or no data.
+    """
+    col = (format, device, launch_config, "time median", "")
+    if col not in df.columns:
+        return None
+    values = reference_time / pd.to_numeric(df[col], errors="coerce")
     return _speedup_breakdown(values, threshold)
 
 
@@ -139,9 +164,10 @@ def collect_speedup_overview(
     formats,
     launch_configs,
     device,
-    reference="cusparse",
+    reference=None,
+    reference_time=None,
     threshold=0.10,
-    skip_formats=("cusparse", "CSR Best"),
+    skip_formats=("CSR Best",),
     exclude_substrings=("Binary", "Symmetric", "Sorted", "Legacy"),
     require_substring=None,
     format_filter=None,
@@ -152,6 +178,11 @@ def collect_speedup_overview(
     combination available for the given accelerator device - suitable for
     draw_speedup_overview().
 
+    Each row is compared either with the precomputed "speed-up" column vs.
+    `reference` (e.g. "non-binary"), or - when reference_time is given -
+    with that per-matrix reference time (e.g. the best vendor library time).
+    Vendor library formats are always skipped, they are the reference.
+
     By default, formats carrying a "Binary"/"Symmetric"/"Sorted"/"Legacy"
     variant tag are left out to keep the overview chart to one row per base
     format/launch-config; pass exclude_substrings=() to include everything.
@@ -159,17 +190,17 @@ def collect_speedup_overview(
     If require_substring is given (e.g. "Sorted"), exclude_substrings is
     ignored and only formats containing that substring are kept - use this to
     build a separate overview for one variant tag (see
-    speedup_overview_variants_vs_cusparse()).
+    speedup_overview_variants()).
 
     format_filter, if given, is an extra predicate applied on top of the
     above (e.g. restrict to CSR-family formats only, see
-    speedup_overview_csr_vs_cusparse()).
+    speedup_overview_csr_vs_vendor()).
     """
     if label_fn is None:
         label_fn = default_label
     rows = []
     for format in formats:
-        if format in skip_formats:
+        if format in skip_formats or is_vendor_format(format):
             continue
         if require_substring is not None:
             if require_substring not in format:
@@ -181,9 +212,14 @@ def collect_speedup_overview(
         if (format, device) not in launch_configs:
             continue
         for launch_config in launch_configs[(format, device)]:
-            breakdown = compute_speedup_breakdown(
-                df, format, device, launch_config, reference, threshold
-            )
+            if reference_time is not None:
+                breakdown = compute_speedup_breakdown_vs_time(
+                    df, format, device, launch_config, reference_time, threshold
+                )
+            else:
+                breakdown = compute_speedup_breakdown(
+                    df, format, device, launch_config, reference, threshold
+                )
             if breakdown is None:
                 continue
             rows.append((label_fn(format, launch_config), breakdown))
@@ -195,7 +231,7 @@ def draw_speedup_overview(
     filename,
     threshold=0.10,
     subject_label="TNL",
-    reference_label="cuSPARSE",
+    reference_label="reference",
     title=None,
     fig_width=8,
     row_height=0.55,
@@ -308,7 +344,7 @@ def write_speedup_overview_tikz(
     filename,
     threshold=0.10,
     subject_label="TNL",
-    reference_label="cuSPARSE",
+    reference_label="reference",
     title=None,
     bar_width=12.0,
     row_height=1.25,
@@ -482,7 +518,7 @@ def _label_without_binary(format, launch_config):
     return default_label(stripped, launch_config)
 
 
-def speedup_overview_vs_cusparse(
+def speedup_overview_vs_vendor(
     df,
     formats,
     launch_configs,
@@ -491,41 +527,45 @@ def speedup_overview_vs_cusparse(
     threshold=0.10,
 ):
     """
-    Entry point: for every accelerator device, draw the "TNL vs cuSPARSE"
-    overview chart with all available format/launch-config combinations.
+    Entry point: for every accelerator device, draw the "TNL vs. best vendor
+    library" overview chart (cuSPARSE on CUDA, hipSPARSE on HIP) with all
+    available format/launch-config combinations - the reference on each
+    matrix is the vendor library's best format/algorithm on that same device.
     Alongside the PDF, also writes the same chart as a self-contained TikZ
     picture (write_speedup_overview_tikz) - a ".tex" file ready to \\input
     into a paper/poster, plus a "-standalone.tex" wrapper for previewing.
     """
-    if "cusparse" not in formats:
-        print("No cusparse results found, skipping poster speedup overview.")
-        return
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
     for device in accelerator_devices:
+        vendor_time = _best_vendor_time(df, device)
+        if vendor_time is None:
+            print(f"No vendor library results found on {device}, skipping poster speedup overview.")
+            continue
+        vendor = vendor_label(device)
         rows = collect_speedup_overview(
-            df, formats, launch_configs, device, reference="cusparse", threshold=threshold
+            df, formats, launch_configs, device, reference_time=vendor_time, threshold=threshold
         )
         if not rows:
             continue
-        print(f"Writing poster speedup overview for {device} ({len(rows)} configurations)")
+        print(f"Writing poster speedup overview vs. {vendor} for {device} ({len(rows)} configurations)")
         draw_speedup_overview(
             rows,
-            filename=os.path.join(output_dir, f"speedup-vs-cusparse-{device}.pdf"),
+            filename=os.path.join(output_dir, f"speedup-vs-{vendor.lower()}-{device}.pdf"),
             threshold=threshold,
-            reference_label="cuSPARSE",
-            title=f"TNL vs. cuSPARSE on {device}",
+            reference_label=vendor,
+            title=f"TNL vs. best {vendor} on {device}",
         )
         write_speedup_overview_tikz(
             rows,
-            filename=os.path.join(output_dir, f"speedup-vs-cusparse-{device}.tex"),
+            filename=os.path.join(output_dir, f"speedup-vs-{vendor.lower()}-{device}.tex"),
             threshold=threshold,
-            reference_label="cuSPARSE",
-            title=f"TNL vs. cuSPARSE on {device}",
+            reference_label=vendor,
+            title=f"TNL vs. best {vendor} on {device}",
         )
 
 
-def speedup_overview_csr_vs_cusparse(
+def speedup_overview_csr_vs_vendor(
     df,
     formats,
     launch_configs,
@@ -535,43 +575,45 @@ def speedup_overview_csr_vs_cusparse(
 ):
     """
     Entry point: for every accelerator device, draw a narrower companion to
-    speedup_overview_vs_cusparse() restricted to CSR-family formats only
+    speedup_overview_vs_vendor() restricted to CSR-family formats only
     (still excluding Binary/Symmetric/Sorted/Legacy variants, same as the
     main overview) - PDF plus the same TikZ output.
     """
-    if "cusparse" not in formats:
-        print("No cusparse results found, skipping poster CSR speedup overview.")
-        return
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
     for device in accelerator_devices:
+        vendor_time = _best_vendor_time(df, device)
+        if vendor_time is None:
+            print(f"No vendor library results found on {device}, skipping poster CSR speedup overview.")
+            continue
+        vendor = vendor_label(device)
         rows = collect_speedup_overview(
             df,
             formats,
             launch_configs,
             device,
-            reference="cusparse",
+            reference_time=vendor_time,
             threshold=threshold,
             format_filter=_is_plain_csr_format,
         )
         if not rows:
             continue
-        print(f"Writing poster CSR speedup overview for {device} ({len(rows)} configurations)")
+        print(f"Writing poster CSR speedup overview vs. {vendor} for {device} ({len(rows)} configurations)")
         draw_speedup_overview(
             rows,
-            filename=os.path.join(output_dir, f"speedup-csr-vs-cusparse-{device}.pdf"),
+            filename=os.path.join(output_dir, f"speedup-csr-vs-{vendor.lower()}-{device}.pdf"),
             threshold=threshold,
             subject_label="CSR",
-            reference_label="cuSPARSE",
-            title=f"CSR vs. cuSPARSE on {device}",
+            reference_label=vendor,
+            title=f"CSR vs. best {vendor} on {device}",
         )
         write_speedup_overview_tikz(
             rows,
-            filename=os.path.join(output_dir, f"speedup-csr-vs-cusparse-{device}.tex"),
+            filename=os.path.join(output_dir, f"speedup-csr-vs-{vendor.lower()}-{device}.tex"),
             threshold=threshold,
             subject_label="CSR",
-            reference_label="cuSPARSE",
-            title=f"CSR vs. cuSPARSE on {device}",
+            reference_label=vendor,
+            title=f"CSR vs. best {vendor} on {device}",
         )
 
 
@@ -593,7 +635,7 @@ def speedup_overview_variants(
     tnl-spmv-benchmark-make-tables-json.py already computes for these
     formats.
 
-    These formats are excluded from speedup_overview_vs_cusparse() to keep
+    These formats are excluded from speedup_overview_vs_vendor() to keep
     the main overview to one row per base format/launch-config, so without
     this function they would never show up in the poster output at all.
     """
@@ -641,7 +683,7 @@ def speedup_overview_csr_binary_vs_nonbinary(
     Entry point: for every accelerator device, draw a narrower companion to
     speedup_overview_variants()'s Binary-vs-non-binary chart, restricted to
     plain CSR only (i.e. "Binary CSR" vs "CSR" - Symmetric and Sorted variants
-    are excluded, unlike speedup_overview_csr_vs_cusparse() which only needs
+    are excluded, unlike speedup_overview_csr_vs_vendor() which only needs
     to exclude Binary/Symmetric/Sorted/Legacy indirectly via the default
     exclude_substrings) - PDF plus the same TikZ output
     (write_speedup_overview_tikz).

@@ -1,6 +1,7 @@
 """
 Poster/paper charts: the "which TNL storage family beats the best CSR /
-cuSPARSE baseline, and by how much" heatmap, plus the per-matrix Markdown
+vendor library (cuSPARSE on CUDA, hipSPARSE on HIP) baseline, and by how
+much" heatmap, plus the per-matrix Markdown
 report that names the individual matrices behind it. See
 PosterGraphsCommon.py for the shared color palette and baseline-filter
 building blocks, PosterOverviewGraphs.py for the row/bar overview charts,
@@ -17,14 +18,14 @@ Entry points:
     BiEllpack, ChunkedEllpack - each taken at its best launch config and, for
     SlicedEllpack, best slice size) and one column per speedup threshold,
     showing the percentage of matrices where the family beats the best of
-    (plain CSR, cuSPARSE) by more than that threshold. Alongside the PDF,
+    (plain CSR, vendor library) by more than that threshold. Alongside the PDF,
     speedup_heatmap_vs_best_csr also writes the same heatmap as a
     self-contained TikZ picture (write_speedup_heatmap_tikz) - a ".tex" file
     ready to \\input into a paper/poster, plus a "-standalone.tex" wrapper
     for quick previewing.
   - write_speedup_matrices: for every accelerator device, a Markdown file
     naming the individual matrices where some storage family beats the best
-    CSR / cuSPARSE baseline by at least a given speedup threshold (default
+    CSR / vendor library baseline by at least a given speedup threshold (default
     1.1x) - grouped by format (families with the highest speedups first),
     sorted by descending speedup within each format. Each matrix also lists
     its per-matrix statistics (MATRIX_STAT_COLUMNS, as computed by
@@ -47,6 +48,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.ticker import FuncFormatter
 
+from VendorLibraries import vendor_label
 from PosterGraphsCommon import (
     SEQUENTIAL_BLUE,
     INK_PRIMARY,
@@ -57,12 +59,14 @@ from PosterGraphsCommon import (
     _min_time_per_matrix,
     FAMILY_FILTERS,
     _is_csr_baseline_format,
+    _best_vendor_time,
 )
 
 # ---------------------------------------------------------------------------
-# Heatmap vs. best CSR / cuSPARSE baseline: for each storage family, what
-# fraction of matrices beat the best available "sane default" reference
-# (plain CSR and/or cuSPARSE, optionally also plain CSR on the CPU) by more
+# Heatmap vs. best CSR / vendor library baseline: for each storage family,
+# what fraction of matrices beat the best available "sane default" reference
+# (plain CSR and/or the vendor library on the same device - cuSPARSE on CUDA,
+# hipSPARSE on HIP - optionally also plain CSR on the CPU) by more
 # than each of DEFAULT_SPEEDUP_THRESHOLDS. Shared with the per-matrix
 # Markdown report (write_speedup_matrices) further below, which names the
 # individual matrices behind these percentages.
@@ -72,20 +76,21 @@ from PosterGraphsCommon import (
 DEFAULT_SPEEDUP_THRESHOLDS = [round(1.0 + 0.05 * i, 2) for i in range(11)]
 
 
-def _best_csr_cusparse_baseline_time(
+def _best_csr_vendor_baseline_time(
     df, device, csr_filter=_is_csr_baseline_format, include_cpu_csr=False
 ):
     """
     Per-matrix best (lowest) time among: the best "plain" CSR variant on
-    `device` (see CSR_BASELINE_EXCLUDE_TAGS in PosterGraphsCommon.py),
-    cuSPARSE on `device`, and - when include_cpu_csr is True - also the best
+    `device` (see CSR_BASELINE_EXCLUDE_TAGS in PosterGraphsCommon.py), the
+    best vendor library format/algorithm on `device` (see
+    VendorLibraries.py), and - when include_cpu_csr is True - also the best
     plain CSR variant on the CPU (i.e. a TNL user willing to fall back to a
     CPU run would take that if it beats everything available on `device`).
     Returns None if none of these are available for this device.
     """
     candidates = [
         _min_time_per_matrix(df, device, csr_filter),
-        _min_time_per_matrix(df, device, lambda format: format == "cusparse"),
+        _best_vendor_time(df, device),
     ]
     if include_cpu_csr:
         candidates.append(_min_time_per_matrix(df, "CPU", csr_filter))
@@ -114,7 +119,8 @@ def collect_speedup_heatmap_vs_best_csr(
 
     The baseline for a matrix is whichever is faster: the best "plain" CSR
     variant on `device` (see CSR_BASELINE_EXCLUDE_TAGS in
-    PosterGraphsCommon.py), cuSPARSE on `device`, and - when include_cpu_csr
+    PosterGraphsCommon.py), the best vendor library format/algorithm on
+    `device` (cuSPARSE on CUDA, hipSPARSE on HIP), and - when include_cpu_csr
     is True - also the best plain CSR variant on the CPU - i.e. the best
     reference a TNL user could actually reach for on that matrix.
 
@@ -126,7 +132,7 @@ def collect_speedup_heatmap_vs_best_csr(
     if family_filters is None:
         family_filters = FAMILY_FILTERS
 
-    baseline_time = _best_csr_cusparse_baseline_time(
+    baseline_time = _best_csr_vendor_baseline_time(
         df, device, csr_filter=csr_filter, include_cpu_csr=include_cpu_csr
     )
     if baseline_time is None:
@@ -159,6 +165,7 @@ def draw_speedup_heatmap(
     filename,
     thresholds=DEFAULT_SPEEDUP_THRESHOLDS,
     title=None,
+    baseline_label="best CSR / vendor library baseline",
     fig_width=8,
     row_height=0.6,
     value_kind="percentage",
@@ -210,7 +217,7 @@ def draw_speedup_heatmap(
     ax.set_xticklabels([f"$>${t:.2f}x" for t in thresholds])
     ax.set_yticks(range(len(labels)))
     ax.set_yticklabels(labels, color=INK_PRIMARY)
-    ax.set_xlabel("Speedup vs. best CSR / cuSPARSE baseline", color=INK_SECONDARY)
+    ax.set_xlabel(f"Speedup vs. {_tex_escape(baseline_label)}", color=INK_SECONDARY)
     if title:
         ax.set_title(_tex_escape(title), color=INK_PRIMARY, pad=14)
 
@@ -267,6 +274,7 @@ def write_speedup_heatmap_tikz(
     filename,
     thresholds=DEFAULT_SPEEDUP_THRESHOLDS,
     title=None,
+    baseline_label="best CSR / vendor library baseline",
     value_kind="percentage",
     cell_width=1.4,
     cell_height=0.8,
@@ -374,7 +382,7 @@ def write_speedup_heatmap_tikz(
         )
     lines.append(
         f"  \\node[anchor=north, text=inkprimary] at ({n_cols / 2},{m_axis_label_y}) "
-        f"{{Speedup vs. best CSR / cuSPARSE baseline}};"
+        f"{{Speedup vs. {_tex_escape(baseline_label)}}};"
     )
 
     # Legend band height is fixed (independent of n_rows) so the value labels
@@ -438,7 +446,7 @@ def speedup_heatmap_vs_best_csr(
     Entry point: for every accelerator device, draw a heatmap of storage
     families (Ellpack, RowMajor/ColumnMajor SlicedEllpack, BiEllpack,
     ChunkedEllpack) vs. speedup thresholds, showing what fraction of matrices
-    beat the best-CSR-or-cuSPARSE baseline by more than each threshold - one
+    beat the best-CSR-or-vendor-library baseline by more than each threshold - one
     version with percentages, one with the raw matrix counts. When
     include_cpu_csr is True, the baseline also considers the best plain CSR
     time on the CPU, and the output files get a "-incl-cpu-csr" suffix.
@@ -453,6 +461,8 @@ def speedup_heatmap_vs_best_csr(
         )
         if not rows:
             continue
+        baseline_label = f"best CSR / {vendor_label(device)} baseline"
+        title = f"TNL formats vs. {baseline_label} on {device}{title_suffix}"
         print(f"Writing poster speedup heatmap for {device}{suffix} ({len(rows)} families)")
         draw_speedup_heatmap(
             rows,
@@ -460,7 +470,8 @@ def speedup_heatmap_vs_best_csr(
                 output_dir, f"speedup-heatmap-vs-best-csr{suffix}-{device}.pdf"
             ),
             thresholds=thresholds,
-            title=f"TNL formats vs. best CSR / cuSPARSE baseline on {device}{title_suffix}",
+            title=title,
+            baseline_label=baseline_label,
             value_kind="percentage",
         )
         draw_speedup_heatmap(
@@ -469,7 +480,8 @@ def speedup_heatmap_vs_best_csr(
                 output_dir, f"speedup-heatmap-vs-best-csr{suffix}-{device}-counts.pdf"
             ),
             thresholds=thresholds,
-            title=f"TNL formats vs. best CSR / cuSPARSE baseline on {device}{title_suffix}",
+            title=title,
+            baseline_label=baseline_label,
             value_kind="count",
         )
         write_speedup_heatmap_tikz(
@@ -478,7 +490,8 @@ def speedup_heatmap_vs_best_csr(
                 output_dir, f"speedup-heatmap-vs-best-csr{suffix}-{device}.tex"
             ),
             thresholds=thresholds,
-            title=f"TNL formats vs. best CSR / cuSPARSE baseline on {device}{title_suffix}",
+            title=title,
+            baseline_label=baseline_label,
             value_kind="percentage",
         )
         write_speedup_heatmap_tikz(
@@ -487,7 +500,8 @@ def speedup_heatmap_vs_best_csr(
                 output_dir, f"speedup-heatmap-vs-best-csr{suffix}-{device}-counts.tex"
             ),
             thresholds=thresholds,
-            title=f"TNL formats vs. best CSR / cuSPARSE baseline on {device}{title_suffix}",
+            title=title,
+            baseline_label=baseline_label,
             value_kind="count",
         )
 
@@ -495,7 +509,7 @@ def speedup_heatmap_vs_best_csr(
 # ---------------------------------------------------------------------------
 # Per-matrix statistics report (Markdown): names the individual matrices
 # behind the heatmap's percentages - the matrices where some storage family
-# beats the best-CSR/cuSPARSE baseline by at least `threshold`, together with
+# beats the best-CSR/vendor-library baseline by at least `threshold`, together with
 # each matrix's per-matrix statistics for context.
 # ---------------------------------------------------------------------------
 
@@ -562,7 +576,7 @@ def collect_speedup_matrices_vs_best_csr(
     For every storage family in family_filters, find the matrices on `device`
     where the family's best time (best launch config, and best format within
     the family - e.g. best slice size for SlicedEllpack) beats the
-    best-CSR-or-cuSPARSE baseline (see collect_speedup_heatmap_vs_best_csr(),
+    best-CSR-or-vendor-library baseline (see collect_speedup_heatmap_vs_best_csr(),
     including the include_cpu_csr option) by at least `threshold` (e.g. 1.1
     means "at least 10% faster").
 
@@ -574,7 +588,7 @@ def collect_speedup_matrices_vs_best_csr(
     if family_filters is None:
         family_filters = FAMILY_FILTERS
 
-    baseline_time = _best_csr_cusparse_baseline_time(
+    baseline_time = _best_csr_vendor_baseline_time(
         df, device, csr_filter=csr_filter, include_cpu_csr=include_cpu_csr
     )
     if baseline_time is None:
@@ -618,7 +632,7 @@ def write_speedup_matrices(
 ):
     """
     Entry point: for every accelerator device, write a Markdown file naming
-    the matrices where some TNL storage family beats the best CSR / cuSPARSE
+    the matrices where some TNL storage family beats the best CSR / vendor library
     baseline by at least `threshold` (default: 1.1x) - formats with the
     highest speedups first, and within each format, matrices sorted by
     descending speedup. When include_cpu_csr is True, the baseline also
@@ -649,7 +663,7 @@ def write_speedup_matrices(
         with open(filename, "w") as f:
             f.write(
                 f"# Matrices with speedup >= {threshold:.2f}x vs. best CSR / "
-                f"cuSPARSE baseline on {device}{baseline_note}\n\n"
+                f"{vendor_label(device)} baseline on {device}{baseline_note}\n\n"
             )
             for label, matrices in families:
                 f.write(f"## {label}\n\n")

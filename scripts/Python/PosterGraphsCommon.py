@@ -3,16 +3,19 @@ Low-level helpers shared by the poster/paper chart modules
 (PosterOverviewGraphs.py, PosterHeatmapGraphs.py, PosterCoverageGraphs.py).
 
 Nothing in here draws a chart on its own - it's the color palette, small
-LaTeX/TikZ plumbing, and the "best time per matrix" / "plain CSR baseline"
-building blocks that more than one of those modules needs. Keeping them here
+LaTeX/TikZ plumbing, and the "best time per matrix" / "plain CSR baseline" /
+"vendor library" building blocks that more than one of those modules needs. Keeping them here
 (rather than duplicated, or hanging off whichever module happened to need
 them first) is what lets the three chart modules stay independent of each
-other while still agreeing on colors and on what "the CSR baseline" means.
+other while still agreeing on colors, on what "the CSR baseline" means and
+on which vendor library each device is compared with.
 """
 
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
+
+from VendorLibraries import vendor_format
 
 # Status palette (good / warning / critical) - fixed, never themed.
 COLOR_FASTER = "#0ca30c"   # TNL clearly faster than the baseline
@@ -110,3 +113,32 @@ FAMILY_FILTERS = {
 
 def _is_csr_baseline_format(format):
     return "CSR" in format and not any(tag in format for tag in CSR_BASELINE_EXCLUDE_TAGS)
+
+
+# ---------------------------------------------------------------------------
+# Vendor sparse library per accelerator device (see VendorLibraries.py).
+# "Best vendor" time is the minimum over every format/algorithm the library
+# offers on that device (e.g. cuSPARSE CSR with all its algorithms and
+# cuSPARSE SlicedEll).
+# ---------------------------------------------------------------------------
+
+def _vendor_format_filter(device):
+    """
+    Predicate matching every format of the vendor library on `device`, or
+    None if there is no known vendor library for that device.
+    """
+    prefix = vendor_format(device)
+    if prefix is None:
+        return None
+    return lambda format: format.startswith(prefix)
+
+
+def _best_vendor_time(df, device):
+    """
+    Per-matrix best time of the vendor library on `device` (best format and
+    algorithm), or None if the library has no results on that device.
+    """
+    vendor_ok = _vendor_format_filter(device)
+    if vendor_ok is None:
+        return None
+    return _min_time_per_matrix(df, device, vendor_ok)

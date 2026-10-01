@@ -1,10 +1,10 @@
 """
 Poster/paper chart: the cumulative-coverage waterfall - "if a user could pick
-from cuSPARSE alone, how many matrices get the true best time? What if we
-also let them pick Best CSR? Also Ellpack? ..." See PosterGraphsCommon.py for
-the shared color palette and baseline-filter building blocks,
-PosterOverviewGraphs.py for the row/bar overview charts,
-PosterHeatmapGraphs.py for the threshold heatmap.
+from the vendor library alone (cuSPARSE on CUDA, hipSPARSE on HIP), how many
+matrices get the true best time? What if we also let them pick Best CSR?
+Also Ellpack? ..." See PosterGraphsCommon.py for the shared color palette and
+baseline-filter building blocks, PosterOverviewGraphs.py for the row/bar
+overview charts, PosterHeatmapGraphs.py for the threshold heatmap.
 
 This module is a scratch space: functions here are added/removed/reshaped
 while we figure out how the results should be presented. Nothing here is
@@ -13,8 +13,9 @@ into Report.py as a proper, systematic report.
 
 Entry point:
   - cumulative_coverage_vs_best: for every accelerator device, a waterfall
-    chart that starts from cuSPARSE alone and adds one storage family at a
-    time (Best CSR, then Ellpack, SlicedEllpack, BiEllpack, ChunkedEllpack),
+    chart that starts from the vendor library of that device alone and adds
+    one storage family at a time (Best CSR, then Ellpack, SlicedEllpack,
+    BiEllpack, ChunkedEllpack),
     showing what percentage of matrices are "won" by the portfolio built so
     far - i.e. the portfolio's best time on that matrix equals the true best
     time achievable by any format/library available for that device.
@@ -25,6 +26,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
 
+from VendorLibraries import vendor_label
 from PosterGraphsCommon import (
     COLOR_FASTER,
     SEQUENTIAL_BLUE,
@@ -37,6 +39,7 @@ from PosterGraphsCommon import (
     _min_time_per_matrix,
     FAMILY_FILTERS,
     _is_csr_baseline_format,
+    _vendor_format_filter,
 )
 
 
@@ -48,12 +51,12 @@ def _is_sliced_ellpack_format(format):
 
 # Cumulative portfolio for cumulative_coverage_vs_best(): each step's filter
 # is ADDED to every filter before it (see collect_cumulative_coverage()), so
-# this reads as "start from cuSPARSE alone, then also allow Best CSR, then
-# also allow Ellpack, ...". The last label names the fully-grown portfolio
-# rather than just the last format added, since that is the number that
-# actually matters on the poster.
-DEFAULT_COVERAGE_STEPS = (
-    ("cuSPARSE", lambda format: format == "cusparse"),
+# this reads as "start from the vendor library alone, then also allow Best
+# CSR, then also allow Ellpack, ...". The last label names the fully-grown
+# portfolio rather than just the last format added, since that is the number
+# that actually matters on the poster. The vendor library step depends on
+# the device and is prepended by _default_coverage_steps().
+TNL_COVERAGE_STEPS = (
     ("+ Best CSR", _is_csr_baseline_format),
     ("+ Ellpack", FAMILY_FILTERS["Ellpack"]),
     ("+ SlicedEllpack", _is_sliced_ellpack_format),
@@ -62,21 +65,36 @@ DEFAULT_COVERAGE_STEPS = (
 )
 
 
+def _default_coverage_steps(device):
+    """
+    Vendor library of `device` (all its formats/algorithms) followed by
+    TNL_COVERAGE_STEPS, or None if there is no known vendor library for
+    that device.
+    """
+    vendor_ok = _vendor_format_filter(device)
+    if vendor_ok is None:
+        return None
+    return ((vendor_label(device), vendor_ok),) + TNL_COVERAGE_STEPS
+
+
 def collect_cumulative_coverage(df, device, steps=None):
     """
-    Build waterfall rows for one device: starting from cuSPARSE alone and
-    growing the portfolio one step at a time (see DEFAULT_COVERAGE_STEPS),
-    compute for each step the percentage of matrices "won" by the portfolio
-    built so far - i.e. the portfolio's best time on that matrix equals the
-    true best time achievable by ANY format/library available for this
-    device (not just the ones in `steps`), so 100% is only reached if the
-    portfolio's formats happen to cover every actual winner.
+    Build waterfall rows for one device: starting from the vendor library
+    alone and growing the portfolio one step at a time (see
+    _default_coverage_steps()), compute for each step the percentage of
+    matrices "won" by the portfolio built so far - i.e. the portfolio's best
+    time on that matrix equals the true best time achievable by ANY
+    format/library available for this device (not just the ones in `steps`),
+    so 100% is only reached if the portfolio's formats happen to cover every
+    actual winner.
 
     Returns a list of (label, cumulative_pct, delta_pct, n) tuples, or [] if
     there is no data at all for this device.
     """
     if steps is None:
-        steps = DEFAULT_COVERAGE_STEPS
+        steps = _default_coverage_steps(device)
+        if steps is None:
+            return []
 
     global_time = _min_time_per_matrix(df, device, lambda _format: True)
     if global_time is None:
@@ -121,7 +139,7 @@ def collect_cumulative_coverage(df, device, steps=None):
 def draw_cumulative_coverage(rows, filename, title=None, fig_width=8, fig_height=4.5):
     """
     Draw a waterfall chart from rows produced by collect_cumulative_coverage():
-    the first and last bars stand on their own (cuSPARSE alone, then the
+    the first and last bars stand on their own (vendor library alone, then the
     fully-grown portfolio); the bars in between float between the running
     totals and are labeled with the coverage gained by that one step.
     """
@@ -180,8 +198,9 @@ def draw_cumulative_coverage(rows, filename, title=None, fig_width=8, fig_height
 
 def cumulative_coverage_vs_best(df, accelerator_devices, output_dir="Poster", steps=None):
     """
-    Entry point: for every accelerator device, draw the cuSPARSE-to-"all TNL
-    formats" waterfall chart (see module docstring / DEFAULT_COVERAGE_STEPS).
+    Entry point: for every accelerator device, draw the vendor-library-to-"all
+    TNL formats" waterfall chart (see module docstring /
+    _default_coverage_steps()).
     """
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
