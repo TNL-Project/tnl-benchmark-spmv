@@ -31,6 +31,10 @@ Entry points:
   - speedup_overview_csr_vs_vendor: the same chart (PDF + TikZ), restricted
     to CSR-family formats only - a narrower companion to
     speedup_overview_vs_vendor for when only the CSR kernels matter.
+  - speedup_overview_sliced_ellpack_vs_vendor: the TNL SlicedEllpack
+    variants (RowMajor/ColumnMajor, every slice size, each at its best
+    launch config) against the vendor library's own Sliced ELLPACK (PDF +
+    TikZ) - only on devices where the vendor library has one (cuSPARSE).
   - speedup_overview_variants: same breakdown, but one chart per
     "Binary"/"Symmetric"/"Sorted" variant tag, comparing each variant against
     its own non-variant counterpart (e.g. "Sorted CSR" vs "CSR") rather than
@@ -73,6 +77,7 @@ from PosterGraphsCommon import (
     FAMILY_FILTERS,
     _is_csr_baseline_format,
     _best_vendor_time,
+    _vendor_format_filter,
 )
 
 # ---------------------------------------------------------------------------
@@ -614,6 +619,111 @@ def speedup_overview_csr_vs_vendor(
             subject_label="CSR",
             reference_label=vendor,
             title=f"CSR vs. best {vendor} on {device}",
+        )
+
+
+def _sliced_ellpack_classes():
+    """
+    Rows of the TNL SlicedEllpack vs. vendor Sliced ELLPACK chart, as
+    (label, format filter) pairs: the best of all plain (untagged) TNL
+    SlicedEllpack formats, the best per element organization, then every
+    organization/slice size on its own - each at its best launch config.
+    """
+    classes = [
+        (
+            "Best SlicedEllpack",
+            lambda format: FAMILY_FILTERS["RowMajor SlicedEllpack"](format)
+            or FAMILY_FILTERS["ColumnMajor SlicedEllpack"](format),
+        ),
+    ]
+    for organization in ("RowMajor", "ColumnMajor"):
+        family = f"{organization} SlicedEllpack"
+        classes.append((f"Best {family}", FAMILY_FILTERS[family]))
+    for organization in ("RowMajor", "ColumnMajor"):
+        for slice_size in (2, 4, 8, 16, 32):
+            name = f"{organization} SlicedEllpack {slice_size}"
+            classes.append((name, lambda format, name=name: format == name))
+    return classes
+
+
+def collect_sliced_ellpack_vs_vendor_sell(df, device, threshold=0.10):
+    """
+    Compare each class from _sliced_ellpack_classes() (best launch config,
+    and for the "Best ..." rows also best slice size/organization) with the
+    vendor library's best Sliced ELLPACK time (best algorithm) on the same
+    device, using the "speed-up = reference/subject, >1 means subject
+    faster" convention of compute_speedup_breakdown().
+
+    Returns a list of (label, breakdown) tuples suitable for
+    draw_speedup_overview() / write_speedup_overview_tikz(), or [] if the
+    vendor library has no Sliced ELLPACK results on this device.
+    """
+    vendor_ok = _vendor_format_filter(device)
+    if vendor_ok is None:
+        return []
+    vendor_sell_time = _min_time_per_matrix(
+        df, device, lambda format: vendor_ok(format) and "SlicedEll" in format
+    )
+    if vendor_sell_time is None:
+        return []
+    rows = []
+    for label, format_ok in _sliced_ellpack_classes():
+        tnl_time = _min_time_per_matrix(df, device, format_ok)
+        if tnl_time is None:
+            continue
+        breakdown = _speedup_breakdown(vendor_sell_time / tnl_time, threshold)
+        if breakdown is None:
+            continue
+        rows.append((label, breakdown))
+    return rows
+
+
+def speedup_overview_sliced_ellpack_vs_vendor(
+    df,
+    accelerator_devices,
+    output_dir="Poster",
+    threshold=0.10,
+):
+    """
+    Entry point: for every accelerator device whose vendor library offers a
+    Sliced ELLPACK format (currently cuSPARSE only), draw the TNL
+    SlicedEllpack variants against it (see
+    collect_sliced_ellpack_vs_vendor_sell()) - PDF plus the TikZ output
+    (write_speedup_overview_tikz).
+    """
+    if not os.path.exists(output_dir):
+        os.mkdir(output_dir)
+    for device in accelerator_devices:
+        rows = collect_sliced_ellpack_vs_vendor_sell(df, device, threshold=threshold)
+        if not rows:
+            continue
+        vendor = vendor_label(device)
+        print(
+            f"Writing poster SlicedEllpack overview vs. {vendor} SlicedEll for {device} "
+            f"({len(rows)} rows)"
+        )
+        reference_label = f"{vendor} SlicedEll"
+        title = f"TNL SlicedEllpack vs. best {vendor} SlicedEll on {device}"
+        draw_speedup_overview(
+            rows,
+            filename=os.path.join(
+                output_dir, f"speedup-slicedellpack-vs-{vendor.lower()}-slicedell-{device}.pdf"
+            ),
+            threshold=threshold,
+            subject_label="TNL",
+            reference_label=reference_label,
+            title=title,
+        )
+        write_speedup_overview_tikz(
+            rows,
+            filename=os.path.join(
+                output_dir, f"speedup-slicedellpack-vs-{vendor.lower()}-slicedell-{device}.tex"
+            ),
+            threshold=threshold,
+            subject_label="TNL",
+            reference_label=reference_label,
+            title=title,
+            wrap_reference_label=True,
         )
 
 

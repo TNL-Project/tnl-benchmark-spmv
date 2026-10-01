@@ -502,6 +502,7 @@ def analyze_df(df, args, formats, launch_configs, accelerator_devices):
         PosterOverviewGraphs.speedup_overview_csr_vs_vendor(
             df, formats, launch_configs, accelerator_devices
         )
+        PosterOverviewGraphs.speedup_overview_sliced_ellpack_vs_vendor(df, accelerator_devices)
         PosterOverviewGraphs.speedup_overview_variants(
             df, formats, launch_configs, accelerator_devices
         )
