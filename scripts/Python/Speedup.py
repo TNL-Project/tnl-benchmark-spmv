@@ -40,6 +40,24 @@ def divide_column_by_number(df, in_colA, number, out_col):
     df[out_col] = result.replace( [ float( "inf" ), float( "-inf" ) ], float( "nan" ) )
 
 
+def cpu_threads_count(launch_config):
+    """
+    Return the number of threads of a CPU launch config written by the
+    benchmark as "1 thread" or "N threads", or None for any other launch
+    config (e.g. "Default")
+    """
+    match = re.fullmatch(r"(\d+) threads?", str(launch_config))
+    return int(match.group(1)) if match else None
+
+
+def has_single_thread_cpu_run(format, launch_configs):
+    """
+    Check if the format was run on CPU with one thread, which is the reference
+    for the speed-up and the efficiency of its multi-threaded runs
+    """
+    return "1 thread" in launch_configs.get((format, "CPU"), [])
+
+
 """
 Compute speed-up and efficiency of different formats and launch configurations
 """
@@ -53,28 +71,38 @@ class Speedup:
         self.legacy_counterparts = legacy_counterparts
         self.accelerator_devices = accelerator_devices
 
+    def compute_cpu_efficiency(self):
+        """
+        Compute speed-up and parallel efficiency of the multi-threaded CPU runs
+        of every format/library (TNL CSR, Hypre, Ginkgo, ...) - always w.r.t.
+        the single-threaded run of the same format
+        """
+        for format in self.formats:
+            if not has_single_thread_cpu_run(format, self.launch_configs):
+                continue
+            for launch_config in self.launch_configs[(format, "CPU")]:
+                threads = cpu_threads_count(launch_config)
+                if threads is None or threads == 1:
+                    continue
+                print(f"Processing {format} CPU {launch_config}")
+                divide_columns(
+                    self.df,
+                    (format, "CPU", "1 thread", "time median", ""),
+                    (format, "CPU", launch_config, "time median", ""),
+                    (format, "CPU", launch_config, "speed-up", ""),
+                )
+                divide_column_by_number(
+                    self.df,
+                    (format, "CPU", launch_config, "speed-up", ""),
+                    threads,
+                    (format, "CPU", launch_config, "eff.", ""),
+                )
+
     def compute_csr_cpu_speedup(self):
         """
-        Compute speed-up and efficiency of the CSR format on CPU with different number of threads
+        Compute speed-up of particular formats on accelerators compared to the CSR format
+        on CPU with one thread
         """
-        for launch_config in self.launch_configs[("CSR", "CPU")]:
-            if launch_config == "1 thread" or launch_config == "Default":
-                continue
-            print(f"Processing CSR CPU {launch_config}")
-            threads = int(launch_config.split(" ")[0])
-            divide_columns(
-                self.df,
-                ("CSR", "CPU", "1 thread", "time median", ""),
-                ("CSR", "CPU", launch_config, "time median", ""),
-                ("CSR", "CPU", launch_config, "speed-up", ""),
-            )
-            divide_column_by_number(
-                self.df,
-                ("CSR", "CPU", launch_config, "speed-up", ""),
-                threads,
-                ("CSR", "CPU", launch_config, "eff.", ""),
-            )
-
         for format in self.formats:
             for device in self.accelerator_devices:
                 if format == vendor_format(device) or not (format, device) in self.launch_configs:
@@ -142,27 +170,13 @@ class Speedup:
                                             ),
                                         )
 
-                for launch_config in self.launch_configs[(ref_format, "CPU")]:
+                for launch_config in self.launch_configs.get((ref_format, "CPU"), []):
                     divide_columns(
                         self.df,
                         (ref_format, "CPU", launch_config, "time median", ""),
                         ("CSR", "CPU", launch_config, "time median", ""),
                         (ref_format, "CPU", launch_config, "TNL speed-up", ""),
                     )
-                    threads = int(launch_config.split(" ")[0])
-                    if threads != 1:
-                        divide_columns(
-                            self.df,
-                            (ref_format, "CPU", "1 thread", "time median", ""),
-                            (ref_format, "CPU", launch_config, "time median", ""),
-                            (ref_format, "CPU", launch_config, "speed-up", ""),
-                        )
-                        divide_column_by_number(
-                            self.df,
-                            (ref_format, "CPU", launch_config, "speed-up", ""),
-                            threads,
-                            (ref_format, "CPU", launch_config, "eff.", ""),
-                        )
 
     def compute_csr_light_speedup(self):
         """
@@ -261,6 +275,7 @@ class Speedup:
 
     def compute_speedup(self):
 
+        self.compute_cpu_efficiency()
         self.compute_csr_cpu_speedup()
         self.compute_vendor_speedup()
         self.compute_hypre_and_ginkgo_speedup()

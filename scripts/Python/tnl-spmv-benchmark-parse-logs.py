@@ -3,9 +3,11 @@
 """
 Parse the log files from tnl-benchmark-spmv, convert them to one big table
 (one row per matrix, one column per format/device/launch config/metric) and
-compute all speed-ups. The complete table is stored in a binary (pickle)
-file, which tnl-spmv-benchmark-make-tables-json.py then loads to generate
-the reports and graphs.
+compute all speed-ups. The results for the original and the transposed
+matrices are processed separately, each giving one table. Both tables are
+stored in a binary (pickle) file, which tnl-spmv-benchmark-make-tables-json.py
+then loads to generate the reports and graphs. The tables can be also
+exported to HTML or Excel (see --export).
 """
 
 import pandas as pd
@@ -17,7 +19,7 @@ import Speedup
 import PosterHeatmapGraphs
 from VendorLibraries import vendor_format
 from LegacyCounterparts import legacy_counterparts
-from BenchmarkTable import save_table, print_formats_and_launch_configs
+from BenchmarkTable import save_tables, export_tables, print_formats_and_launch_configs
 
 bw_units = "TB/s"
 
@@ -52,10 +54,21 @@ def get_arg_parser():
         help="Maximum number of rows to process from the input files",
     )
     parser.add_argument(
-        "--transposed",
-        help="Process results for the transposed matrices instead of the original ones",
-        action="store_true",
-        default=False,
+        "--duplicates",
+        choices=["first", "last", "min", "max"],
+        default="first",
+        help="How to resolve records of the same matrix, format, device and launch config "
+        "appearing more than once, e.g. the CPU results which the CUDA and HIP benchmarks "
+        "repeat: use the first or the last one in the order of the input files, or the one "
+        "with the smaller or the larger median time (default: first)",
+    )
+    parser.add_argument(
+        "--export",
+        nargs="+",
+        default=[],
+        metavar="FILE",
+        help="Export the complete tables also to the given files, the format is given by "
+        "the extension: .html or .xlsx",
     )
     return parser
 
@@ -73,18 +86,21 @@ def add_to_multiindex(mc, format, device, launch_config, launch_configs):
     counterpart).
 
     There are two branches:
-      - CPU-threaded CSR/Hypre/Ginkgo: these report a "1 threads" launch
-        config as the serial baseline, so parallel efficiency ("eff.") only
-        makes sense (and is only added) for the other thread counts.
+      - CSR/Hypre/Ginkgo on CPU: these are the reference solution, so they
+        have no diff.max.
       - everything else: bandwidth/time/diff.max, plus whichever speed-up
         comparisons apply to this format (see the comments below).
+    In both branches, CPU runs with "N threads" launch configs get the
+    speed-up and the parallel efficiency ("eff.") w.r.t. the "1 thread" run
+    of the same format, if there is one.
     """
+    cpu_efficiency_data = []
+    threads = Speedup.cpu_threads_count(launch_config) if device == "CPU" else None
+    if threads is not None and threads > 1 and Speedup.has_single_thread_cpu_run(format, launch_configs):
+        cpu_efficiency_data = ["speed-up", "eff."]
+
     if (format in ["CSR", "Hypre", "Ginkgo"]) and device == "CPU":
-        # For these formats on CPU we want to compute parallel efficiency
-        if launch_config == "1 threads":
-            bm_data = ["bandwidth", "time median"]
-        else:
-            bm_data = ["bandwidth", "time median", "speed-up", "eff."]
+        bm_data = ["bandwidth", "time median"] + cpu_efficiency_data
         if format in ["Hypre", "Ginkgo"]:
             bm_data.append("TNL speed-up")
         for data in bm_data:
@@ -97,7 +113,7 @@ def add_to_multiindex(mc, format, device, launch_config, launch_configs):
                 "bandwidth",
                 "time median",
                 "diff.max",
-            ]:
+            ] + cpu_efficiency_data:
                 mc.add_entry([format, device, launch_config, data])
                 #print(f"   >>> {format} {device} {launch_config} {data}")
         # If there is a legacy counterpart for the format we add speed-up to compare both
@@ -333,20 +349,19 @@ def normalize_time_columns(df):
     return df
 
 
-def filter_transposed(df, transposed):
+def normalize_transposed_column(df):
     """
-    Keep only the results for the original (transposed=False) or the transposed
-    (transposed=True) matrices. Logs from older builds have no "transposed"
-    column, their results are taken as non-transposed.
+    Convert the "transposed" column to bool. Logs from older builds have no
+    "transposed" column, their results are taken as non-transposed.
     """
     if "transposed" not in df.columns:
-        is_transposed = pd.Series(False, index=df.index)
+        df["transposed"] = False
     else:
-        is_transposed = df["transposed"].astype(str).str.lower() == "true"
-    return df[is_transposed == transposed]
+        df["transposed"] = df["transposed"].astype(str).str.lower() == "true"
+    return df
 
 
-def parse_input_files(file_list, transposed=False):
+def parse_input_files(file_list):
     """
     Parse input files and return a single dataframe
     """
@@ -354,12 +369,72 @@ def parse_input_files(file_list, transposed=False):
     for file in file_list:
         df = get_benchmark_dataframe(file)
         df = normalize_time_columns(df)
-        df = filter_transposed(df, transposed)
+        df = normalize_transposed_column(df)
         input_df = pd.concat([input_df, df])
     if "time median" not in input_df.columns:
         raise ValueError("No 'time median' (or 'time_median') column found in the input files.")
-    print(f"Using {'transposed' if transposed else 'non-transposed'} matrices: {len(input_df.index)} records")
+    # the index must be unique for resolve_duplicates()
+    input_df.reset_index(drop=True, inplace=True)
+    check_cpu_builds(input_df)
+    transposed_count = input_df["transposed"].sum()
+    print(
+        f"Parsed {len(input_df.index)} records: {len(input_df.index) - transposed_count} for the "
+        f"original matrices, {transposed_count} for the transposed matrices"
+    )
     return input_df
+
+
+def check_cpu_builds(input_df):
+    """
+    Warn if the CPU results come from several builds of the benchmark (the
+    "build" metadata column written by newer builds), since the GPU builds
+    usually run on a different machine than the host build and so their CPU
+    results are not comparable.
+    """
+    if "build" not in input_df.columns:
+        return
+    cpu_builds = sorted(input_df.loc[input_df["performer"] == "CPU", "build"].dropna().unique())
+    if len(cpu_builds) > 1:
+        print(
+            f"WARNING: The CPU results come from several builds of the benchmark {cpu_builds}, "
+            "they were probably measured on different machines."
+        )
+
+
+# Records with the same values in these columns are results of the same benchmark.
+duplicate_key = ["matrix name", "transposed", "format", "performer", "launch cfg."]
+
+
+def resolve_duplicates(input_df, policy):
+    """
+    Keep only one record of each benchmark (see duplicate_key) which appears
+    more than once in the input files. This happens mainly for the CPU, since
+    the CUDA and HIP builds of the benchmark compute the CSR format (and the
+    Binary and Symmetric formats) on the CPU too - older builds always, newer
+    ones only with --with-cpu-tests. The policy is one of
+      - "first"/"last": the first/last record in the order of the input files,
+      - "min"/"max": the record with the smaller/larger median time.
+    The order of the remaining records is preserved.
+    """
+    if "precision" in input_df.columns and input_df["precision"].nunique() > 1:
+        print(
+            f"WARNING: The input files contain results for several precisions "
+            f"{sorted(input_df['precision'].dropna().unique())}, they are treated as duplicates."
+        )
+    duplicated = input_df.duplicated(subset=duplicate_key, keep=False)
+    if not duplicated.any():
+        return input_df
+
+    groups = input_df[duplicated].groupby(["performer", "format"]).size()
+    print(f"Found {duplicated.sum()} records of benchmarks appearing more than once, keeping the {policy} one:")
+    for (performer, format), count in groups.items():
+        print(f"   {performer} {format}: {count} records")
+
+    if policy in ["first", "last"]:
+        return input_df.drop_duplicates(subset=duplicate_key, keep=policy)
+    time = pd.to_numeric(input_df["time median"], errors="coerce")
+    order = time.sort_values(ascending=(policy == "min"), na_position="last", kind="stable").index
+    return input_df.loc[order].drop_duplicates(subset=duplicate_key, keep="first").sort_index()
 
 
 def get_formats(input_df):
@@ -408,17 +483,9 @@ def get_launch_configs(input_df, accelerator_devices):
     config on every device so it still gets a column added for it.
     """
     launch_configs = {}
-    in_idx = 0
-    while in_idx < len(input_df.index):
-        row = input_df.iloc[in_idx]
-        format = row["format"]
-        device = row["performer"]
-        launch_cfg = row["launch cfg."]
-        if (format, device) not in launch_configs:
-            launch_configs[(format, device)] = []
-        if launch_cfg not in launch_configs[(format, device)]:
-            launch_configs[(format, device)].append(launch_cfg)
-        in_idx += 1
+    combinations = input_df[["format", "performer", "launch cfg."]].drop_duplicates()
+    for format, device, launch_cfg in combinations.itertuples(index=False):
+        launch_configs.setdefault((format, device), []).append(launch_cfg)
     for device in accelerator_devices:
         launch_configs[("CSR Best", device)] = []
         launch_configs[("CSR Best", device)].append("")
@@ -427,12 +494,10 @@ def get_launch_configs(input_df, accelerator_devices):
     return launch_configs
 
 
-def build_table(args):
+def build_table(input_df, args):
     """
-    Parse the input files, convert them to the multiindex table and compute speed-ups
+    Convert the records of the input files to the multiindex table and compute speed-ups
     """
-    print(f"Parsing input files: {args.input}")
-    input_df = parse_input_files(args.input, args.transposed)
     formats = get_formats(input_df)
     accelerator_devices = get_accelerator_devices(input_df)
     print(f"Accelerator devices found in the data: {accelerator_devices}")
@@ -452,14 +517,41 @@ def build_table(args):
     )
     result = speedup_getter.compute_speedup()
     result.replace(to_replace=" ", value=np.nan, inplace=True)
-    return result, formats, launch_configs, accelerator_devices
+    return {
+        "df": result,
+        "formats": formats,
+        "launch_configs": launch_configs,
+        "accelerator_devices": accelerator_devices,
+    }
+
+
+def build_tables(args):
+    """
+    Parse the input files and build one table for the original and one for the
+    transposed matrices (None if there are no results for them)
+    """
+    print(f"Parsing input files: {args.input}")
+    input_df = parse_input_files(args.input)
+    input_df = resolve_duplicates(input_df, args.duplicates)
+    tables = {}
+    for name, transposed in [("original", False), ("transposed", True)]:
+        records = input_df[input_df["transposed"] == transposed]
+        if records.empty:
+            print(f"No results for the {name} matrices.")
+            tables[name] = None
+            continue
+        print(f"Building the table for the {name} matrices...")
+        tables[name] = build_table(records, args)
+    return tables
 
 
 def main():
     argparser = get_arg_parser()
     args = argparser.parse_args()
-    result, formats, launch_configs, accelerator_devices = build_table(args)
-    save_table(args.output, result, formats, launch_configs, accelerator_devices)
+    tables = build_tables(args)
+    save_tables(args.output, tables)
+    for file_name in args.export:
+        export_tables(file_name, tables)
 
 
 if __name__ == "__main__":

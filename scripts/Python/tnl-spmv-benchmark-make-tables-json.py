@@ -30,6 +30,12 @@ def get_arg_parser():
         "tnl-spmv-benchmark-parse-logs.py (default: spmv-benchmark-table.pkl)",
     )
     parser.add_argument(
+        "--transposed",
+        help="Analyze the results for the transposed matrices instead of the original ones",
+        action="store_true",
+        default=False,
+    )
+    parser.add_argument(
         "-v", "--verbose", help="Set verbose output.", action="store_true", default=True
     )
     parser.add_argument(
@@ -129,7 +135,7 @@ def main():
     argparser = get_arg_parser()
     args = argparser.parse_args()
 
-    result, formats, launch_configs, accelerator_devices = load_table(args.input)
+    result, formats, launch_configs, accelerator_devices = load_table(args.input, args.transposed)
     if args.verbose:
         print_formats_and_launch_configs(formats, launch_configs, accelerator_devices)
 
