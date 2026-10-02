@@ -4,7 +4,7 @@ only ever compared with the vendor library on that same device - CUDA with
 cuSPARSE, HIP with hipSPARSE - never across devices.
 
 Shared by the speed-up computation (Speedup.py,
-tnl-spmv-benchmark-make-tables-json.py), the HTML report (Report.py,
+tnl-spmv-benchmark-parse-logs.py), the HTML report (Report.py,
 BestFormats.py) and the poster charts (PosterGraphsCommon.py), so they all
 agree on which library is "the vendor library" of a device.
 """

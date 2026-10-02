@@ -801,7 +801,7 @@ def speedup_overview_variants(
     that tag (e.g. "Sorted CSR"), comparing each one against its own
     non-variant counterpart (e.g. "Sorted CSR" vs "CSR") using the "speed-up"
     vs. "non-binary"/"non-symmetric"/"non-sorted" column that
-    tnl-spmv-benchmark-make-tables-json.py already computes for these
+    tnl-spmv-benchmark-parse-logs.py already computes for these
     formats.
 
     These formats are excluded from speedup_overview_vs_libraries() to keep
