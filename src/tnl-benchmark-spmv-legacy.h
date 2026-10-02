@@ -42,7 +42,12 @@ setupConfig( Config::ConfigDescription& config )
    config.addRequiredEntry< String >( "input-file", "Input file name." );
    config.addEntry< String >( "matrix-name", "Matrix name used in the log. Defaults to the input file name.", "" );
    config.addEntry< bool >( "with-ellpack-formats", "Perform benchmark for Ellpack based matrix formats.", true );
-   config.addEntry< bool >( "with-all-cpu-tests", "All matrix formats are tested on both CPU and GPU. ", false );
+   config.addEntry< bool >( "with-cpu-tests",
+                            "Benchmark also the CPU. The GPU builds skip it by default, the reference result "
+                            "the other formats are compared with is computed anyway.",
+                            TNL::Benchmarks::SpMV::cpuTestsByDefault );
+   config.addEntry< bool >(
+      "with-all-cpu-tests", "Benchmark all matrix formats on the CPU, not only CSR. Requires with-cpu-tests.", false );
    config.addEntry< String >( "precision", "Precision of the arithmetics.", "double" );
    config.addEntryEnum( "float" );
    config.addEntryEnum( "double" );

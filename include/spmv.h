@@ -7,6 +7,7 @@
 #include <cstdint>
 
 #include "SpmvBenchmarkResult.h"
+#include "CpuBenchmarking.h"
 #include <TNL/Benchmarks/Benchmark.h>
 
 #include <TNL/Algorithms/Segments/BiEllpack.h>
@@ -265,13 +266,12 @@ benchmarkSpMV( BenchmarkType& benchmark,
                bool verboseMR,
                Index sigma = -1 )
 {
-   // TODO: Host should be benchmarked as other devices, i.e. with
-   //       launch configurations when it allows changing the number of OMP
-   //       threads.
    using TestMatrix = SigmaSparseMatrix< TestValue, TNL::Devices::Host, Index, MatrixType, SegmentsType, Real >;
    using HostVector = Containers::Vector< Real, Devices::Host, Index >;
 
-   bool allCpuTests = parameters.getParameter< bool >( "with-all-cpu-tests" );
+   const bool cpuTests =
+      parameters.getParameter< bool >( "with-cpu-tests" )
+      && ( parameters.getParameter< bool >( "with-all-cpu-tests" ) || TestMatrix::isBinary() || TestMatrix::isSymmetric() );
    benchmark.setMetadataElement(
       { "format", applySigmaToFormatName( MatrixInfo< typename TestMatrix::Base >::getFormat(), sigma ) } );
    benchmark.setMetadataElement( { "launch cfg.", "Default" } );
@@ -293,7 +293,7 @@ benchmarkSpMV( BenchmarkType& benchmark,
    benchmark.setDatasetSize( datasetSize );
 
    // Benchmark SpMV on host
-   if( allCpuTests || TestMatrix::isBinary() || TestMatrix::isSymmetric() ) {
+   if( cpuTests ) {
       HostVector hostInVector( hostMatrix.getColumns() ), hostOutVector( hostMatrix.getRows() );
 
       auto resetHostVectors = [ & ]()
@@ -307,7 +307,12 @@ benchmarkSpMV( BenchmarkType& benchmark,
          hostMatrix.vectorProduct( hostInVector, hostOutVector );
       };
       SpmvBenchmarkResult< Real, Devices::Host, Index > hostBenchmarkResults( csrResultVector, hostOutVector );
-      benchmark.time< Devices::Host >( resetHostVectors, "CPU", spmvHost, hostBenchmarkResults );
+      forEachCpuThreadsCount( parameters.getParameter< bool >( "cpu-threads-sweep" ),
+                              [ & ]( const std::string& launchConfig )
+                              {
+                                 benchmark.setMetadataElement( { "launch cfg.", launchConfig } );
+                                 benchmark.time< Devices::Host >( resetHostVectors, "CPU", spmvHost, hostBenchmarkResults );
+                              } );
    }
 
 #ifdef __CUDACC__
@@ -501,6 +506,7 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
    benchmark.setMetadataColumns( { { "matrix name", matrixName },
                                    { "transposed", transposed ? "true" : "false" },
                                    { "precision", getType< Real >() },
+                                   { "build", getBuildName() },
                                    { "rows", convertToString( csrHostMatrix.getRows() ) },
                                    { "columns", convertToString( csrHostMatrix.getColumns() ) },
                                    { "nonzeros", convertToString( nonzeros ) },
@@ -527,8 +533,7 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
                                    { "entropy", convertToString( matrixStats.getEntropy() ) },
                                    { "Gini", convertToString( matrixStats.getGini() ) },
                                    { "format", "" },
-                                   { "launch cfg.", "" },
-                                   { "threads", "1" } } );
+                                   { "launch cfg.", "" } } );
 
    HostVector hostInVector( csrHostMatrix.getColumns() ), hostOutVector( csrHostMatrix.getRows() );
 
@@ -543,27 +548,23 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
       csrHostMatrix.vectorProduct( hostInVector, hostOutVector );
    };
 
-   // TODO: Move the following benchmarking to benchmarkSpMV function
-   // when we can set the number of threads for the host in the
-   // launch configuration.
-   SpmvBenchmarkResult< Real, Devices::Host, Index > csrBenchmarkResults( hostOutVector, hostOutVector );
-#ifdef HAVE_OPENMP
-   const int maxThreadsCount = Devices::Host::getMaxThreadsCount();
-#else
-   const int maxThreadsCount = 1;
-#endif
-   int threads = 1;
-   while( true ) {
+   // CSR on the CPU is benchmarked always with all numbers of threads, since
+   // it is the reference for the speed-up of the other formats. Its result in
+   // hostOutVector is the reference result the other formats are compared with,
+   // so it must be computed even without the CPU benchmarks.
+   if( parameters.getParameter< bool >( "with-cpu-tests" ) ) {
+      SpmvBenchmarkResult< Real, Devices::Host, Index > csrBenchmarkResults( hostOutVector, hostOutVector );
       benchmark.setMetadataElement( { "format", "CSR" } );
-      auto launch_config = convertToString( threads ) + " threads";
-      if( threads == 1 )
-         launch_config = "1 thread";
-      benchmark.setMetadataElement( { "launch cfg.", launch_config.getString() } );
-      Devices::Host::setMaxThreadsCount( threads );
-      benchmark.time< Devices::Host >( resetHostVectors, "CPU", spmvCSRHost, csrBenchmarkResults );
-      if( threads == maxThreadsCount )
-         break;
-      threads = min( 2 * threads, maxThreadsCount );
+      forEachCpuThreadsCount( true,
+                              [ & ]( const std::string& launchConfig )
+                              {
+                                 benchmark.setMetadataElement( { "launch cfg.", launchConfig } );
+                                 benchmark.time< Devices::Host >( resetHostVectors, "CPU", spmvCSRHost, csrBenchmarkResults );
+                              } );
+   }
+   else {
+      resetHostVectors();
+      spmvCSRHost();
    }
 
    dispatchGeneral< Real, Index >( benchmark, csrHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );

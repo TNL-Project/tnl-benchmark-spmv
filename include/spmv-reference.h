@@ -6,6 +6,7 @@
 
 #include <TNL/Benchmarks/Benchmark.h>
 #include "SpmvBenchmarkResult.h"
+#include "CpuBenchmarking.h"
 
 #include <TNL/Matrices/MatrixReader.h>
 #include <TNL/Matrices/MatrixInfo.h>
@@ -132,6 +133,7 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
       { "matrix name", matrixName },
       { "transposed", transposed ? "true" : "false" },
       { "precision", getType< Real >() },
+      { "build", getBuildName() },
       { "rows", convertToString( csrHostMatrix.getRows() ) },
       { "columns", convertToString( csrHostMatrix.getColumns() ) },
       { "nonzeros", convertToString( nonzeros ) },
@@ -161,72 +163,72 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
    spmvCSRHost();
    const HostVector csrResultVector( hostOutVector );
 
+   const bool cpuTests = parameters.getParameter< bool >( "with-cpu-tests" );
+
 #ifdef HAVE_PETSC
-   Mat petscMatrix;
-   Containers::Vector< PetscInt, Devices::Host, PetscInt > petscRowPointers( csrHostMatrix.getRowPointers() );
-   Containers::Vector< PetscInt, Devices::Host, PetscInt > petscColumns( csrHostMatrix.getColumnIndexes() );
-   Containers::Vector< PetscScalar, Devices::Host, PetscInt > petscValues( csrHostMatrix.getValues() );
-   MatCreateSeqAIJWithArrays( PETSC_COMM_WORLD,  //PETSC_COMM_SELF,
-                              csrHostMatrix.getRows(),
-                              csrHostMatrix.getColumns(),
-                              petscRowPointers.getData(),
-                              petscColumns.getData(),
-                              petscValues.getData(),
-                              &petscMatrix );
-   Vec inVector, outVector;
-   VecCreateSeq( PETSC_COMM_WORLD, csrHostMatrix.getColumns(), &inVector );
-   VecCreateSeq( PETSC_COMM_WORLD, csrHostMatrix.getRows(), &outVector );
+   if( cpuTests ) {
+      Mat petscMatrix;
+      Containers::Vector< PetscInt, Devices::Host, PetscInt > petscRowPointers( csrHostMatrix.getRowPointers() );
+      Containers::Vector< PetscInt, Devices::Host, PetscInt > petscColumns( csrHostMatrix.getColumnIndexes() );
+      Containers::Vector< PetscScalar, Devices::Host, PetscInt > petscValues( csrHostMatrix.getValues() );
+      MatCreateSeqAIJWithArrays( PETSC_COMM_WORLD,  //PETSC_COMM_SELF,
+                                 csrHostMatrix.getRows(),
+                                 csrHostMatrix.getColumns(),
+                                 petscRowPointers.getData(),
+                                 petscColumns.getData(),
+                                 petscValues.getData(),
+                                 &petscMatrix );
+      Vec inVector, outVector;
+      VecCreateSeq( PETSC_COMM_WORLD, csrHostMatrix.getColumns(), &inVector );
+      VecCreateSeq( PETSC_COMM_WORLD, csrHostMatrix.getRows(), &outVector );
 
-   auto resetPetscVectors = [ & ]()
-   {
-      VecSet( inVector, 1.0 );
-      VecSet( outVector, 0.0 );
-   };
+      auto resetPetscVectors = [ & ]()
+      {
+         VecSet( inVector, 1.0 );
+         VecSet( outVector, 0.0 );
+      };
 
-   auto petscSpmvCSRHost = [ & ]()
-   {
-      MatMult( petscMatrix, inVector, outVector );
-   };
+      auto petscSpmvCSRHost = [ & ]()
+      {
+         MatMult( petscMatrix, inVector, outVector );
+      };
 
-   SpmvBenchmarkResult< Real, Devices::Host, int > petscBenchmarkResults( csrResultVector, outVector );
-   benchmark.setMetadataElement( { "format", "Petsc" } );
-   benchmark.time< Devices::Host >( resetPetscVectors, "CPU", petscSpmvCSRHost, petscBenchmarkResults );
+      SpmvBenchmarkResult< Real, Devices::Host, int > petscBenchmarkResults( csrResultVector, outVector );
+      benchmark.setMetadataElement( { "format", "Petsc" } );
+      // MatCreateSeqAIJWithArrays creates a sequential matrix
+      benchmark.setMetadataElement( { "launch cfg.", getCpuLaunchConfig( 1 ) } );
+      benchmark.time< Devices::Host >( resetPetscVectors, "CPU", petscSpmvCSRHost, petscBenchmarkResults );
+   }
 #endif
 
 #if defined( HAVE_HYPRE ) && ! defined( HYPRE_USING_GPU )
    // Initialize HYPRE and set some global options, notably HYPRE_SetSpGemmUseCusparse(0);
    if constexpr( std::is_same< HYPRE_Real, Real >::value && std::is_same< HYPRE_Int, int >::value ) {
-      TNL::Hypre hypre;
-      using HypreCSR = TNL::Matrices::HypreCSRMatrix;
-      HypreCSR hypreCSRMatrix( csrHostMatrix.getRows(),
-                               csrHostMatrix.getColumns(),
-                               csrHostMatrix.getValues().getView(),
-                               csrHostMatrix.getColumnIndexes().getView(),
-                               csrHostMatrix.getSegments().getOffsets().getView() );
-      auto hostInVectorView = hostInVector.getView();
-      auto hostOutVectorView = hostOutVector.getView();
+      if( cpuTests ) {
+         TNL::Hypre hypre;
+         using HypreCSR = TNL::Matrices::HypreCSRMatrix;
+         HypreCSR hypreCSRMatrix( csrHostMatrix.getRows(),
+                                  csrHostMatrix.getColumns(),
+                                  csrHostMatrix.getValues().getView(),
+                                  csrHostMatrix.getColumnIndexes().getView(),
+                                  csrHostMatrix.getSegments().getOffsets().getView() );
+         auto hostInVectorView = hostInVector.getView();
+         auto hostOutVectorView = hostOutVector.getView();
 
-      auto spmvHypreCSRHost = [ & ]()
-      {
-         hypreCSRMatrix.vectorProduct( hostInVectorView, hostOutVectorView );
-      };
+         auto spmvHypreCSRHost = [ & ]()
+         {
+            hypreCSRMatrix.vectorProduct( hostInVectorView, hostOutVectorView );
+         };
 
-      SpmvBenchmarkResult< Real, Devices::Host, int > hypreBenchmarkResults( csrResultVector, hostOutVector );
-      const int maxThreadsCount =
-         max( 1, Devices::Host::getMaxThreadsCount() );  // TODO: This si workaround for getMaxThreadsCoutn returning 0 if
-                                                         // OpenMP is disabled
-      int threads = 1;
-      while( true ) {
+         SpmvBenchmarkResult< Real, Devices::Host, int > hypreBenchmarkResults( csrResultVector, hostOutVector );
          benchmark.setMetadataElement( { "format", "Hypre" } );
-         auto launch_config = convertToString( threads ) + " threads";
-         if( threads == 1 )
-            launch_config = "1 thread";
-         benchmark.setMetadataElement( { "launch cfg.", launch_config.getString() } );
-         Devices::Host::setMaxThreadsCount( threads );
-         benchmark.time< Devices::Host >( resetHostVectors, "CPU", spmvHypreCSRHost, hypreBenchmarkResults );
-         if( threads == maxThreadsCount )
-            break;
-         threads = min( 2 * threads, maxThreadsCount );
+         forEachCpuThreadsCount( true,
+                                 [ & ]( const std::string& launchConfig )
+                                 {
+                                    benchmark.setMetadataElement( { "launch cfg.", launchConfig } );
+                                    benchmark.time< Devices::Host >(
+                                       resetHostVectors, "CPU", spmvHypreCSRHost, hypreBenchmarkResults );
+                                 } );
       }
    }
    else {
@@ -242,35 +244,29 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
 #if defined( HAVE_GINKGO ) && ! defined( __CUDACC__ ) && ! defined( __HIP__ )
    // Ginkgo on the CPU is benchmarked only in the host binary, the GPU binaries
    // would just repeat the same measurements.
-   // Create a Ginkgo Csr view
-   auto gko_host_A = gko::share( getGinkgoMatrixCsrView( gko_host_exec, csrHostMatrix ) );
+   if( cpuTests ) {
+      // Create a Ginkgo Csr view
+      auto gko_host_A = gko::share( getGinkgoMatrixCsrView( gko_host_exec, csrHostMatrix ) );
 
-   // Wrap the vectors
-   // apply( b, x ) computes x = A * b
-   auto gko_host_b = Containers::GinkgoVector< Real, Devices::Host >::create( gko_host_exec, hostInVector.getView() );
-   auto gko_host_x = Containers::GinkgoVector< Real, Devices::Host >::create( gko_host_exec, hostOutVector.getView() );
+      // Wrap the vectors
+      // apply( b, x ) computes x = A * b
+      auto gko_host_b = Containers::GinkgoVector< Real, Devices::Host >::create( gko_host_exec, hostInVector.getView() );
+      auto gko_host_x = Containers::GinkgoVector< Real, Devices::Host >::create( gko_host_exec, hostOutVector.getView() );
 
-   auto spmvGinkgoCSRHost = [ & ]()
-   {
-      gko_host_A->apply( gko_host_b.get(), gko_host_x.get() );
-   };
+      auto spmvGinkgoCSRHost = [ & ]()
+      {
+         gko_host_A->apply( gko_host_b.get(), gko_host_x.get() );
+      };
 
-   SpmvBenchmarkResult< Real, Devices::Host, int > ginkgoHostBenchmarkResults( csrResultVector, hostOutVector );
-   const int maxThreadsCount =
-      max( 1, Devices::Host::getMaxThreadsCount() );  // TODO: This si workaround for getMaxThreadsCoutn returning 0 if OpenMP
-                                                      // is disabled
-   int threads = 1;
-   while( true ) {
+      SpmvBenchmarkResult< Real, Devices::Host, int > ginkgoHostBenchmarkResults( csrResultVector, hostOutVector );
       benchmark.setMetadataElement( { "format", "Ginkgo" } );
-      auto launch_config = convertToString( threads ) + " threads";
-      if( threads == 1 )
-         launch_config = "1 thread";
-      benchmark.setMetadataElement( { "launch cfg.", launch_config.getString() } );
-      Devices::Host::setMaxThreadsCount( threads );
-      benchmark.time< Devices::Host >( resetHostVectors, "CPU", spmvGinkgoCSRHost, ginkgoHostBenchmarkResults );
-      if( threads == maxThreadsCount )
-         break;
-      threads = min( 2 * threads, maxThreadsCount );
+      forEachCpuThreadsCount( true,
+                              [ & ]( const std::string& launchConfig )
+                              {
+                                 benchmark.setMetadataElement( { "launch cfg.", launchConfig } );
+                                 benchmark.time< Devices::Host >(
+                                    resetHostVectors, "CPU", spmvGinkgoCSRHost, ginkgoHostBenchmarkResults );
+                              } );
    }
 #endif
 

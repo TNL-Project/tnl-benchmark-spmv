@@ -51,6 +51,10 @@ setupConfig( Config::ConfigDescription& config )
    config.addEntryEnum( "float" );
    config.addEntryEnum( "double" );
    config.addEntryEnum( "all" );
+   config.addEntry< bool >( "with-cpu-tests",
+                            "Benchmark also the CPU. The GPU builds skip it by default, the reference result "
+                            "the other formats are compared with is computed anyway.",
+                            TNL::Benchmarks::SpMV::cpuTestsByDefault );
    config.addEntry< int >( "verbose-MReader", "Verbose mode for Matrix Reader.", 0 );
 
    config.addDelimiter( "Device settings:" );

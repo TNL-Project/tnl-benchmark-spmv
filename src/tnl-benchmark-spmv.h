@@ -47,7 +47,18 @@ setupConfig( Config::ConfigDescription& config )
                             "with sigma = 256 (sorting within blocks of 256 segments). Requires with-sorted-segments.",
                             true );
    config.addEntry< bool >( "with-ellpack-formats", "Perform benchmark for Ellpack based matrix formats.", true );
-   config.addEntry< bool >( "with-all-cpu-tests", "All matrix formats are tested on both CPU and GPU. ", false );
+   config.addEntry< bool >( "with-cpu-tests",
+                            "Benchmark also the CPU. The GPU builds skip it by default, the reference result "
+                            "the other formats are compared with is computed anyway.",
+                            TNL::Benchmarks::SpMV::cpuTestsByDefault );
+   config.addEntry< bool >( "with-all-cpu-tests",
+                            "Benchmark all matrix formats on the CPU, not only CSR and the Binary and Symmetric "
+                            "formats. Requires with-cpu-tests.",
+                            false );
+   config.addEntry< bool >( "cpu-threads-sweep",
+                            "Benchmark the matrix formats on the CPU with 1, 2, 4, ... threads up to the maximal "
+                            "number of threads, not only with the maximal one. CSR is always benchmarked this way.",
+                            false );
    config.addEntry< String >( "precision", "Precision of the arithmetics.", "double" );
    config.addEntryEnum( "float" );
    config.addEntryEnum( "double" );
