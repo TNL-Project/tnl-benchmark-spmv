@@ -37,7 +37,10 @@ setupConfig( Config::ConfigDescription& config )
    config.addEntry< String >( "matrix-name", "Matrix name used in the log. Defaults to the input file name.", "" );
    config.addEntry< bool >( "with-symmetric-matrices", "Perform benchmark even for symmetric matrix formats.", true );
    config.addEntry< String >(
-      "with-transposed-matrix", "Benchmark also (false/true) or only (only) the transposed matrix.", "true" );
+      "with-transposed-matrix",
+      "Benchmark also (true), not (false) or only (only) the transposed matrix. The transposition of a structurally "
+      "symmetric matrix is never benchmarked, since it has the same pattern.",
+      "true" );
    config.addEntryEnum( "false" );
    config.addEntryEnum( "true" );
    config.addEntryEnum( "only" );

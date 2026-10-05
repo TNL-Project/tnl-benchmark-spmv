@@ -70,12 +70,17 @@ each also in variants with sorted segments, Binary (matrix values ignored)
 and Symmetric (only for symmetric matrices).
 
 Every binary benchmarks one matrix per run, the original and by default
-also the transposed one (except the legacy benchmarks). Each result is one JSON line appended to the log
-file, so the logs of many runs (and binaries) can be concatenated. The
-metadata of each record include the matrix name and statistics, the format,
-the device (`performer`), the launch configuration, the `build` (`host`,
-`cuda` or `hip`), the time, the bandwidth and the difference from the
-result of CSR on the CPU (`CSR Diff.Max`, `CSR Diff.L2`).
+also the transposed one (except the legacy benchmarks). The transposition
+is skipped for structurally symmetric matrices, i.e. matrices declared as
+symmetric in the MTX file or with a symmetric pattern of the nonzero
+elements, since it has the same pattern. Each result is one JSON line
+appended to the log file, so the logs of many runs (and binaries) can be
+concatenated. The metadata of each record include the matrix name and
+statistics, whether the matrix is `symmetric` (declared in the MTX file)
+and `structurally symmetric`, the format, the device (`performer`), the
+launch configuration, the `build` (`host`, `cuda` or `hip`), the time, the
+bandwidth and the difference from the result of CSR on the CPU
+(`CSR Diff.Max`, `CSR Diff.L2`).
 
 The CPU runs are labeled with the real number of threads (`1 thread`,
 `N threads`). CSR on the CPU is always benchmarked with 1, 2, 4, … threads
@@ -91,7 +96,7 @@ Basic command line options (see `--help` for all of them):
 | `--matrix-name <name>` | matrix name written to the log (default: the input file name) |
 | `--log-file <file>`, `--output-mode append\|overwrite` | the log file and whether to append to it |
 | `--precision float\|double\|all` | precision of the computation (default: `double`) |
-| `--with-transposed-matrix true\|false\|only` | benchmark also / not / only the transposed matrix |
+| `--with-transposed-matrix true\|false\|only` | benchmark also / not / only the transposed matrix (never for structurally symmetric matrices) |
 | `--with-symmetric-matrices`, `--with-sorted-segments`, `--with-sigma-256-sorted-segments`, `--with-ellpack-formats` | enable or disable groups of formats |
 | `--with-cpu-tests` | benchmark the CPU (default: yes in the host build, no in the GPU builds) |
 | `--with-all-cpu-tests` | on the CPU, benchmark all formats, not only CSR, Binary and Symmetric |
@@ -176,6 +181,9 @@ in the TNL repository, installed together with TNL).
      benchmark appears more than once in the input (default: `first`). The
      CPU results should come from one machine only, the script warns if
      they come from several builds.
+   - `--fill-transposed` – fill the table for the transposed matrices with
+     the results for the original ones for the structurally symmetric
+     matrices, whose transposition is not benchmarked
    - `--max-rows <n>` – process only the first `n` matrices
 
 2. [tnl-spmv-benchmark-make-tables-json.py](./scripts/Python/tnl-spmv-benchmark-make-tables-json.py)

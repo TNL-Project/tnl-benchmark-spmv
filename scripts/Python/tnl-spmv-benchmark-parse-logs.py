@@ -23,6 +23,9 @@ from BenchmarkTable import save_tables, export_tables, print_formats_and_launch_
 
 bw_units = "TB/s"
 
+# Symmetry of the matrix as written by the benchmark ("true"/"false"), older logs do not have it.
+symmetry_columns = ["symmetric", "structurally symmetric"]
+
 
 def get_arg_parser():
     parser = argparse.ArgumentParser(
@@ -61,6 +64,13 @@ def get_arg_parser():
         "appearing more than once, e.g. the CPU results which the CUDA and HIP benchmarks "
         "repeat: use the first or the last one in the order of the input files, or the one "
         "with the smaller or the larger median time (default: first)",
+    )
+    parser.add_argument(
+        "--fill-transposed",
+        help="Fill the table for the transposed matrices with the results for the original "
+        "ones for the structurally symmetric matrices, whose transposition is not benchmarked",
+        action="store_true",
+        default=False,
     )
     parser.add_argument(
         "--export",
@@ -180,6 +190,7 @@ def get_multiindex(input_df, formats, launch_configs, accelerator_devices):
     """
     mc = mic.MultiindexCreator(5)
     mc.add_entries([["Matrix name"], ["rows"], ["columns"], ["nonzeros"], ["nonzeros per row"]])
+    mc.add_entries([[column] for column in symmetry_columns])
     mc.add_entries([[stat] for stat in PosterHeatmapGraphs.MATRIX_STAT_COLUMNS])
 
     for format in formats:
@@ -303,6 +314,11 @@ def convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=-1)
         pd.to_numeric(metadata["nonzeros"], errors="coerce")
         / pd.to_numeric(metadata["rows"], errors="coerce")
     ).values
+    for column in symmetry_columns:
+        if column in metadata.columns:
+            result[(column, "", "", "", "")] = (
+                metadata[column].map({"true": True, "false": False, True: True, False: False}).values
+            )
     for stat in PosterHeatmapGraphs.MATRIX_STAT_COLUMNS:
         if stat in metadata.columns:
             result[(stat, "", "", "", "")] = pd.to_numeric(
@@ -525,6 +541,40 @@ def build_table(input_df, args):
     }
 
 
+def fill_transposed_table(original, transposed):
+    """
+    Add the rows of the structurally symmetric matrices from the table for the
+    original matrices to the table for the transposed matrices. The benchmark
+    does not benchmark their transposition, since it has the same pattern.
+    """
+    if original is None:
+        return transposed
+    df = original["df"]
+    name_column = ("Matrix name", "", "", "", "")
+    symmetry_column = ("structurally symmetric", "", "", "", "")
+    if symmetry_column not in df.columns or df[symmetry_column].isna().all():
+        print(
+            "WARNING: The logs do not tell which matrices are structurally symmetric, "
+            "the table for the transposed matrices is not filled."
+        )
+        return transposed
+    symmetric = df[df[symmetry_column] == True]
+    if transposed is not None:
+        symmetric = symmetric[~symmetric[name_column].isin(transposed["df"][name_column])]
+    if symmetric.empty:
+        return transposed
+    print(
+        f"Filling the table for the transposed matrices with the results for "
+        f"{len(symmetric.index)} structurally symmetric matrices."
+    )
+    if transposed is None:
+        return {**original, "df": symmetric.reset_index(drop=True)}
+    filled = pd.concat(
+        [transposed["df"], symmetric.reindex(columns=transposed["df"].columns)], ignore_index=True
+    )
+    return {**transposed, "df": filled}
+
+
 def build_tables(args):
     """
     Parse the input files and build one table for the original and one for the
@@ -542,6 +592,8 @@ def build_tables(args):
             continue
         print(f"Building the table for the {name} matrices...")
         tables[name] = build_table(records, args)
+    if args.fill_transposed:
+        tables["transposed"] = fill_transposed_table(tables["original"], tables["transposed"])
     return tables
 
 

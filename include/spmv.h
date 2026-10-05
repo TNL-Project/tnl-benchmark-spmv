@@ -8,6 +8,7 @@
 
 #include "SpmvBenchmarkResult.h"
 #include "CpuBenchmarking.h"
+#include "MatrixTransposition.h"
 #include <TNL/Benchmarks/Benchmark.h>
 
 #include <TNL/Algorithms/Segments/BiEllpack.h>
@@ -473,7 +474,8 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
                             const String& inputFileName,
                             const Config::ParameterContainer& parameters,
                             bool verboseMR,
-                            bool transposed )
+                            bool transposed,
+                            const MatrixSymmetry& symmetry )
 {
    using CSRHostMatrix = Matrices::SparseMatrix< Real, TNL::Devices::Host, Index >;
    using HostVector = Containers::Vector< Real, Devices::Host, Index >;
@@ -505,6 +507,8 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
    //
    benchmark.setMetadataColumns( { { "matrix name", matrixName },
                                    { "transposed", transposed ? "true" : "false" },
+                                   { "symmetric", symmetry.symmetric ? "true" : "false" },
+                                   { "structurally symmetric", symmetry.structurallySymmetric ? "true" : "false" },
                                    { "precision", getType< Real >() },
                                    { "build", getBuildName() },
                                    { "rows", convertToString( csrHostMatrix.getRows() ) },
@@ -593,14 +597,20 @@ benchmarkSpmv( BenchmarkType& benchmark,
    std::cout << "Compression ratio: " << (double) uncompressedSize / compressedSize << std::endl;
 
    const String& withTransposedMatrix = parameters.getParameter< String >( "with-transposed-matrix" );
+   const MatrixSymmetry symmetry = getMatrixSymmetry( inputFileName, csrHostMatrix );
+   const bool withTransposition = withTransposedMatrix != "false" && ! symmetry.structurallySymmetric;
+   if( withTransposedMatrix != "false" && symmetry.structurallySymmetric )
+      std::cout << "The matrix is structurally symmetric, its transposition is not benchmarked." << std::endl;
 
    if( withTransposedMatrix != "only" )
-      runSpmvBenchmarksForMatrix< Real, Index >( benchmark, csrHostMatrix, inputFileName, parameters, verboseMR, false );
+      runSpmvBenchmarksForMatrix< Real, Index >(
+         benchmark, csrHostMatrix, inputFileName, parameters, verboseMR, false, symmetry );
 
-   if( withTransposedMatrix != "false" ) {
+   if( withTransposition ) {
       CSRHostMatrix transposedHostMatrix;
-      transposedHostMatrix.getTransposition( csrHostMatrix );
-      runSpmvBenchmarksForMatrix< Real, Index >( benchmark, transposedHostMatrix, inputFileName, parameters, verboseMR, true );
+      getSortedTransposition( transposedHostMatrix, csrHostMatrix );
+      runSpmvBenchmarksForMatrix< Real, Index >(
+         benchmark, transposedHostMatrix, inputFileName, parameters, verboseMR, true, symmetry );
    }
 }
 
