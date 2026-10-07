@@ -73,6 +73,14 @@ def get_arg_parser():
         default=False,
     )
     parser.add_argument(
+        "--matrices-report",
+        default="spmv-benchmark-matrices.txt",
+        metavar="FILE",
+        help="File listing the matrices missing in some of the input files, with their "
+        "dimensions, nonzeros and the estimated memory of the CSR format "
+        "(default: spmv-benchmark-matrices.txt)",
+    )
+    parser.add_argument(
         "--export",
         nargs="+",
         default=[],
@@ -377,16 +385,101 @@ def normalize_transposed_column(df):
     return df
 
 
-def parse_input_files(file_list):
+def matrix_name(path):
+    """
+    Return the name of the matrix as run-tnl-benchmark-spmv writes it, i.e. the
+    path relative to the matrix collection, e.g.
+    suitesparse/ACUSIM/Pres_Poisson.mtx. Older logs contain the complete path
+    of the file, which differs between machines.
+    """
+    if "mtx_matrices/" in path:
+        return path.split("mtx_matrices/", 1)[1]
+    return path.removeprefix("./")
+
+
+def csr_bytes(rows, nonzeros, precision):
+    """
+    Estimate the memory needed by the CSR format with 32-bit indexes.
+    """
+    real_bytes = 4 if precision == "float" else 8
+    return nonzeros * (real_bytes + 4) + (rows + 1) * 4
+
+
+def get_matrices_properties(input_df):
+    """
+    Return a dataframe indexed by the matrix name with the number of rows,
+    columns and nonzeros and the estimated memory of the CSR format, taken from
+    the records for the original matrices (or the transposed ones, if there are
+    no others).
+    """
+    df = input_df.sort_values("transposed", kind="stable")
+    df = df.groupby("matrix name", sort=True).first()
+    properties = pd.DataFrame(index=df.index)
+    for column in ["rows", "columns", "nonzeros"]:
+        properties[column] = pd.to_numeric(df[column], errors="coerce").astype("Int64")
+    # the dimensions of the transposed matrix are swapped
+    swap = df["transposed"]
+    properties.loc[swap, ["rows", "columns"]] = properties.loc[swap, ["columns", "rows"]].values
+    precision = df["precision"] if "precision" in df.columns else pd.Series("double", index=df.index)
+    properties["CSR MB"] = [
+        csr_bytes(int(r), int(n), p) / 1e6 if pd.notna(r) and pd.notna(n) else float("nan")
+        for r, n, p in zip(properties["rows"], properties["nonzeros"], precision)
+    ]
+    return properties
+
+
+def write_matrices_report(file_name, matrices_in_files, properties):
+    """
+    Write the number of matrices in each input file and the matrices missing in
+    it from the union of the matrices in all files, or present in it but not in
+    all the files, with their dimensions, nonzeros and the estimated memory of
+    the CSR format. The summary is printed also to the standard output.
+    """
+    all_matrices = set.union(*matrices_in_files.values())
+    common_matrices = set.intersection(*matrices_in_files.values())
+    summary = [f"Matrices in the input files: {len(all_matrices)} in total, {len(common_matrices)} in all files"]
+    for file, matrices in matrices_in_files.items():
+        summary.append(
+            f"   {file}: {len(matrices)} matrices, {len(all_matrices - matrices)} missing, "
+            f"{len(matrices - common_matrices)} not in all files"
+        )
+    print("\n".join(summary))
+
+    def matrix_line(prefix, matrix):
+        rows, columns, nonzeros, mb = (properties.at[matrix, c] for c in ["rows", "columns", "nonzeros", "CSR MB"])
+        dimensions = f"{rows} x {columns}"
+        return f"   {prefix:7} {matrix:60} {dimensions:>21} {nonzeros:>12} nonzeros {mb:12.1f} MB in CSR"
+
+    with open(file_name, "w") as file:
+        file.write("\n".join(summary) + "\n")
+        for file_name_in, matrices in matrices_in_files.items():
+            missing = sorted(all_matrices - matrices)
+            extra = sorted(matrices - common_matrices)
+            if not missing and not extra:
+                continue
+            file.write(f"\n{file_name_in}:\n")
+            for matrix in missing:
+                file.write(matrix_line("missing", matrix) + "\n")
+            for matrix in extra:
+                file.write(matrix_line("extra", matrix) + "\n")
+    print(f"The matrices missing in the input files are listed in {file_name}")
+
+
+def parse_input_files(file_list, matrices_report=None):
     """
     Parse input files and return a single dataframe
     """
     input_df = pd.DataFrame()
+    matrices_in_files = {}
     for file in file_list:
         df = get_benchmark_dataframe(file)
         df = normalize_time_columns(df)
         df = normalize_transposed_column(df)
+        df["matrix name"] = df["matrix name"].map(matrix_name)
+        matrices_in_files[file] = set(df["matrix name"])
         input_df = pd.concat([input_df, df])
+    if matrices_report and len(matrices_in_files) > 1:
+        write_matrices_report(matrices_report, matrices_in_files, get_matrices_properties(input_df))
     if "time median" not in input_df.columns:
         raise ValueError("No 'time median' (or 'time_median') column found in the input files.")
     # the index must be unique for resolve_duplicates()
@@ -581,7 +674,7 @@ def build_tables(args):
     transposed matrices (None if there are no results for them)
     """
     print(f"Parsing input files: {args.input}")
-    input_df = parse_input_files(args.input)
+    input_df = parse_input_files(args.input, args.matrices_report)
     input_df = resolve_duplicates(input_df, args.duplicates)
     tables = {}
     for name, transposed in [("original", False), ("transposed", True)]:
