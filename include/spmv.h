@@ -452,6 +452,11 @@ dispatchSymmetric( BenchmarkType& benchmark,
       TNL::Matrices::MatrixReader< SymmetricInputMatrix >::readMtx( inputFileName, symmetricHostMatrix, verboseMR );
    }
    catch( const std::exception& e ) {
+      // addErrorMessage logs the current metadata, which still hold the format
+      // and launch config of the last benchmark of the general matrix, so the
+      // error would look like another record of that format
+      benchmark.setMetadataElement( { "format", "Symmetric" } );
+      benchmark.setMetadataElement( { "launch cfg.", "" } );
       benchmark.addErrorMessage( "Unable to read the symmetric matrix: " + String( e.what() ) );
       return;
    }
@@ -484,10 +489,12 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
    // Set-up benchmark datasize
    //
    const Index nonzeros = csrHostMatrix.getNonzeroElementsCount();
-   const double datasetSize = (double) ( nonzeros * ( 2 * sizeof( Real )      // matrix value + corresponding x[col] element, read per nonzero
-                                                        + sizeof( Index ) )   // column index, read per nonzero
-                                         + csrHostMatrix.getRows() * sizeof( Real ) )  // accumulated result written to y, once per row
-                            / oneGB;
+   const double datasetSize =
+      (double) ( nonzeros
+                    * ( 2 * sizeof( Real )                     // matrix value + corresponding x[col] element, read per nonzero
+                        + sizeof( Index ) )                    // column index, read per nonzero
+                 + csrHostMatrix.getRows() * sizeof( Real ) )  // accumulated result written to y, once per row
+      / oneGB;
    benchmark.setDatasetSize( datasetSize );
 
    ////
@@ -575,8 +582,10 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
 
    // A symmetric matrix's transpose equals itself, so re-running the
    // symmetric dispatch for the transposed matrix would just duplicate the
-   // non-transposed results at double the cost.
-   if( ! transposed && parameters.getParameter< bool >( "with-symmetric-matrices" ) )
+   // non-transposed results at double the cost. MatrixReader reads a symmetric
+   // matrix only from an MTX file declared as symmetric, for the other ones it
+   // would only log an error.
+   if( ! transposed && symmetry.symmetric && parameters.getParameter< bool >( "with-symmetric-matrices" ) )
       dispatchSymmetric< Real, Index >( benchmark, hostOutVector, inputFileName, parameters, verboseMR );
 }
 
