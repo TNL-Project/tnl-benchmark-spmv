@@ -123,6 +123,7 @@ into the index type. The selection is written to `selected-matrices.tsv`.
 Each selected matrix is then downloaded and extracted to
 `<output-dir>/suitesparse/<group>/<name>.mtx`, including the additional
 matrices of the archive but without the right-hand sides (`*_b.mtx`).
+With `--main-matrix-only`, only the main matrix `<name>.mtx` is extracted.
 Interrupted downloads are resumed and already extracted matrices are
 skipped, so the script can simply be run again.
 

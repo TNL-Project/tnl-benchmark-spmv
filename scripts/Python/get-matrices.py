@@ -198,9 +198,12 @@ def load_metadata(path: Path) -> Tuple[List[Matrix], str]:
     return matrices, revision
 
 
-def extract_matrices(archive: Path, matrix: Matrix, destination: Path) -> List[Path]:
+def extract_matrices(
+    archive: Path, matrix: Matrix, destination: Path, main_only: bool = False
+) -> List[Path]:
     """
-    Extract all .mtx matrices from the archive into the directory of the destination.
+    Extract all .mtx matrices from the archive into the directory of the destination,
+    or only the main <matrix-name>.mtx if main_only is set.
 
     Some archives contain more matrices than the main <matrix-name>.mtx (e.g. a sequence
     of matrices <matrix-name>_A_01.mtx, ...). Right-hand side vectors (*_b.mtx, usually
@@ -216,6 +219,8 @@ def extract_matrices(archive: Path, matrix: Matrix, destination: Path) -> List[P
         for m in tf.getmembers():
             name = PurePosixPath(m.name).name
             if not m.isfile() or not name.endswith(".mtx"):
+                continue
+            if main_only and name != main_name:
                 continue
             # skip right-hand sides, but not a matrix which is itself named *_b
             if name.endswith("_b.mtx") and name != main_name:
@@ -334,6 +339,12 @@ def parse_args() -> argparse.Namespace:
         help="only download the archives and leave them packed, without extracting the .mtx files",
     )
     parser.add_argument(
+        "--main-matrix-only",
+        action="store_true",
+        help="extract only the main matrix <matrix-name>.mtx from each archive, not the "
+        "other matrices some archives contain (default: extract all of them)",
+    )
+    parser.add_argument(
         "--refresh-metadata",
         action="store_true",
         help="download ssstats.csv even if a cached copy exists",
@@ -439,7 +450,9 @@ def main() -> int:
 
             if args.extract_matrices:
                 print("  status:         extracting")
-                extracted = extract_matrices(archive, matrix, destination)
+                extracted = extract_matrices(
+                    archive, matrix, destination, main_only=args.main_matrix_only
+                )
 
                 if not args.keep_archives:
                     try:
