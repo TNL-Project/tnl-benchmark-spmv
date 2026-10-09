@@ -315,32 +315,35 @@ def convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=-1)
     # Matrix-level fields (name/size/statistics) are constant across every
     # row of `df` for a given matrix, but not every benchmark writes all of
     # them (e.g. the reference benchmark does not emit MatrixStatistics), so
-    # take the first non-null value of each field per matrix and reindex to
-    # matrix_names to line rows up with `result` (whose index is already
-    # "matrix name", in the same order via pivot_table).
+    # take the first non-null value of each field per matrix. Both `result`
+    # and the metadata are indexed by "matrix name" and reindexed to
+    # matrix_names, since pivot_table sorts the matrices by name. The metadata
+    # columns are joined to `result` at once, adding them one by one makes
+    # pandas warn about a fragmented DataFrame.
+    result = result.reindex(matrix_names)
     metadata = df.groupby("matrix name", sort=False).first()
     metadata = metadata.reindex(matrix_names)
 
-    result[("Matrix name", "", "", "", "")] = metadata.index
-    result[("rows", "", "", "", "")] = metadata["rows"].values
-    result[("columns", "", "", "", "")] = metadata["columns"].values
-    result[("nonzeros", "", "", "", "")] = pd.to_numeric(
-        metadata["nonzeros"], errors="coerce"
-    ).values
-    result[("nonzeros per row", "", "", "", "")] = (
-        pd.to_numeric(metadata["nonzeros"], errors="coerce")
-        / pd.to_numeric(metadata["rows"], errors="coerce")
-    ).values
+    nonzeros = pd.to_numeric(metadata["nonzeros"], errors="coerce")
+    metadata_columns = {
+        "Matrix name": metadata.index.to_series(index=metadata.index),
+        "rows": metadata["rows"],
+        "columns": metadata["columns"],
+        "nonzeros": nonzeros,
+        "nonzeros per row": nonzeros / pd.to_numeric(metadata["rows"], errors="coerce"),
+    }
     for column in symmetry_columns:
         if column in metadata.columns:
-            result[(column, "", "", "", "")] = (
-                metadata[column].map({"true": True, "false": False, True: True, False: False}).values
+            metadata_columns[column] = metadata[column].map(
+                {"true": True, "false": False, True: True, False: False}
             )
     for stat in PosterHeatmapGraphs.MATRIX_STAT_COLUMNS:
         if stat in metadata.columns:
-            result[(stat, "", "", "", "")] = pd.to_numeric(
-                metadata[stat], errors="coerce"
-            ).values
+            metadata_columns[stat] = pd.to_numeric(metadata[stat], errors="coerce")
+    metadata_df = pd.DataFrame(
+        {(name, "", "", "", ""): values for name, values in metadata_columns.items()}, index=metadata.index
+    )
+    result = pd.concat([result, metadata_df], axis=1)
 
     # `multicolumns` (from get_multiindex()) is the full, format-independent
     # set of columns the rest of the pipeline expects; `result` only has
