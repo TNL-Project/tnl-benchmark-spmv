@@ -81,6 +81,15 @@ def get_arg_parser():
         "(default: spmv-benchmark-matrices.txt)",
     )
     parser.add_argument(
+        "--list-matrices",
+        nargs="?",
+        const="processed-matrices.txt",
+        default=None,
+        metavar="FILE",
+        help="Write the names of all processed matrices, one per line, to a text file "
+        "(default file name: processed-matrices.txt)",
+    )
+    parser.add_argument(
         "--export",
         nargs="+",
         default=[],
@@ -465,6 +474,17 @@ def write_matrices_report(file_name, matrices_in_files, properties):
     print(f"The matrices missing in the input files are listed in {file_name}")
 
 
+def write_matrices_list(file_name, input_df):
+    """
+    Write the names of all processed matrices (one per line) to a text file
+    """
+    names = sorted(input_df["matrix name"].unique())
+    with open(file_name, "w") as file:
+        for name in names:
+            file.write(f"{name}\n")
+    print(f"List of {len(names)} processed matrices written to {file_name}")
+
+
 def parse_input_files(file_list, matrices_report=None):
     """
     Parse input files and return a single dataframe
@@ -676,6 +696,8 @@ def build_tables(args):
     print(f"Parsing input files: {args.input}")
     input_df = parse_input_files(args.input, args.matrices_report)
     input_df = resolve_duplicates(input_df, args.duplicates)
+    if args.list_matrices:
+        write_matrices_list(args.list_matrices, input_df)
     tables = {}
     for name, transposed in [("original", False), ("transposed", True)]:
         records = input_df[input_df["transposed"] == transposed]

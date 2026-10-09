@@ -186,6 +186,8 @@ in the TNL repository, installed together with TNL).
      the results for the original ones for the structurally symmetric
      matrices, whose transposition is not benchmarked
    - `--max-rows <n>` – process only the first `n` matrices
+   - `--list-matrices [file]` – write the names of all processed matrices,
+     one per line (default file: `processed-matrices.txt`)
 
 2. [tnl-spmv-benchmark-make-tables-json.py](./scripts/Python/tnl-spmv-benchmark-make-tables-json.py)
    loads the stored table and writes the reports to the output directory
@@ -197,5 +199,4 @@ in the TNL repository, installed together with TNL).
    - `--draw-graphs` – the full report with graphs of the speed-ups and the
      CPU scalability
    - `--poster-graphs` – the summary charts prepared for a poster
-   - `--list-matrices` – the list of processed matrices
    - `--transposed` – process the table for the transposed matrices
