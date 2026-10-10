@@ -18,6 +18,9 @@ log_file="sparse-matrix-benchmark.log"
 continue_benchmark="no"
 MPI_ENABLED="no"
 MPI_PROCESSES=1
+MPI_EXTRA_ARGS=""
+PRECISION="float"
+LOOPS=""
 
 # Function to execute a command and continue on segfault
 run_command() {
@@ -103,6 +106,18 @@ while [[ "$#" -gt 0 ]]; do
             MPI_PROCESSES="$2"
             shift
             ;;
+        -e|--mpi-extra-args)  # Extra arguments passed to mpirun, before -np
+            MPI_EXTRA_ARGS="$2"
+            shift
+            ;;
+        -r|--precision)  # Precision passed to the benchmark binary
+            PRECISION="$2"
+            shift
+            ;;
+        --loops)  # Number of benchmark loops passed to the benchmark binary
+            LOOPS="$2"
+            shift
+            ;;
         -h|--help)  # Display help
             echo "Usage: $0 [options]"
             echo "Options:"
@@ -117,6 +132,9 @@ while [[ "$#" -gt 0 ]]; do
             echo "  -t, --openmp-max-threads MAX  Maximum number of OpenMP threads. Default: auto"
             echo "  -m, --mpi-enabled yes/no      Run the benchmark via mpirun. Default: no"
             echo "  -p, --mpi-processes NUM       Number of MPI processes (mpirun -np). Default: 1"
+            echo "  -e, --mpi-extra-args STRING   Extra mpirun arguments, inserted before -np. Default: (none)"
+            echo "  -r, --precision VALUE         Precision passed to the benchmark binary. Default: float"
+            echo "      --loops NUM               Number of benchmark loops passed to the benchmark binary. Default: (binary's own default)"
             echo "  -h, --help                    Display help"
             exit 0
             ;;
@@ -181,9 +199,17 @@ fi
 # set parameters for the benchmark
 COMMAND=()
 if [[ "$MPI_ENABLED" == "yes" ]]; then
-    COMMAND+=(mpirun -np "$MPI_PROCESSES")
+    COMMAND+=(mpirun)
+    if [[ -n "$MPI_EXTRA_ARGS" ]]; then
+        COMMAND+=($MPI_EXTRA_ARGS)
+    fi
+    COMMAND+=(-np "$MPI_PROCESSES")
 fi
-COMMAND+=("$BENCHMARK" --precision float --log-file "$log_file" --output-mode append --verbose 1)
+COMMAND+=("$BENCHMARK" --precision "$PRECISION" --log-file "$log_file" --output-mode append --verbose 1)
+
+if [[ -n "$LOOPS" ]]; then
+    COMMAND+=(--loops "$LOOPS")
+fi
 
 if [[ "$OMP_ENABLED" == "yes" ]]; then
     COMMAND+=(--openmp-enabled yes)
