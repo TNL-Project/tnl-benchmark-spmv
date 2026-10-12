@@ -147,6 +147,18 @@ if(HYPRE_INCLUDE_DIR AND HYPRE_LIBRARY)
         endforeach()
     endif()
 
+    # OpenMP runtime - only the libraries are added, so that the OpenMP
+    # compile flags are not forced on the targets linking Hypre
+    _hypre_config_defined(_hypre_using_openmp ${_hypre_config_hdr} HYPRE_USING_OPENMP)
+    if(_hypre_using_openmp)
+        find_package(OpenMP QUIET COMPONENTS CXX)
+        if(OpenMP_CXX_FOUND)
+            list(APPEND HYPRE_LIBRARIES ${OpenMP_CXX_LIBRARIES})
+        else()
+            message(WARNING "Hypre was built with OpenMP but OpenMP was not found.")
+        endif()
+    endif()
+
     # CUDA libraries
     if(HYPRE_WITH_CUDA)
         find_package(CUDAToolkit QUIET)
