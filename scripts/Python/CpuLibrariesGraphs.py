@@ -362,13 +362,18 @@ def draw_wins_heatmap(ratios_by_threads, filename, title=None):
     plt.close(fig)
 
 
-def cpu_libraries_graphs(df, launch_configs, transposed=False, output_dir="CPU-libraries"):
+def cpu_libraries_graphs(df, launch_configs, transposed=False, output_dir="CPU-libraries", thread_counts=None):
     """
     Entry point: write the performance profiles and the heatmap of the wins of
     TNL CSR, Hypre and Ginkgo on the CPU, the ratios to the best time as CSV and
-    the list of the matrices missing for some library
+    the list of the matrices missing for some library.
+
+    Only the given numbers of threads are compared (thread_counts), by default
+    all of them (see get_thread_counts()). The parallel efficiency needs the
+    results for one thread.
     """
-    thread_counts = get_thread_counts(launch_configs)
+    if thread_counts is None:
+        thread_counts = get_thread_counts(launch_configs)
     if not thread_counts:
         print("No CPU results with a fixed number of threads, skipping the CPU libraries graphs.")
         return
@@ -422,6 +427,9 @@ def cpu_libraries_graphs(df, launch_configs, transposed=False, output_dir="CPU-l
     )
 
     # the parallel efficiency for all matrices and for the groups by the number of nonzeros
+    if 1 not in times_by_threads:
+        print("The results for 1 thread are not included, skipping the parallel efficiency.")
+        return
     efficiency = parallel_efficiency(times_by_threads)
     nonzeros = pd.Series(pd.to_numeric(df[NONZEROS], errors="coerce").values, index=df[MATRIX_NAME].values)
     nonzeros = nonzeros.loc[efficiency.index]

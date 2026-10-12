@@ -18,6 +18,22 @@ from LegacyCounterparts import legacy_counterparts
 from BenchmarkTable import load_table, print_formats_and_launch_configs
 
 
+def cpu_thread_counts(value):
+    """
+    Parse the value of --with-cpu-threads: None for "all", otherwise the
+    sorted list of the numbers of threads
+    """
+    if value.strip().lower() == "all":
+        return None
+    try:
+        counts = sorted({int(item) for item in value.split(",")})
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"'{value}' is not 'all' or a comma-separated list of integers")
+    if not counts or counts[0] < 1:
+        raise argparse.ArgumentTypeError("the numbers of threads must be positive")
+    return counts
+
+
 def get_arg_parser():
     parser = argparse.ArgumentParser(
         description="Script for generating reports and graphs from the table written "
@@ -59,6 +75,15 @@ def get_arg_parser():
         action="store_true",
         default=False
     )
+    parser.add_argument(
+        "--with-cpu-threads",
+        type=cpu_thread_counts,
+        default=None,
+        metavar="THREADS",
+        help="Numbers of threads compared in the graphs of the libraries on the CPU "
+        "(CpuLibrariesGraphs.py): 'all' for all benchmarked ones or a comma-separated "
+        "list, e.g. 1,4,16,32 (default: all)",
+    )
     return parser
 
 
@@ -90,7 +115,9 @@ def analyze_df(df, args, formats, launch_configs, accelerator_devices):
             df, accelerator_devices, include_cpu_csr=True
         )
         PosterCoverageGraphs.cumulative_coverage_vs_best(df, accelerator_devices)
-        CpuLibrariesGraphs.cpu_libraries_graphs(df, launch_configs, args.transposed)
+        CpuLibrariesGraphs.cpu_libraries_graphs(
+            df, launch_configs, args.transposed, thread_counts=args.with_cpu_threads
+        )
         GpuLibrariesGraphs.gpu_libraries_graphs(df, accelerator_devices, args.transposed)
 
     print("Writting to file sparse-matrix-benchmark-test-processed.html ... ")

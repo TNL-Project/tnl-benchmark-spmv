@@ -207,4 +207,6 @@ in the TNL repository, installed together with TNL).
      `CPU-libraries/`, and the performance profiles of TNL, cuSPARSE or
      hipSPARSE, Ginkgo and Hypre on the GPUs for the best CSR and for the
      best benchmarked format of each library, in `GPU-libraries/`
+   - `--with-cpu-threads <all|list>` – the numbers of threads compared in
+     the graphs in `CPU-libraries/`, e.g. `1,4,16,32` (default: `all`)
    - `--transposed` – process the table for the transposed matrices
