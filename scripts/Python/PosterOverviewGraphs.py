@@ -52,6 +52,11 @@ Entry points:
     best time achievable with sorted segments against the best time
     achievable without, within that same class (see
     collect_sorted_segments_overview() / SORTED_SEGMENTS_CLASSES).
+
+Every bar chart (PDF) comes with a heatmap of the same rows in the file with
+the suffix "-margins": the percentage of matrices where the subject, resp.
+the reference, is faster by more than 25%, 50%, 100%, 200% and 400% (see
+SPEEDUP_MARGINS / draw_speedup_margins_heatmap()).
 """
 
 import itertools
@@ -90,6 +95,11 @@ from PosterGraphsCommon import (
 # ---------------------------------------------------------------------------
 
 
+# Margins of the heatmap drawn next to every overview bar chart (see
+# draw_speedup_margins_heatmap()): 0.25 stands for "faster by more than 25%".
+SPEEDUP_MARGINS = (0.25, 0.50, 1.00, 2.00, 4.00)
+
+
 def _speedup_breakdown(speedup_values, threshold):
     """
     Classify a Series of speed-up values (convention: speed-up > 1 means the
@@ -101,7 +111,11 @@ def _speedup_breakdown(speedup_values, threshold):
 
     Returns a dict with "faster"/"similar"/"slower" percentages (summing to
     100) and "n" (the number of matrices behind them), or None if there are
-    no valid values at all.
+    no valid values at all. For draw_speedup_margins_heatmap(), the dict also
+    holds "faster by" and "slower by": the percentages of matrices where the
+    subject, resp. the reference, is faster by more than each margin of
+    SPEEDUP_MARGINS (margin -> percentage), i.e. where speed-up > 1 + margin,
+    resp. 1 / speed-up > 1 + margin.
     """
     values = speedup_values.dropna()
     total = len(values)
@@ -115,6 +129,8 @@ def _speedup_breakdown(speedup_values, threshold):
         "similar": 100.0 * similar / total,
         "slower": 100.0 * slower / total,
         "n": total,
+        "faster by": {m: 100.0 * (values > 1 + m).sum() / total for m in SPEEDUP_MARGINS},
+        "slower by": {m: 100.0 * (1 / values > 1 + m).sum() / total for m in SPEEDUP_MARGINS},
     }
 
 
@@ -256,11 +272,22 @@ def draw_speedup_overview(
     Draw a 100% stacked horizontal bar chart from rows produced by
     collect_speedup_overview(): one row per format/launch-config, split into
     "subject_label faster" / "within threshold" / "reference_label faster"
-    segments.
+    segments. The bars tell only who is faster by more than the threshold, so
+    the heatmap of the same rows with more margins is written next to the
+    chart, to the file with the suffix "-margins" (see
+    draw_speedup_margins_heatmap()).
     """
     if not rows:
         print(f"No data to draw for {filename}, skipping.")
         return
+    base, extension = os.path.splitext(filename)
+    draw_speedup_margins_heatmap(
+        rows,
+        f"{base}-margins{extension}",
+        subject_label=subject_label,
+        reference_label=reference_label,
+        title=title,
+    )
 
     labels = [_tex_escape(r[0]) for r in rows]
     faster = np.array([r[1]["faster"] for r in rows])
@@ -336,6 +363,70 @@ def draw_speedup_overview(
         frameon=False,
     )
 
+    plt.savefig(filename, bbox_inches="tight")
+    plt.close(fig)
+
+
+def draw_speedup_margins_heatmap(
+    rows,
+    filename,
+    subject_label="TNL",
+    reference_label="reference",
+    title=None,
+    cell_width=0.95,
+    row_height=0.42,
+):
+    """
+    Draw a heatmap from the rows of draw_speedup_overview(): one row per
+    format/launch-config and one column per margin of SPEEDUP_MARGINS on each
+    side. The cells on the left show the percentage of matrices where the
+    reference is faster by more than the margin (red), the cells on the right
+    where the subject is faster by more than the margin (green), with the
+    smallest margin next to the middle. The percentages are cumulative: the
+    matrices of a larger margin are counted in the smaller ones too. "Faster
+    by 100%" means twice as fast on both sides.
+    """
+    margins = list(SPEEDUP_MARGINS)
+    slower = np.array([[row[1]["slower by"][m] for m in reversed(margins)] for row in rows])
+    faster = np.array([[row[1]["faster by"][m] for m in margins] for row in rows])
+    labels = [_tex_escape(row[0]) for row in rows]
+
+    _set_latex_rcparams()
+    columns = 2 * len(margins)
+    fig, ax = plt.subplots(
+        1, 1, figsize=(cell_width * columns + 3.0, row_height * len(rows) + 1.8)
+    )
+    colormap = plt.matplotlib.colors.LinearSegmentedColormap.from_list
+    extent_slower = (-0.5, len(margins) - 0.5, len(rows) - 0.5, -0.5)
+    extent_faster = (len(margins) - 0.5, columns - 0.5, len(rows) - 0.5, -0.5)
+    ax.imshow(slower, cmap=colormap("slower", ["white", COLOR_SLOWER]), vmin=0, vmax=100,
+              aspect="auto", extent=extent_slower)
+    ax.imshow(faster, cmap=colormap("faster", ["white", COLOR_FASTER]), vmin=0, vmax=100,
+              aspect="auto", extent=extent_faster)
+    for i in range(len(rows)):
+        for j, value in enumerate(np.concatenate([slower[i], faster[i]])):
+            ax.text(j, i, f"{value:.0f}\\%", ha="center", va="center", fontsize=10,
+                    color="white" if value > 60 else INK_PRIMARY)
+    ax.axvline(len(margins) - 0.5, color=INK_PRIMARY, linewidth=1.2)
+    ax.set_xlim(-0.5, columns - 0.5)
+    ax.set_ylim(len(rows) - 0.5, -0.5)
+
+    ax.set_xticks(range(columns))
+    ax.set_xticklabels(
+        [f"$>${100 * m:.0f}\\%" for m in reversed(margins)] + [f"$>${100 * m:.0f}\\%" for m in margins],
+        color=INK_PRIMARY,
+    )
+    ax.set_yticks(range(len(rows)))
+    ax.set_yticklabels(labels, color=INK_PRIMARY)
+    ax.tick_params(axis="both", length=0)
+    for spine in ["top", "right", "left", "bottom"]:
+        ax.spines[spine].set_visible(False)
+    # the sides are described under the margins
+    for position, label in [(0.25, reference_label), (0.75, subject_label)]:
+        ax.annotate(f"{_tex_escape(label)} faster by more than", xy=(position, 0), xycoords="axes fraction",
+                    xytext=(0, -26), textcoords="offset points", ha="center", va="top", color=INK_SECONDARY)
+    if title:
+        ax.set_title(_tex_escape(title), color=INK_PRIMARY, pad=10)
     plt.savefig(filename, bbox_inches="tight")
     plt.close(fig)
 
