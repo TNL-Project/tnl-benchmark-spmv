@@ -12,6 +12,8 @@ import BestFormats
 import PosterOverviewGraphs
 import PosterHeatmapGraphs
 import PosterCoverageGraphs
+import CpuLibrariesGraphs
+import GpuLibrariesGraphs
 from LegacyCounterparts import legacy_counterparts
 from BenchmarkTable import load_table, print_formats_and_launch_configs
 
@@ -53,7 +55,7 @@ def get_arg_parser():
     parser.add_argument(
         "--poster-graphs",
         help="Flag to draw ad hoc poster graphs (see PosterOverviewGraphs.py / "
-        "PosterHeatmapGraphs.py / PosterCoverageGraphs.py)",
+        "PosterHeatmapGraphs.py / PosterCoverageGraphs.py / CpuLibrariesGraphs.py / GpuLibrariesGraphs.py)",
         action="store_true",
         default=False
     )
@@ -88,6 +90,8 @@ def analyze_df(df, args, formats, launch_configs, accelerator_devices):
             df, accelerator_devices, include_cpu_csr=True
         )
         PosterCoverageGraphs.cumulative_coverage_vs_best(df, accelerator_devices)
+        CpuLibrariesGraphs.cpu_libraries_graphs(df, launch_configs, args.transposed)
+        GpuLibrariesGraphs.gpu_libraries_graphs(df, accelerator_devices, args.transposed)
 
     print("Writting to file sparse-matrix-benchmark-test-processed.html ... ")
     df.sort_index(inplace=True)
