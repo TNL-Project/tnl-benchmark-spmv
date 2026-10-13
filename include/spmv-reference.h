@@ -44,9 +44,13 @@ using BenchmarkType = TNL::Benchmarks::Benchmark;
 // Creates a Ginkgo Csr matrix view of a TNL CSR matrix. This is the same as
 // TNL::Matrices::getGinkgoMatrixCsrView, but TNL/Matrices/GinkgoOperator.h
 // cannot be included with Ginkgo >= 2.0 (gko::EnableLinOp was removed).
+// The SpMV strategy of the Csr matrix is the default one of Ginkgo (automatic)
+// unless another one is given.
 template< typename Matrix >
 auto
-getGinkgoMatrixCsrView( std::shared_ptr< const gko::Executor > exec, Matrix& matrix )
+getGinkgoMatrixCsrView( std::shared_ptr< const gko::Executor > exec,
+                        Matrix& matrix,
+                        gko::matrix::csr::spmv_strategy strategy = gko::matrix::csr::spmv_strategy::automatic )
    -> std::unique_ptr< gko::matrix::Csr< typename Matrix::RealType, typename Matrix::IndexType > >
 {
    return gko::matrix::Csr< typename Matrix::RealType, typename Matrix::IndexType >::create(
@@ -54,7 +58,197 @@ getGinkgoMatrixCsrView( std::shared_ptr< const gko::Executor > exec, Matrix& mat
       gko::dim< 2 >{ static_cast< std::size_t >( matrix.getRows() ), static_cast< std::size_t >( matrix.getColumns() ) },
       gko::make_array_view( exec, matrix.getNonzeroElementsCount(), matrix.getValues().getData() ),
       gko::make_array_view( exec, matrix.getNonzeroElementsCount(), matrix.getColumnIndexes().getData() ),
-      gko::make_array_view( exec, matrix.getRows() + 1, matrix.getSegments().getOffsets().getData() ) );
+      gko::make_array_view( exec, matrix.getRows() + 1, matrix.getSegments().getOffsets().getData() ),
+      strategy );
+}
+
+// A SpMV strategy of the Ginkgo Csr matrix to benchmark, with the names for
+// the "format" and "launch cfg." columns.
+struct GinkgoCsrStrategy
+{
+   std::string format;
+   std::string launchConfig;
+   gko::matrix::csr::spmv_strategy strategy;
+};
+
+// Benchmarks all SpMV kernels of Ginkgo on a GPU, similarly to the algorithms
+// of cuSPARSE:
+//
+//  - the Csr matrix with its SpMV strategies. "Default" is the automatic
+//    strategy, which chooses between load_balance and classical, the same
+//    configuration as benchmarked before the other ones were added. The
+//    sparselib strategy calls cuSPARSE or hipSPARSE, so it is logged under
+//    the format "Ginkgo Sparselib" to keep it apart from the kernels of
+//    Ginkgo itself.
+//  - the Ell, Sellp (with the default slice size 64 and with 32), Hybrid and
+//    Coo matrices converted from the Csr matrix.
+//
+// The matrix is given as a TNL CSR matrix on the device of the executor. A
+// failure of a conversion (e.g. not enough memory for Ell) is logged as an
+// error and the other kernels are benchmarked anyway.
+template< typename Real,
+          typename Device,
+          typename CsrMatrix,
+          typename InVector,
+          typename OutVector,
+          typename ResultVector,
+          typename ResetVectors >
+void
+benchmarkGinkgoOnGpu( BenchmarkType& benchmark,
+                      std::shared_ptr< const gko::Executor > exec,
+                      CsrMatrix& csrMatrix,
+                      InVector& inVector,
+                      OutVector& outVector,
+                      const ResultVector& csrResultVector,
+                      ResetVectors& resetVectors,
+                      const std::string& performer )
+{
+   using Index = typename CsrMatrix::IndexType;
+   namespace csr = gko::matrix::csr;
+
+   // Wrap the vectors
+   // apply( b, x ) computes x = A * b
+   auto gko_b = Containers::GinkgoVector< Real, Device >::create( exec, inVector.getView() );
+   auto gko_x = Containers::GinkgoVector< Real, Device >::create( exec, outVector.getView() );
+   SpmvBenchmarkResult< Real, Device, int > benchmarkResults( csrResultVector, outVector );
+
+   // `create` returns the matrix to benchmark, it throws if it cannot be created
+   auto benchmarkMatrix = [ & ]( const std::string& format, const std::string& launchConfig, auto&& create )
+   {
+      benchmark.setMetadataElement( { "format", format } );
+      benchmark.setMetadataElement( { "launch cfg.", launchConfig } );
+      std::shared_ptr< const gko::LinOp > gko_A;
+      try {
+         gko_A = create();
+      }
+      catch( const std::exception& e ) {
+         benchmark.addErrorMessage( "Unable to create the Ginkgo matrix: " + String( e.what() ) );
+         return;
+      }
+      auto spmvGinkgo = [ & ]()
+      {
+         gko_A->apply( gko_b.get(), gko_x.get() );
+      };
+      benchmark.time< Device >( resetVectors, performer.c_str(), spmvGinkgo, benchmarkResults );
+   };
+
+   const GinkgoCsrStrategy strategies[] = {
+      { "Ginkgo", "Default", csr::spmv_strategy::automatic },
+      { "Ginkgo", "Classical", csr::spmv_strategy::classical },
+      { "Ginkgo", "Load balance", csr::spmv_strategy::load_balance },
+      { "Ginkgo", "Merge path", csr::spmv_strategy::merge_path },
+      { "Ginkgo Sparselib", "Default", csr::spmv_strategy::sparselib },
+   };
+   for( const auto& variant : strategies )
+      benchmarkMatrix( variant.format,
+                       variant.launchConfig,
+                       [ & ]()
+                       {
+                          return gko::share( getGinkgoMatrixCsrView( exec, csrMatrix, variant.strategy ) );
+                       } );
+
+   // The other formats are converted from the Csr matrix.
+   auto gko_csr = gko::share( getGinkgoMatrixCsrView( exec, csrMatrix ) );
+   benchmarkMatrix( "Ginkgo Ell",
+                    "Default",
+                    [ & ]()
+                    {
+                       auto matrix = gko::share( gko::matrix::Ell< Real, Index >::create( exec ) );
+                       gko_csr->convert_to( matrix );
+                       return matrix;
+                    } );
+   for( const gko::size_type sliceSize : { gko::matrix::default_slice_size, 32 } )
+      benchmarkMatrix( "Ginkgo Sellp",
+                       "Slice " + std::to_string( sliceSize ),
+                       [ & ]()
+                       {
+                          auto matrix = gko::share( gko::matrix::Sellp< Real, Index >::create(
+                             exec, gko::dim< 2 >{}, sliceSize, gko::matrix::default_stride_factor, 0 ) );
+                          gko_csr->convert_to( matrix );
+                          return matrix;
+                       } );
+   benchmarkMatrix( "Ginkgo Hybrid",
+                    "Default",
+                    [ & ]()
+                    {
+                       auto matrix = gko::share( gko::matrix::Hybrid< Real, Index >::create( exec ) );
+                       gko_csr->convert_to( matrix );
+                       return matrix;
+                    } );
+   benchmarkMatrix( "Ginkgo Coo",
+                    "Default",
+                    [ & ]()
+                    {
+                       auto matrix = gko::share( gko::matrix::Coo< Real, Index >::create( exec ) );
+                       gko_csr->convert_to( matrix );
+                       return matrix;
+                    } );
+}
+#endif
+
+#if defined( HAVE_HYPRE ) && defined( HYPRE_USING_GPU )
+// Benchmarks the SpMV kernels of Hypre on a GPU. Hypre has only the CSR
+// format, but two implementations of the multiplication: the one of the
+// vendor library (cuSPARSE, rocSPARSE), which is the default one if Hypre is
+// built with the vendor library, and its own kernel. They are chosen by
+// HYPRE_SetSpMVUseVendor and logged with the launch configurations "Default"
+// and "Internal". Without the vendor library, Hypre has only its own kernel,
+// logged as "Default".
+//
+// The matrix is given as a TNL CSR matrix on the GPU.
+template< typename Real,
+          typename Device,
+          typename CsrMatrix,
+          typename InVector,
+          typename OutVector,
+          typename ResultVector,
+          typename ResetVectors >
+void
+benchmarkHypreOnGpu( BenchmarkType& benchmark,
+                     CsrMatrix& csrMatrix,
+                     InVector& inVector,
+                     OutVector& outVector,
+                     const ResultVector& csrResultVector,
+                     ResetVectors& resetVectors,
+                     const std::string& performer )
+{
+   if constexpr( std::is_same< HYPRE_Real, Real >::value && std::is_same< HYPRE_Int, int >::value ) {
+      // Initialize HYPRE and set some global options, notably HYPRE_SetSpGemmUseCusparse(0);
+      TNL::Hypre hypre;
+      using HypreCSR = TNL::Matrices::HypreCSRMatrix;
+      HypreCSR hypreCSRMatrix( csrMatrix.getRows(),
+                               csrMatrix.getColumns(),
+                               csrMatrix.getValues().getView(),
+                               csrMatrix.getColumnIndexes().getView(),
+                               csrMatrix.getSegments().getOffsets().getView() );
+      auto inVectorView = inVector.getView();
+      auto outVectorView = outVector.getView();
+
+      auto spmvHypreCSR = [ & ]()
+      {
+         hypreCSRMatrix.vectorProduct( inVectorView, outVectorView );
+      };
+
+      SpmvBenchmarkResult< Real, Device, int > hypreBenchmarkResults( csrResultVector, outVector );
+      benchmark.setMetadataElement( { "format", "Hypre" } );
+   #if defined( HYPRE_USING_CUSPARSE ) || defined( HYPRE_USING_ROCSPARSE )
+      // The setting is global and kept for the next matrix, so the default
+      // one must be set explicitly too.
+      const std::pair< std::string, HYPRE_Int > implementations[] = { { "Default", 1 }, { "Internal", 0 } };
+      for( const auto& [ launchConfig, useVendor ] : implementations ) {
+         HYPRE_SetSpMVUseVendor( useVendor );
+         benchmark.setMetadataElement( { "launch cfg.", launchConfig } );
+         benchmark.time< Device >( resetVectors, performer.c_str(), spmvHypreCSR, hypreBenchmarkResults );
+      }
+      HYPRE_SetSpMVUseVendor( 1 );
+   #else
+      benchmark.setMetadataElement( { "launch cfg.", "Default" } );
+      benchmark.time< Device >( resetVectors, performer.c_str(), spmvHypreCSR, hypreBenchmarkResults );
+   #endif
+   }
+   else {
+      std::cerr << "Current Real or Index type does not agree with HYPRE_Real or HYPRE_Index." << std::endl;
+   }
 }
 #endif
 
@@ -344,52 +538,19 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
    }
 
    #if defined( HAVE_HYPRE ) && defined( HYPRE_USING_CUDA )
-   // Initialize HYPRE and set some global options, notably HYPRE_SetSpGemmUseCusparse(0);
-   if constexpr( std::is_same< HYPRE_Real, Real >::value && std::is_same< HYPRE_Int, int >::value ) {
-      TNL::Hypre hypre;
-      using HypreCSR = TNL::Matrices::HypreCSRMatrix;
-      HypreCSR hypreCSRMatrix( csrCudaMatrix.getRows(),
-                               csrCudaMatrix.getColumns(),
-                               csrCudaMatrix.getValues().getView(),
-                               csrCudaMatrix.getColumnIndexes().getView(),
-                               csrCudaMatrix.getSegments().getOffsets().getView() );
-      auto cudaInVectorView = cudaInVector.getView();
-      auto cudaOutVectorView = cudaOutVector.getView();
-
-      auto spmvHypreCSRCuda = [ & ]()
-      {
-         hypreCSRMatrix.vectorProduct( cudaInVectorView, cudaOutVectorView );
-      };
-
-      SpmvBenchmarkResult< Real, Devices::Cuda, int > hypreCudaBenchmarkResults( csrResultVector, cudaOutVector );
-      benchmark.setMetadataElement( { "format", "Hypre" } );
-      benchmark.setMetadataElement( { "launch cfg.", "Default" } );
-      benchmark.time< Devices::Cuda >( resetCudaVectors, "CUDA", spmvHypreCSRCuda, hypreCudaBenchmarkResults );
-   }
-   else {
-      std::cerr << "Current Real or Index type does not agree with HYPRE_Real or HYPRE_Index." << std::endl;
-   }
+   benchmarkHypreOnGpu< Real, Devices::Cuda >(
+      benchmark, csrCudaMatrix, cudaInVector, cudaOutVector, csrResultVector, resetCudaVectors, "CUDA" );
    #endif
 
    #ifdef HAVE_GINKGO
-   // Create a Ginkgo Csr view
-   auto gko_cuda_exec = gko::CudaExecutor::create( 0, gko_host_exec );
-   auto gko_cuda_A = gko::share( getGinkgoMatrixCsrView( gko_cuda_exec, csrCudaMatrix ) );
-
-   // Wrap the vectors
-   // apply( b, x ) computes x = A * b
-   auto gko_cuda_b = Containers::GinkgoVector< Real, Devices::Cuda >::create( gko_cuda_exec, cudaInVector.getView() );
-   auto gko_cuda_x = Containers::GinkgoVector< Real, Devices::Cuda >::create( gko_cuda_exec, cudaOutVector.getView() );
-
-   auto spmvGinkgoCSRCuda = [ & ]()
-   {
-      gko_cuda_A->apply( gko_cuda_b.get(), gko_cuda_x.get() );
-   };
-
-   SpmvBenchmarkResult< Real, Devices::Cuda, int > ginkgoCudaBenchmarkResults( csrResultVector, cudaOutVector );
-   benchmark.setMetadataElement( { "format", "Ginkgo" } );
-   benchmark.setMetadataElement( { "launch cfg.", "Default" } );
-   benchmark.time< Devices::Cuda >( resetCudaVectors, "CUDA", spmvGinkgoCSRCuda, ginkgoCudaBenchmarkResults );
+   benchmarkGinkgoOnGpu< Real, Devices::Cuda >( benchmark,
+                                                gko::CudaExecutor::create( 0, gko_host_exec ),
+                                                csrCudaMatrix,
+                                                cudaInVector,
+                                                cudaOutVector,
+                                                csrResultVector,
+                                                resetCudaVectors,
+                                                "CUDA" );
    #endif
 
    #ifdef HAVE_CSR5
@@ -475,52 +636,19 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
    benchmark.time< Devices::Hip >( resetHipVectors, "HIP", spmvHipsparse, hipBenchmarkResults );
 
    #if defined( HAVE_HYPRE ) && defined( HYPRE_USING_HIP )
-   // Initialize HYPRE and set some global options
-   if constexpr( std::is_same< HYPRE_Real, Real >::value && std::is_same< HYPRE_Int, int >::value ) {
-      TNL::Hypre hypre;
-      using HypreCSR = TNL::Matrices::HypreCSRMatrix;
-      HypreCSR hypreCSRMatrix( csrHipMatrix.getRows(),
-                               csrHipMatrix.getColumns(),
-                               csrHipMatrix.getValues().getView(),
-                               csrHipMatrix.getColumnIndexes().getView(),
-                               csrHipMatrix.getSegments().getOffsets().getView() );
-      auto hipInVectorView = hipInVector.getView();
-      auto hipOutVectorView = hipOutVector.getView();
-
-      auto spmvHypreCSRHip = [ & ]()
-      {
-         hypreCSRMatrix.vectorProduct( hipInVectorView, hipOutVectorView );
-      };
-
-      SpmvBenchmarkResult< Real, Devices::Hip, int > hypreHipBenchmarkResults( csrResultVector, hipOutVector );
-      benchmark.setMetadataElement( { "format", "Hypre" } );
-      benchmark.setMetadataElement( { "launch cfg.", "Default" } );
-      benchmark.time< Devices::Hip >( resetHipVectors, "HIP", spmvHypreCSRHip, hypreHipBenchmarkResults );
-   }
-   else {
-      std::cerr << "Current Real or Index type does not agree with HYPRE_Real or HYPRE_Index." << std::endl;
-   }
+   benchmarkHypreOnGpu< Real, Devices::Hip >(
+      benchmark, csrHipMatrix, hipInVector, hipOutVector, csrResultVector, resetHipVectors, "HIP" );
    #endif
 
    #ifdef HAVE_GINKGO
-   // Create a Ginkgo Csr view
-   auto gko_hip_exec = gko::HipExecutor::create( 0, gko_host_exec );
-   auto gko_hip_A = gko::share( getGinkgoMatrixCsrView( gko_hip_exec, csrHipMatrix ) );
-
-   // Wrap the vectors
-   // apply( b, x ) computes x = A * b
-   auto gko_hip_b = Containers::GinkgoVector< Real, Devices::Hip >::create( gko_hip_exec, hipInVector.getView() );
-   auto gko_hip_x = Containers::GinkgoVector< Real, Devices::Hip >::create( gko_hip_exec, hipOutVector.getView() );
-
-   auto spmvGinkgoCSRHip = [ & ]()
-   {
-      gko_hip_A->apply( gko_hip_b.get(), gko_hip_x.get() );
-   };
-
-   SpmvBenchmarkResult< Real, Devices::Hip, int > ginkgoHipBenchmarkResults( csrResultVector, hipOutVector );
-   benchmark.setMetadataElement( { "format", "Ginkgo" } );
-   benchmark.setMetadataElement( { "launch cfg.", "Default" } );
-   benchmark.time< Devices::Hip >( resetHipVectors, "HIP", spmvGinkgoCSRHip, ginkgoHipBenchmarkResults );
+   benchmarkGinkgoOnGpu< Real, Devices::Hip >( benchmark,
+                                               gko::HipExecutor::create( 0, gko_host_exec ),
+                                               csrHipMatrix,
+                                               hipInVector,
+                                               hipOutVector,
+                                               csrResultVector,
+                                               resetHipVectors,
+                                               "HIP" );
    #endif
 
 #endif

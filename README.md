@@ -69,6 +69,16 @@ The TNL formats are CSR (with all kernels), Ellpack, SlicedEllpack
 each also in variants with sorted segments, Binary (matrix values ignored)
 and Symmetric (only for symmetric matrices).
 
+On the GPUs, Ginkgo is benchmarked with its `Csr` matrix and all its SpMV
+strategies (the automatic one as the launch configuration `Default`,
+`Classical`, `Load balance` and `Merge path`; the strategy calling the vendor
+library is logged as the format `Ginkgo Sparselib`) and with its `Ell`,
+`Sellp` (slice sizes 64 and 32), `Hybrid` and `Coo` matrices, logged as the
+formats `Ginkgo Ell`, `Ginkgo Sellp`, `Ginkgo Hybrid` and `Ginkgo Coo`.
+Hypre has only the CSR format, benchmarked with its default SpMV (`Default`),
+which calls the vendor library if Hypre is built with it, and with its own
+kernel (`Internal`).
+
 Every binary benchmarks one matrix per run, the original and by default
 also the transposed one (except the legacy benchmarks). The transposition
 is skipped for structurally symmetric matrices, i.e. matrices declared as
