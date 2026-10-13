@@ -13,9 +13,11 @@ exported to HTML or Excel (see --export).
 import pandas as pd
 import numpy as np
 import argparse
+import sys
 from TNL.BenchmarkLogs import *
 import MultiindexCreator as mic
 import Speedup
+import TableChecks
 import PosterHeatmapGraphs
 from VendorLibraries import vendor_format
 from LegacyCounterparts import legacy_counterparts
@@ -88,6 +90,13 @@ def get_arg_parser():
         metavar="FILE",
         help="Write the names of all processed matrices, one per line, to a text file "
         "(default file name: processed-matrices.txt)",
+    )
+    parser.add_argument(
+        "--checks-report",
+        default="spmv-benchmark-checks.txt",
+        metavar="FILE",
+        help="File with the results of the integrity checks of the tables, see TableChecks.py "
+        "(default: spmv-benchmark-checks.txt)",
     )
     parser.add_argument(
         "--export",
@@ -694,7 +703,8 @@ def fill_transposed_table(original, transposed):
 def build_tables(args):
     """
     Parse the input files and build one table for the original and one for the
-    transposed matrices (None if there are no results for them)
+    transposed matrices (None if there are no results for them). Returns the
+    tables and the results of their integrity checks.
     """
     print(f"Parsing input files: {args.input}")
     input_df = parse_input_files(args.input, args.matrices_report)
@@ -702,6 +712,9 @@ def build_tables(args):
     if args.list_matrices:
         write_matrices_list(args.list_matrices, input_df)
     tables = {}
+    checks = []
+    # the table stores the bandwidth in other units than the logs, see convert_data_frame()
+    bandwidth_factor = 1 / 1024 if bw_units == "TB/s" else 1.0
     for name, transposed in [("original", False), ("transposed", True)]:
         records = input_df[input_df["transposed"] == transposed]
         if records.empty:
@@ -710,18 +723,36 @@ def build_tables(args):
             continue
         print(f"Building the table for the {name} matrices...")
         tables[name] = build_table(records, args)
+        print(f"Checking the table for the {name} matrices...")
+        checks.append(TableChecks.check_table(name, tables[name], records, bandwidth_factor))
     if args.fill_transposed:
         tables["transposed"] = fill_transposed_table(tables["original"], tables["transposed"])
-    return tables
+    return tables, checks
+
+
+def report_checks(file_name, checks):
+    """
+    Write the results of the integrity checks to the file, print the errors
+    and the warnings and return True if there was no error
+    """
+    with open(file_name, "w") as file:
+        file.write("\n\n".join(check.report() for check in checks) + "\n")
+    for check in checks:
+        print(check.summary())
+    print(f"The results of the integrity checks are written to {file_name}")
+    return not any(check.errors for check in checks)
 
 
 def main():
     argparser = get_arg_parser()
     args = argparser.parse_args()
-    tables = build_tables(args)
+    tables, checks = build_tables(args)
     save_tables(args.output, tables)
     for file_name in args.export:
         export_tables(file_name, tables)
+    if not report_checks(args.checks_report, checks):
+        print("ERROR: The integrity checks of the tables failed.", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

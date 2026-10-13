@@ -189,6 +189,19 @@ in the TNL repository, installed together with TNL).
    - `--list-matrices [file]` – write the names of all processed matrices,
      one per line (default file: `processed-matrices.txt`)
 
+   The tables are checked for integrity (see
+   [TableChecks.py](./scripts/Python/TableChecks.py)): the numbers and the
+   sums of the times and the bandwidths in the rows and in the columns of
+   the table must agree with the logs, the properties of the matrices too,
+   and each speed-up must be a ratio of two times in the table. The results
+   are written to the file given by `--checks-report` (default:
+   `spmv-benchmark-checks.txt`), together with what each speed-up is
+   computed against and with warnings about suspicious records in the logs
+   (mixed precisions, a bandwidth which does not agree with the time,
+   matrices with only a few results). The script prints the errors and the
+   warnings and returns a nonzero exit code if a check fails, the table is
+   stored anyway.
+
 2. [tnl-spmv-benchmark-make-tables-json.py](./scripts/Python/tnl-spmv-benchmark-make-tables-json.py)
    loads the stored table and writes the reports to the output directory
    (default: `spmv-benchmark-report`):
