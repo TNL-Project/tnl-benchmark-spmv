@@ -117,6 +117,11 @@ SPEEDUP_MARGINS = (0.25, 0.50, 1.00, 2.00, 4.00)
 LIBRARY_SPEEDUP_MARGINS = (0.10, 0.25, 0.50, 1.00)
 # Directory of all heatmaps of the margins, next to the directory of the charts.
 HEATMAPS_DIR = "GPU-heatmaps"
+# The texts in the cells of the heatmaps have the size of the labels around
+# (see _set_latex_rcparams()). The cells drawn without LaTeX use the Computer
+# Modern Sans font shipped with matplotlib, which is the font of the labels.
+HEATMAP_CELL_FONT_SIZE = 13
+HEATMAP_CELL_FONT = "cmss10"
 ALL_SPEEDUP_MARGINS = sorted(set(SPEEDUP_MARGINS) | set(LIBRARY_SPEEDUP_MARGINS))
 
 
@@ -474,6 +479,9 @@ def draw_speedup_margins_heatmap(
     # are drawn without LaTeX, the percentages alone repeat and are cached.
     cells_usetex = not (counts or base_breakdowns)
     percent = "\\%" if cells_usetex else "%"
+    cell_font = {"fontsize": HEATMAP_CELL_FONT_SIZE}
+    if not cells_usetex:
+        cell_font["fontfamily"] = HEATMAP_CELL_FONT
     for i in range(len(rows)):
         row_counts = np.concatenate([slower_counts[i], faster_counts[i]])
         base = base_breakdowns[i] if base_breakdowns else None
@@ -489,11 +497,11 @@ def draw_speedup_margins_heatmap(
                     text += f" ({row_counts[j] - base_counts[j]:+d})"
                 else:
                     text += f" ({int(round(value - base_values[j])):+d})"
-            ax.text(j, i, text, ha="center", va="center", fontsize=9 if base_breakdowns else 10,
-                    color="white" if value > 60 else INK_PRIMARY, usetex=cells_usetex)
+            ax.text(j, i, text, ha="center", va="center", color="white" if value > 60 else INK_PRIMARY,
+                    usetex=cells_usetex, **cell_font)
         if counts:
-            ax.text(columns - 0.4, i, f"of {totals[i, 0]:.0f}", ha="left", va="center", fontsize=10,
-                    color=INK_SECONDARY, usetex=cells_usetex)
+            ax.text(columns - 0.4, i, f"of {totals[i, 0]:.0f}", ha="left", va="center",
+                    color=INK_SECONDARY, usetex=cells_usetex, **cell_font)
     ax.axvline(len(margins) - 0.5, color=INK_PRIMARY, linewidth=1.2)
     ax.set_xlim(-0.5, columns - 0.5)
     ax.set_ylim(len(rows) - 0.5, -0.5)
@@ -1299,7 +1307,9 @@ def speedup_heatmaps_variants_vs_libraries(
                 references.append((reference[0].lower(), f"best {reference[0]}", reference[0], reference[1]))
         best_csr = _best_csr_time(df, device)
         for tag in VARIANT_TAGS:
-            change = f"change w.r.t. the non-{tag.lower()} formats in parentheses"
+            # the Sigma-256-Sorted formats are compared with the non-sorted ones too
+            base_name = "non-sorted" if tag.endswith("Sorted") else f"non-{tag.lower()}"
+            change = f"change w.r.t. the {base_name} formats in parentheses"
             print(f"Writing poster heatmaps of the {tag} formats vs. the libraries for {device}")
             for name, reference_title, reference_label, reference_time in references:
                 _draw_variant_heatmaps(
