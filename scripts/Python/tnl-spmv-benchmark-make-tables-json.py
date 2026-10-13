@@ -14,6 +14,7 @@ import PosterHeatmapGraphs
 import PosterCoverageGraphs
 import CpuLibrariesGraphs
 import GpuLibrariesGraphs
+import AnalysisTables
 from LegacyCounterparts import legacy_counterparts
 from BenchmarkTable import load_table, print_formats_and_launch_configs
 
@@ -84,6 +85,13 @@ def get_arg_parser():
         "(CpuLibrariesGraphs.py): 'all' for all benchmarked ones or a comma-separated "
         "list, e.g. 1,4,16,32 (default: all)",
     )
+    parser.add_argument(
+        "--with-tables",
+        help="Write the tables analyzing the results as HTML and LaTeX to the directory Tables "
+        "(see AnalysisTables.py), for the original and the transposed matrices",
+        action="store_true",
+        default=False
+    )
     return parser
 
 
@@ -139,6 +147,12 @@ def analyze_df(df, args, formats, launch_configs, accelerator_devices, transpose
             transposed_df, _, _, transposed_devices = transposed_table
             GpuLibrariesGraphs.gpu_libraries_graphs(transposed_df, transposed_devices, True)
 
+    if args.with_tables:
+        AnalysisTables.write_tables(df, accelerator_devices, args.transposed)
+        if transposed_table is not None:
+            transposed_df, _, _, transposed_devices = transposed_table
+            AnalysisTables.write_tables(transposed_df, transposed_devices, True)
+
     print("Writting to file sparse-matrix-benchmark-test-processed.html ... ")
     df.sort_index(inplace=True)
     df.to_html("sparse-matrix-benchmark-test-processed.html")
@@ -170,13 +184,14 @@ def main():
     if args.verbose:
         print_formats_and_launch_configs(formats, launch_configs, accelerator_devices)
 
-    # the comparisons with the other libraries on the GPUs are drawn for the transposed matrices too
+    # the comparisons with the other libraries on the GPUs and the tables are made for the
+    # transposed matrices too
     transposed_table = None
-    if args.poster_graphs and not args.transposed:
+    if (args.poster_graphs or args.with_tables) and not args.transposed:
         try:
             transposed_table = load_table(args.input, True)
         except ValueError as error:
-            print(f"{error} The comparisons with the other libraries are drawn for the original matrices only.")
+            print(f"{error} The comparisons with the other libraries are made for the original matrices only.")
 
     output_dir = args.output_dir
     if not os.path.exists(output_dir):

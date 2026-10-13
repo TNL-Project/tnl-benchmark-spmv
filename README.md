@@ -232,6 +232,12 @@ in the TNL repository, installed together with TNL).
      of the CSR and Ellpack formats (`speedup-<variant>-csr-vs-*` and
      `speedup-<variant>-ellpack-vs-*`), with the change w.r.t. the base
      format on the same matrices in parentheses.
+   - `--with-tables` – the tables analyzing the results, each as HTML,
+     LaTeX (a `tabular` to `\input` and a standalone document) and CSV, for
+     the original and the transposed matrices, in `Tables/`: the percentage
+     of matrices on which TNL CSR, TNL ELLPACK, the vendor library, Ginkgo
+     and hypre are the fastest on each GPU, by the number of nonzeros
+     (`winners-by-size`)
    - `--with-cpu-threads <all|list>` – the numbers of threads compared in
      the graphs in `CPU-libraries/`, e.g. `1,4,16,32` (default: `all`)
    - `--transposed` – process the table for the transposed matrices
