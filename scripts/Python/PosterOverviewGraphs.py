@@ -50,6 +50,8 @@ Entry points:
     speedup_overview_csr_vs_libraries - the Ellpack variants of TNL (Ellpack,
     SlicedEllpack, BiEllpack, ChunkedEllpack) against the best result of each
     library, one row per format at its best launch config.
+  - speedup_overview_ellpack_vs_best_csr: the same Ellpack variants against
+    the best CSR of all libraries on the device and on the CPU.
   - speedup_overview_sorted_segments: the impact of sorted segments (PDF +
     TikZ), one row per class (CSR, RowMajor/ColumnMajor SlicedEllpack)
     rather than one row per format/launch-config - each row compares the
@@ -78,7 +80,7 @@ from matplotlib.ticker import FuncFormatter
 from matplotlib.patches import Patch
 
 import LatexLabels
-from VendorLibraries import is_vendor_format, vendor_label
+from VendorLibraries import is_vendor_format, vendor_format, vendor_label
 from PosterGraphsCommon import (
     COLOR_FASTER,
     COLOR_SIMILAR,
@@ -1012,6 +1014,104 @@ def speedup_overview_ellpack_vs_libraries(
                 reference_label=label,
                 title=title,
             )
+
+
+# CSR implementations of the other libraries: they are benchmarked under the
+# name of the library (the vendor library under vendor_format(device)).
+CSR_LIBRARY_FORMAT_PREFIXES = ("Ginkgo", "Hypre", "LightSpMV")
+
+
+def _is_any_csr_format(device):
+    """
+    Predicate matching every CSR implementation benchmarked on `device`: the
+    plain CSR formats of TNL (CSR and Adaptive CSR, also with sorted rows, see
+    _is_csr_baseline_format()), the CSR format of the vendor library of the
+    device (not its other formats) and the libraries which offer only CSR.
+    """
+    vendor_csr = vendor_format(device)
+
+    def format_ok(format):
+        if format == vendor_csr or format.startswith(CSR_LIBRARY_FORMAT_PREFIXES):
+            return True
+        return _is_csr_baseline_format(format) and not _is_library_format(format)
+
+    return format_ok
+
+
+def _best_csr_time(df, device):
+    """
+    Per-matrix best time of any CSR implementation of any library, on `device`
+    or on the CPU with any number of threads ("best CSR ever"), and the sorted
+    list of the formats it is taken over as (format, device) pairs. Returns
+    None if there is no such result.
+    """
+    candidates = []
+    used = []
+    for performer in (device, "CPU"):
+        format_ok = _is_any_csr_format(performer)
+        time = _min_time_per_matrix(df, performer, format_ok)
+        if time is None:
+            continue
+        candidates.append(time)
+        used += sorted(
+            {
+                (column[0], performer)
+                for column in df.columns
+                if len(column) == 5 and column[1] == performer and column[3] == "time median" and format_ok(column[0])
+            }
+        )
+    if not candidates:
+        return None
+    return pd.concat(candidates, axis=1).min(axis=1), used
+
+
+def speedup_overview_ellpack_vs_best_csr(
+    df,
+    accelerator_devices,
+    output_dir="Poster",
+    threshold=0.10,
+    transposed=False,
+):
+    """
+    Entry point: for every accelerator device, the Ellpack variants of TNL
+    (see _ellpack_classes()) against the best CSR of all libraries on that
+    device and on the CPU (see _best_csr_time()) - PDF plus the TikZ output.
+    The formats the best CSR is taken over are written to a text file.
+    """
+    if not os.path.exists(output_dir):
+        os.mkdir(output_dir)
+    for device in accelerator_devices:
+        best_csr = _best_csr_time(df, device)
+        if best_csr is None:
+            continue
+        reference_time, used = best_csr
+        rows = collect_ellpack_vs_library(df, device, reference_time, threshold=threshold)
+        if not rows:
+            continue
+        print(f"Writing poster Ellpack overview vs. best CSR for {device} ({len(rows)} rows)")
+        basename = f"speedup-ellpack-vs-best-csr-{device}{_transposed_suffix(transposed)}"
+        title = f"Ellpack variants vs. best CSR of all libraries on {device} and CPU{_transposed_title(transposed)}"
+        with open(os.path.join(output_dir, f"{basename}-formats.txt"), "w") as file:
+            file.write("The best CSR is the best time of these formats with all their launch configurations:\n")
+            for format, performer in used:
+                file.write(f"   {format} on {performer}\n")
+        draw_speedup_overview(
+            rows,
+            filename=os.path.join(output_dir, f"{basename}.pdf"),
+            threshold=threshold,
+            subject_label="TNL",
+            reference_label="best CSR",
+            title=title,
+            margins=LIBRARY_SPEEDUP_MARGINS,
+        )
+        write_speedup_overview_tikz(
+            rows,
+            filename=os.path.join(output_dir, f"{basename}.tex"),
+            threshold=threshold,
+            subject_label="TNL",
+            reference_label="best CSR",
+            title=title,
+        )
 
 
 def speedup_overview_variants(
