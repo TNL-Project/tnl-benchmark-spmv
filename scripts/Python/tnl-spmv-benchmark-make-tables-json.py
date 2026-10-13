@@ -103,6 +103,9 @@ def analyze_df(df, args, formats, launch_configs, accelerator_devices, transpose
             PosterOverviewGraphs.speedup_overview_csr_vs_libraries(
                 table_df, table_formats, table_launch_configs, table_devices, transposed=transposed
             )
+            PosterOverviewGraphs.speedup_overview_ellpack_vs_libraries(
+                table_df, table_devices, transposed=transposed
+            )
             PosterOverviewGraphs.speedup_overview_sliced_ellpack_vs_vendor(
                 table_df, table_devices, transposed=transposed
             )

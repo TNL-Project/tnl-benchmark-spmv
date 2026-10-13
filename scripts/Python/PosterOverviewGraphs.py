@@ -46,6 +46,10 @@ Entry points:
     of speedup_overview_variants (PDF + TikZ), restricted to CSR-family
     formats only (i.e. "Binary CSR" vs "CSR") - the Binary/CSR-only
     counterpart to speedup_overview_csr_vs_libraries.
+  - speedup_overview_ellpack_vs_libraries: the Ellpack counterpart of
+    speedup_overview_csr_vs_libraries - the Ellpack variants of TNL (Ellpack,
+    SlicedEllpack, BiEllpack, ChunkedEllpack) against the best result of each
+    library, one row per format at its best launch config.
   - speedup_overview_sorted_segments: the impact of sorted segments (PDF +
     TikZ), one row per class (CSR, RowMajor/ColumnMajor SlicedEllpack)
     rather than one row per format/launch-config - each row compares the
@@ -919,6 +923,95 @@ def speedup_overview_sliced_ellpack_vs_vendor(
             title=title,
             wrap_reference_label=True,
         )
+
+
+def _ellpack_classes():
+    """
+    Rows of the TNL Ellpack variants vs. library charts, as (label, format
+    filter) pairs: the best of all plain (untagged) Ellpack-like formats, each
+    family (Ellpack, RowMajor/ColumnMajor SlicedEllpack, BiEllpack,
+    ChunkedEllpack) and every SlicedEllpack organization/slice size on its
+    own - each at its best launch config.
+    """
+    classes = [("Best Ellpack variant", lambda format: any(ok(format) for ok in FAMILY_FILTERS.values()))]
+    for family, format_ok in FAMILY_FILTERS.items():
+        label = f"Best {family}" if "SlicedEllpack" in family else family
+        classes.append((label, format_ok))
+    for organization in ("RowMajor", "ColumnMajor"):
+        for slice_size in (2, 4, 8, 16, 32):
+            name = f"{organization} SlicedEllpack {slice_size}"
+            classes.append((name, lambda format, name=name: format == name))
+    return classes
+
+
+def collect_ellpack_vs_library(df, device, reference_time, threshold=0.10):
+    """
+    Compare each class from _ellpack_classes() (its best launch config, and
+    for the "Best ..." rows also the best format of the class, on each matrix)
+    with the per-matrix reference time of a library. Returns a list of (label,
+    breakdown) tuples suitable for draw_speedup_overview() /
+    write_speedup_overview_tikz().
+    """
+    rows = []
+    for label, format_ok in _ellpack_classes():
+        tnl_time = _min_time_per_matrix(df, device, format_ok)
+        if tnl_time is None:
+            continue
+        breakdown = _speedup_breakdown(reference_time / tnl_time, threshold)
+        if breakdown is None:
+            continue
+        rows.append((label, breakdown))
+    return rows
+
+
+def speedup_overview_ellpack_vs_libraries(
+    df,
+    accelerator_devices,
+    libraries=REFERENCE_LIBRARIES,
+    output_dir="Poster",
+    threshold=0.10,
+    transposed=False,
+):
+    """
+    Entry point: the Ellpack counterpart of speedup_overview_csr_vs_libraries()
+    - for every accelerator device and library, the Ellpack variants of TNL
+    (see _ellpack_classes()) against the library's best time on each matrix,
+    as PDF plus the TikZ output. Unlike the CSR chart, there is one row per
+    format with its best launch config on each matrix, not one row per launch
+    config, which would make more than 60 rows.
+    """
+    if not os.path.exists(output_dir):
+        os.mkdir(output_dir)
+    for library in libraries:
+        for device in accelerator_devices:
+            reference = _reference_library(df, device, library)
+            if reference is None:
+                print(f"No {library} results found on {device}, skipping poster Ellpack overview.")
+                continue
+            label, reference_time = reference
+            rows = collect_ellpack_vs_library(df, device, reference_time, threshold=threshold)
+            if not rows:
+                continue
+            print(f"Writing poster Ellpack overview vs. {label} for {device} ({len(rows)} rows)")
+            basename = f"speedup-ellpack-vs-{label.lower()}-{device}{_transposed_suffix(transposed)}"
+            title = f"Ellpack variants vs. best {label} on {device}{_transposed_title(transposed)}"
+            draw_speedup_overview(
+                rows,
+                filename=os.path.join(output_dir, f"{basename}.pdf"),
+                threshold=threshold,
+                subject_label="TNL",
+                reference_label=label,
+                title=title,
+                margins=LIBRARY_SPEEDUP_MARGINS,
+            )
+            write_speedup_overview_tikz(
+                rows,
+                filename=os.path.join(output_dir, f"{basename}.tex"),
+                threshold=threshold,
+                subject_label="TNL",
+                reference_label=label,
+                title=title,
+            )
 
 
 def speedup_overview_variants(
