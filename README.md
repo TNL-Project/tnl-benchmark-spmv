@@ -220,7 +220,8 @@ in the TNL repository, installed together with TNL).
      number of nonzeros, in
      `CPU-libraries/`, and the performance profiles of TNL, cuSPARSE or
      hipSPARSE, Ginkgo and Hypre on the GPUs for the best CSR and for the
-     best benchmarked format of each library, in `GPU-libraries/`
+     best benchmarked format of each library, in `GPU-libraries/` (these
+     are drawn for both the original and the transposed matrices)
    - `--with-cpu-threads <all|list>` – the numbers of threads compared in
      the graphs in `CPU-libraries/`, e.g. `1,4,16,32` (default: `all`)
    - `--transposed` – process the table for the transposed matrices

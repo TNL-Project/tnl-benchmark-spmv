@@ -53,8 +53,8 @@ VENDOR_STYLE = {"color": "#8b5cc7", "linestyle": "-."}
 # The largest ratio shown in the graphs and the ticks of the axis. The largest
 # ratios are in hundreds, which would squeeze the interesting part of the
 # profile, all ratios are in the CSV files.
-TAU_LIMIT = 4
-TAU_TICKS = [1, 1.25, 1.5, 2, 3, 4]
+TAU_LIMIT = 8
+TAU_TICKS = [1, 1.5, 2, 3, 4, 6, 8]
 
 
 def _is_tnl_format(format):

@@ -87,7 +87,7 @@ def get_arg_parser():
     return parser
 
 
-def analyze_df(df, args, formats, launch_configs, accelerator_devices):
+def analyze_df(df, args, formats, launch_configs, accelerator_devices, transposed_table=None):
     """
     Analyze the dataframe and generate reports.
     """
@@ -119,6 +119,9 @@ def analyze_df(df, args, formats, launch_configs, accelerator_devices):
             df, launch_configs, args.transposed, thread_counts=args.with_cpu_threads
         )
         GpuLibrariesGraphs.gpu_libraries_graphs(df, accelerator_devices, args.transposed)
+        if transposed_table is not None:
+            transposed_df, _, _, transposed_devices = transposed_table
+            GpuLibrariesGraphs.gpu_libraries_graphs(transposed_df, transposed_devices, True)
 
     print("Writting to file sparse-matrix-benchmark-test-processed.html ... ")
     df.sort_index(inplace=True)
@@ -151,12 +154,20 @@ def main():
     if args.verbose:
         print_formats_and_launch_configs(formats, launch_configs, accelerator_devices)
 
+    # the GPU libraries graphs are drawn for the transposed matrices too
+    transposed_table = None
+    if args.poster_graphs and not args.transposed:
+        try:
+            transposed_table = load_table(args.input, True)
+        except ValueError as error:
+            print(f"{error} The GPU libraries graphs are drawn for the original matrices only.")
+
     output_dir = args.output_dir
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
     os.chdir(output_dir)
 
-    analyze_df(result, args, formats, launch_configs, accelerator_devices)
+    analyze_df(result, args, formats, launch_configs, accelerator_devices, transposed_table)
 
     os.chdir("..")
 
