@@ -236,7 +236,7 @@ class Speedup:
                 for device in self.accelerator_devices:
                     if (format, device) in self.launch_configs:
                         for launch_config in self.launch_configs[(format, device)]:
-                            non_sorted_format = re.sub(r"Sigma-\d+-Sorted ", "", format)
+                            non_sorted_format = re.sub(r"(Sigma-\d+-)?Sorted ", "", format)
                             divide_columns(
                                 self.df,
                                 (non_sorted_format, device, launch_config, "time median", ""),
