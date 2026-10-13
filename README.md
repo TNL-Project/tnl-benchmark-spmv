@@ -227,7 +227,11 @@ in the TNL repository, installed together with TNL).
      Each bar chart in `Poster/` comes with two heatmaps of the matrices
      where one side is faster by more than given margins, with the
      percentages (`-margins`) and the numbers of matrices
-     (`-margins-counts`), in `GPU-heatmaps/`.
+     (`-margins-counts`), in `GPU-heatmaps/`. The same heatmaps are drawn
+     there for the Binary, Symmetric, Sorted and Sigma-256-Sorted variants
+     of the CSR and Ellpack formats (`speedup-<variant>-csr-vs-*` and
+     `speedup-<variant>-ellpack-vs-*`), with the change w.r.t. the base
+     format on the same matrices in parentheses.
    - `--with-cpu-threads <all|list>` – the numbers of threads compared in
      the graphs in `CPU-libraries/`, e.g. `1,4,16,32` (default: `all`)
    - `--transposed` – process the table for the transposed matrices

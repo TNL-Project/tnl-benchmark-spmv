@@ -52,6 +52,9 @@ Entry points:
     library, one row per format at its best launch config.
   - speedup_overview_ellpack_vs_best_csr: the same Ellpack variants against
     the best CSR of all libraries on the device and on the CPU.
+  - speedup_heatmaps_variants_vs_libraries: the heatmaps of the three charts
+    above for the Binary, Symmetric, Sorted and Sigma-256-Sorted variants of
+    the formats, with the change w.r.t. the base format in each cell.
   - speedup_overview_sorted_segments: the impact of sorted segments (PDF +
     TikZ), one row per class (CSR, RowMajor/ColumnMajor SlicedEllpack)
     rather than one row per format/launch-config - each row compares the
@@ -425,6 +428,7 @@ def draw_speedup_margins_heatmap(
     row_height=0.42,
     margins=SPEEDUP_MARGINS,
     counts=False,
+    base_breakdowns=None,
 ):
     """
     Draw a heatmap from the rows of draw_speedup_overview(): one row per
@@ -439,6 +443,11 @@ def draw_speedup_margins_heatmap(
     With counts=True, the cells show the numbers of matrices instead of the
     percentages (the colors are the same) and the number of all compared
     matrices is written next to each row.
+
+    base_breakdowns, if given, holds the breakdown of the base format of each
+    row computed on the same matrices (or None). The change of each cell
+    w.r.t. the base format is then written in parentheses: in percentage
+    points, with counts=True as the number of matrices.
     """
     margins = list(margins)
     totals = np.array([row[1]["n"] for row in rows], dtype=float)[:, None]
@@ -460,16 +469,27 @@ def draw_speedup_margins_heatmap(
               aspect="auto", extent=extent_slower)
     ax.imshow(faster, cmap=colormap("faster", ["white", COLOR_FASTER]), vmin=0, vmax=100,
               aspect="auto", extent=extent_faster)
-    # The numbers of matrices make thousands of different texts and LaTeX is
-    # run for each new one, which takes minutes. Such cells are drawn without
-    # LaTeX, the percentages repeat and are cached.
-    cells_usetex = not counts
+    # The numbers of matrices and the changes make thousands of different
+    # texts and LaTeX is run for each new one, which takes minutes. Such cells
+    # are drawn without LaTeX, the percentages alone repeat and are cached.
+    cells_usetex = not (counts or base_breakdowns)
     percent = "\\%" if cells_usetex else "%"
     for i in range(len(rows)):
         row_counts = np.concatenate([slower_counts[i], faster_counts[i]])
+        base = base_breakdowns[i] if base_breakdowns else None
+        if base is not None:
+            base_counts = np.array(
+                [base["slower by"][m] for m in reversed(margins)] + [base["faster by"][m] for m in margins]
+            )
+            base_values = 100.0 * base_counts / base["n"]
         for j, value in enumerate(np.concatenate([slower[i], faster[i]])):
             text = f"{row_counts[j]}" if counts else f"{value:.0f}{percent}"
-            ax.text(j, i, text, ha="center", va="center", fontsize=10,
+            if base is not None:
+                if counts:
+                    text += f" ({row_counts[j] - base_counts[j]:+d})"
+                else:
+                    text += f" ({int(round(value - base_values[j])):+d})"
+            ax.text(j, i, text, ha="center", va="center", fontsize=9 if base_breakdowns else 10,
                     color="white" if value > 60 else INK_PRIMARY, usetex=cells_usetex)
         if counts:
             ax.text(columns - 0.4, i, f"of {totals[i, 0]:.0f}", ha="left", va="center", fontsize=10,
@@ -1145,6 +1165,169 @@ def speedup_overview_ellpack_vs_best_csr(
             reference_label="best CSR",
             title=title,
         )
+
+
+# ---------------------------------------------------------------------------
+# Heatmaps of the variants of the formats (Binary, Symmetric, Sorted,
+# Sigma-256-Sorted) vs. the other libraries: the same rows and references as
+# the CSR and Ellpack charts above, with the change w.r.t. the base format.
+# ---------------------------------------------------------------------------
+
+# Variants of the formats: the name of the variant is "<tag> <base format>".
+VARIANT_TAGS = ("Binary", "Symmetric", "Sorted", "Sigma-256-Sorted")
+
+
+def _variant_and_base_breakdown(reference_time, variant_time, base_time, threshold):
+    """
+    Breakdowns of the speed-ups of a variant and of its base format w.r.t. the
+    reference on the same matrices - those with the results of all three - so
+    that they can be compared. Without the base format, the variant is
+    evaluated on all its matrices and the base breakdown is None.
+    """
+    if variant_time is None:
+        return None, None
+    if base_time is None:
+        return _speedup_breakdown(reference_time / variant_time, threshold), None
+    common = reference_time.notna() & variant_time.notna() & base_time.notna()
+    return (
+        _speedup_breakdown((reference_time / variant_time)[common], threshold),
+        _speedup_breakdown((reference_time / base_time)[common], threshold),
+    )
+
+
+def _column_time(df, format, device, launch_config):
+    column = (format, device, launch_config, "time median", "")
+    if column not in df.columns:
+        return None
+    return pd.to_numeric(df[column], errors="coerce")
+
+
+def collect_csr_variant_vs_library(df, formats, launch_configs, device, tag, reference_time, threshold=0.10):
+    """
+    Rows of the CSR chart (see speedup_overview_csr_vs_libraries()) for the
+    variant `tag` of the CSR formats, one per launch config, as (label,
+    breakdown, breakdown of the base format) tuples.
+    """
+    rows = []
+    for base in formats:
+        if _is_library_format(base) or not _is_csr_baseline_format(base) or "Sorted" in base:
+            continue
+        format = f"{tag} {base}"
+        for launch_config in launch_configs.get((format, device), []):
+            breakdown, base_breakdown = _variant_and_base_breakdown(
+                reference_time,
+                _column_time(df, format, device, launch_config),
+                _column_time(df, base, device, launch_config),
+                threshold,
+            )
+            if breakdown is not None:
+                rows.append((default_label(format, launch_config), breakdown, base_breakdown))
+    return rows
+
+
+def collect_ellpack_variant_vs_library(df, device, tag, reference_time, threshold=0.10):
+    """
+    Rows of the Ellpack charts (see _ellpack_classes()) for the variant `tag`
+    of the Ellpack formats, as (label, breakdown, breakdown of the base
+    class) tuples.
+    """
+    prefix = f"{tag} "
+    rows = []
+    for label, format_ok in _ellpack_classes():
+        variant_ok = lambda format, format_ok=format_ok: format.startswith(prefix) and format_ok(format[len(prefix):])
+        breakdown, base_breakdown = _variant_and_base_breakdown(
+            reference_time,
+            _min_time_per_matrix(df, device, variant_ok),
+            _min_time_per_matrix(df, device, format_ok),
+            threshold,
+        )
+        if breakdown is not None:
+            rows.append((f"{tag} {label}" if not label.startswith("Best") else f"Best {tag} {label[5:]}", breakdown, base_breakdown))
+    return rows
+
+
+def _draw_variant_heatmaps(rows, basename, output_dir, title, reference_label):
+    """
+    Write the heatmaps of the margins with the percentages and with the
+    numbers of matrices for the rows of a variant
+    """
+    if not rows:
+        return
+    for suffix, counts in [("-margins", False), ("-margins-counts", True)]:
+        draw_speedup_margins_heatmap(
+            [(label, breakdown) for label, breakdown, _ in rows],
+            os.path.join(output_dir, f"{basename}{suffix}.pdf"),
+            subject_label="TNL",
+            reference_label=reference_label,
+            title=title,
+            cell_width=1.45,
+            margins=LIBRARY_SPEEDUP_MARGINS,
+            counts=counts,
+            base_breakdowns=[base for _, _, base in rows],
+        )
+
+
+def speedup_heatmaps_variants_vs_libraries(
+    df,
+    formats,
+    launch_configs,
+    accelerator_devices,
+    libraries=REFERENCE_LIBRARIES,
+    output_dir=HEATMAPS_DIR,
+    threshold=0.10,
+    transposed=False,
+):
+    """
+    Entry point: the heatmaps of the charts speedup-csr-vs-<library>,
+    speedup-ellpack-vs-<library> and speedup-ellpack-vs-best-csr for the
+    Binary, Symmetric, Sorted and Sigma-256-Sorted variants of the formats
+    (see VARIANT_TAGS), i.e. each variant against the same reference as its
+    base format. Each cell shows also the change w.r.t. the base format in
+    parentheses - in percentage points, resp. in the number of matrices in
+    the "-margins-counts" files. The variant and its base format are
+    evaluated on the same matrices, those with the results of both, since
+    e.g. the symmetric formats are benchmarked only on symmetric matrices.
+    """
+    if not os.path.exists(output_dir):
+        os.mkdir(output_dir)
+    suffix = _transposed_suffix(transposed)
+    for device in accelerator_devices:
+        references = []
+        for library in libraries:
+            reference = _reference_library(df, device, library)
+            if reference is not None:
+                references.append((reference[0].lower(), f"best {reference[0]}", reference[0], reference[1]))
+        best_csr = _best_csr_time(df, device)
+        for tag in VARIANT_TAGS:
+            change = f"change w.r.t. the non-{tag.lower()} formats in parentheses"
+            print(f"Writing poster heatmaps of the {tag} formats vs. the libraries for {device}")
+            for name, reference_title, reference_label, reference_time in references:
+                _draw_variant_heatmaps(
+                    collect_csr_variant_vs_library(
+                        df, formats, launch_configs, device, tag, reference_time, threshold
+                    ),
+                    f"speedup-{tag.lower()}-csr-vs-{name}-{device}{suffix}",
+                    output_dir,
+                    f"{tag} CSR vs. {reference_title} on {device}{_transposed_title(transposed)} ({change})",
+                    reference_label,
+                )
+                _draw_variant_heatmaps(
+                    collect_ellpack_variant_vs_library(df, device, tag, reference_time, threshold),
+                    f"speedup-{tag.lower()}-ellpack-vs-{name}-{device}{suffix}",
+                    output_dir,
+                    f"{tag} Ellpack variants vs. {reference_title} on {device}"
+                    f"{_transposed_title(transposed)} ({change})",
+                    reference_label,
+                )
+            if best_csr is not None:
+                _draw_variant_heatmaps(
+                    collect_ellpack_variant_vs_library(df, device, tag, best_csr[0], threshold),
+                    f"speedup-{tag.lower()}-ellpack-vs-best-csr-{device}{suffix}",
+                    output_dir,
+                    f"{tag} Ellpack variants vs. best CSR of all libraries on {device} and CPU"
+                    f"{_transposed_title(transposed)} ({change})",
+                    "best CSR",
+                )
 
 
 def speedup_overview_variants(
