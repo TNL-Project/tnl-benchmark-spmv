@@ -56,7 +56,13 @@ Entry points:
 Every bar chart (PDF) comes with a heatmap of the same rows in the file with
 the suffix "-margins": the percentage of matrices where the subject, resp.
 the reference, is faster by more than 25%, 50%, 100%, 200% and 400% (see
-SPEEDUP_MARGINS / draw_speedup_margins_heatmap()).
+SPEEDUP_MARGINS / draw_speedup_margins_heatmap()), and with the same heatmap
+with the numbers of matrices in the file with the suffix "-margins-counts".
+The charts comparing TNL with the best result of another library use smaller
+margins (10%, 25%, 50% and 100%, see LIBRARY_SPEEDUP_MARGINS), since the
+library chooses its best format and algorithm for each matrix, so large
+speed-ups of one TNL format are rare. These charts are drawn for the
+transposed matrices too, to the files with the suffix "-transposed".
 """
 
 import itertools
@@ -98,6 +104,9 @@ from PosterGraphsCommon import (
 # Margins of the heatmap drawn next to every overview bar chart (see
 # draw_speedup_margins_heatmap()): 0.25 stands for "faster by more than 25%".
 SPEEDUP_MARGINS = (0.25, 0.50, 1.00, 2.00, 4.00)
+# Margins of the charts comparing TNL with the best result of another library.
+LIBRARY_SPEEDUP_MARGINS = (0.10, 0.25, 0.50, 1.00)
+ALL_SPEEDUP_MARGINS = sorted(set(SPEEDUP_MARGINS) | set(LIBRARY_SPEEDUP_MARGINS))
 
 
 def _speedup_breakdown(speedup_values, threshold):
@@ -112,9 +121,9 @@ def _speedup_breakdown(speedup_values, threshold):
     Returns a dict with "faster"/"similar"/"slower" percentages (summing to
     100) and "n" (the number of matrices behind them), or None if there are
     no valid values at all. For draw_speedup_margins_heatmap(), the dict also
-    holds "faster by" and "slower by": the percentages of matrices where the
+    holds "faster by" and "slower by": the numbers of matrices where the
     subject, resp. the reference, is faster by more than each margin of
-    SPEEDUP_MARGINS (margin -> percentage), i.e. where speed-up > 1 + margin,
+    ALL_SPEEDUP_MARGINS (margin -> count), i.e. where speed-up > 1 + margin,
     resp. 1 / speed-up > 1 + margin.
     """
     values = speedup_values.dropna()
@@ -129,8 +138,8 @@ def _speedup_breakdown(speedup_values, threshold):
         "similar": 100.0 * similar / total,
         "slower": 100.0 * slower / total,
         "n": total,
-        "faster by": {m: 100.0 * (values > 1 + m).sum() / total for m in SPEEDUP_MARGINS},
-        "slower by": {m: 100.0 * (1 / values > 1 + m).sum() / total for m in SPEEDUP_MARGINS},
+        "faster by": {m: int((values > 1 + m).sum()) for m in ALL_SPEEDUP_MARGINS},
+        "slower by": {m: int((1 / values > 1 + m).sum()) for m in ALL_SPEEDUP_MARGINS},
     }
 
 
@@ -267,6 +276,7 @@ def draw_speedup_overview(
     title=None,
     fig_width=8,
     row_height=0.55,
+    margins=SPEEDUP_MARGINS,
 ):
     """
     Draw a 100% stacked horizontal bar chart from rows produced by
@@ -274,20 +284,24 @@ def draw_speedup_overview(
     "subject_label faster" / "within threshold" / "reference_label faster"
     segments. The bars tell only who is faster by more than the threshold, so
     the heatmap of the same rows with more margins is written next to the
-    chart, to the file with the suffix "-margins" (see
-    draw_speedup_margins_heatmap()).
+    chart, to the file with the suffix "-margins", and the same heatmap with
+    the numbers of matrices to the file with the suffix "-margins-counts"
+    (see draw_speedup_margins_heatmap()).
     """
     if not rows:
         print(f"No data to draw for {filename}, skipping.")
         return
     base, extension = os.path.splitext(filename)
-    draw_speedup_margins_heatmap(
-        rows,
-        f"{base}-margins{extension}",
-        subject_label=subject_label,
-        reference_label=reference_label,
-        title=title,
-    )
+    for suffix, counts in [("-margins", False), ("-margins-counts", True)]:
+        draw_speedup_margins_heatmap(
+            rows,
+            f"{base}{suffix}{extension}",
+            subject_label=subject_label,
+            reference_label=reference_label,
+            title=title,
+            margins=margins,
+            counts=counts,
+        )
 
     labels = [_tex_escape(r[0]) for r in rows]
     faster = np.array([r[1]["faster"] for r in rows])
@@ -375,20 +389,29 @@ def draw_speedup_margins_heatmap(
     title=None,
     cell_width=0.95,
     row_height=0.42,
+    margins=SPEEDUP_MARGINS,
+    counts=False,
 ):
     """
     Draw a heatmap from the rows of draw_speedup_overview(): one row per
-    format/launch-config and one column per margin of SPEEDUP_MARGINS on each
-    side. The cells on the left show the percentage of matrices where the
-    reference is faster by more than the margin (red), the cells on the right
-    where the subject is faster by more than the margin (green), with the
-    smallest margin next to the middle. The percentages are cumulative: the
-    matrices of a larger margin are counted in the smaller ones too. "Faster
-    by 100%" means twice as fast on both sides.
+    format/launch-config and one column per margin on each side. The cells on
+    the left show the percentage of matrices where the reference is faster by
+    more than the margin (red), the cells on the right where the subject is
+    faster by more than the margin (green), with the smallest margin next to
+    the middle. The percentages are cumulative: the matrices of a larger
+    margin are counted in the smaller ones too. "Faster by 100%" means twice
+    as fast on both sides.
+
+    With counts=True, the cells show the numbers of matrices instead of the
+    percentages (the colors are the same) and the number of all compared
+    matrices is written next to each row.
     """
-    margins = list(SPEEDUP_MARGINS)
-    slower = np.array([[row[1]["slower by"][m] for m in reversed(margins)] for row in rows])
-    faster = np.array([[row[1]["faster by"][m] for m in margins] for row in rows])
+    margins = list(margins)
+    totals = np.array([row[1]["n"] for row in rows], dtype=float)[:, None]
+    slower_counts = np.array([[row[1]["slower by"][m] for m in reversed(margins)] for row in rows])
+    faster_counts = np.array([[row[1]["faster by"][m] for m in margins] for row in rows])
+    slower = 100.0 * slower_counts / totals
+    faster = 100.0 * faster_counts / totals
     labels = [_tex_escape(row[0]) for row in rows]
 
     _set_latex_rcparams()
@@ -404,9 +427,14 @@ def draw_speedup_margins_heatmap(
     ax.imshow(faster, cmap=colormap("faster", ["white", COLOR_FASTER]), vmin=0, vmax=100,
               aspect="auto", extent=extent_faster)
     for i in range(len(rows)):
+        row_counts = np.concatenate([slower_counts[i], faster_counts[i]])
         for j, value in enumerate(np.concatenate([slower[i], faster[i]])):
-            ax.text(j, i, f"{value:.0f}\\%", ha="center", va="center", fontsize=10,
+            text = f"{row_counts[j]}" if counts else f"{value:.0f}\\%"
+            ax.text(j, i, text, ha="center", va="center", fontsize=10,
                     color="white" if value > 60 else INK_PRIMARY)
+        if counts:
+            ax.text(columns - 0.4, i, f"of {totals[i, 0]:.0f}", ha="left", va="center", fontsize=10,
+                    color=INK_SECONDARY)
     ax.axvline(len(margins) - 0.5, color=INK_PRIMARY, linewidth=1.2)
     ax.set_xlim(-0.5, columns - 0.5)
     ax.set_ylim(len(rows) - 0.5, -0.5)
@@ -632,6 +660,14 @@ def _label_without_binary(format, launch_config):
 REFERENCE_LIBRARIES = ("vendor", "Ginkgo", "Hypre")
 
 
+def _transposed_suffix(transposed):
+    return "-transposed" if transposed else ""
+
+
+def _transposed_title(transposed):
+    return ", transposed matrices" if transposed else ""
+
+
 def _reference_library(df, device, library):
     """
     (label, per-matrix best time) of `library` (see REFERENCE_LIBRARIES) on
@@ -660,13 +696,15 @@ def _speedup_overview_vs_libraries(
     subject_label,
     format_filter=None,
     filename_tag="",
+    transposed=False,
 ):
     """
     Shared implementation of speedup_overview_vs_libraries() and
     speedup_overview_csr_vs_libraries(): for every accelerator device and
     every library in `libraries` with results on that device, one overview
     chart (PDF + TikZ) of the TNL formats passing `format_filter` against
-    the library's best time on each matrix.
+    the library's best time on each matrix. The charts for the transposed
+    matrices have "-transposed" in the file name and say so in the title.
     """
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
@@ -692,8 +730,8 @@ def _speedup_overview_vs_libraries(
                 f"Writing poster {subject_label} speedup overview vs. {label} for {device} "
                 f"({len(rows)} configurations)"
             )
-            basename = f"speedup{filename_tag}-vs-{label.lower()}-{device}"
-            title = f"{subject_label} vs. best {label} on {device}"
+            basename = f"speedup{filename_tag}-vs-{label.lower()}-{device}{_transposed_suffix(transposed)}"
+            title = f"{subject_label} vs. best {label} on {device}{_transposed_title(transposed)}"
             draw_speedup_overview(
                 rows,
                 filename=os.path.join(output_dir, f"{basename}.pdf"),
@@ -701,6 +739,7 @@ def _speedup_overview_vs_libraries(
                 subject_label=subject_label,
                 reference_label=label,
                 title=title,
+                margins=LIBRARY_SPEEDUP_MARGINS,
             )
             write_speedup_overview_tikz(
                 rows,
@@ -720,6 +759,7 @@ def speedup_overview_vs_libraries(
     libraries=REFERENCE_LIBRARIES,
     output_dir="Poster",
     threshold=0.10,
+    transposed=False,
 ):
     """
     Entry point: for every accelerator device and every library in
@@ -740,6 +780,7 @@ def speedup_overview_vs_libraries(
         output_dir,
         threshold,
         subject_label="TNL",
+        transposed=transposed,
     )
 
 
@@ -751,6 +792,7 @@ def speedup_overview_csr_vs_libraries(
     libraries=REFERENCE_LIBRARIES,
     output_dir="Poster",
     threshold=0.10,
+    transposed=False,
 ):
     """
     Entry point: for every accelerator device and library, draw a narrower
@@ -769,6 +811,7 @@ def speedup_overview_csr_vs_libraries(
         subject_label="CSR",
         format_filter=_is_plain_csr_format,
         filename_tag="-csr",
+        transposed=transposed,
     )
 
 
@@ -833,6 +876,7 @@ def speedup_overview_sliced_ellpack_vs_vendor(
     accelerator_devices,
     output_dir="Poster",
     threshold=0.10,
+    transposed=False,
 ):
     """
     Entry point: for every accelerator device whose vendor library offers a
@@ -853,22 +897,22 @@ def speedup_overview_sliced_ellpack_vs_vendor(
             f"({len(rows)} rows)"
         )
         reference_label = f"{vendor} SlicedEll"
-        title = f"TNL SlicedEllpack vs. best {vendor} SlicedEll on {device}"
+        title = f"TNL SlicedEllpack vs. best {vendor} SlicedEll on {device}{_transposed_title(transposed)}"
+        basename = (
+            f"speedup-slicedellpack-vs-{vendor.lower()}-slicedell-{device}{_transposed_suffix(transposed)}"
+        )
         draw_speedup_overview(
             rows,
-            filename=os.path.join(
-                output_dir, f"speedup-slicedellpack-vs-{vendor.lower()}-slicedell-{device}.pdf"
-            ),
+            filename=os.path.join(output_dir, f"{basename}.pdf"),
             threshold=threshold,
             subject_label="TNL",
             reference_label=reference_label,
             title=title,
+            margins=LIBRARY_SPEEDUP_MARGINS,
         )
         write_speedup_overview_tikz(
             rows,
-            filename=os.path.join(
-                output_dir, f"speedup-slicedellpack-vs-{vendor.lower()}-slicedell-{device}.tex"
-            ),
+            filename=os.path.join(output_dir, f"{basename}.tex"),
             threshold=threshold,
             subject_label="TNL",
             reference_label=reference_label,

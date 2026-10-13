@@ -92,13 +92,20 @@ def analyze_df(df, args, formats, launch_configs, accelerator_devices, transpose
     Analyze the dataframe and generate reports.
     """
     if args.poster_graphs:
-        PosterOverviewGraphs.speedup_overview_vs_libraries(
-            df, formats, launch_configs, accelerator_devices
-        )
-        PosterOverviewGraphs.speedup_overview_csr_vs_libraries(
-            df, formats, launch_configs, accelerator_devices
-        )
-        PosterOverviewGraphs.speedup_overview_sliced_ellpack_vs_vendor(df, accelerator_devices)
+        # the comparisons with the other libraries are drawn for the transposed matrices too
+        tables = [(df, formats, launch_configs, accelerator_devices, args.transposed)]
+        if transposed_table is not None:
+            tables.append((*transposed_table, True))
+        for table_df, table_formats, table_launch_configs, table_devices, transposed in tables:
+            PosterOverviewGraphs.speedup_overview_vs_libraries(
+                table_df, table_formats, table_launch_configs, table_devices, transposed=transposed
+            )
+            PosterOverviewGraphs.speedup_overview_csr_vs_libraries(
+                table_df, table_formats, table_launch_configs, table_devices, transposed=transposed
+            )
+            PosterOverviewGraphs.speedup_overview_sliced_ellpack_vs_vendor(
+                table_df, table_devices, transposed=transposed
+            )
         PosterOverviewGraphs.speedup_overview_variants(
             df, formats, launch_configs, accelerator_devices
         )
@@ -154,13 +161,13 @@ def main():
     if args.verbose:
         print_formats_and_launch_configs(formats, launch_configs, accelerator_devices)
 
-    # the GPU libraries graphs are drawn for the transposed matrices too
+    # the comparisons with the other libraries on the GPUs are drawn for the transposed matrices too
     transposed_table = None
     if args.poster_graphs and not args.transposed:
         try:
             transposed_table = load_table(args.input, True)
         except ValueError as error:
-            print(f"{error} The GPU libraries graphs are drawn for the original matrices only.")
+            print(f"{error} The comparisons with the other libraries are drawn for the original matrices only.")
 
     output_dir = args.output_dir
     if not os.path.exists(output_dir):
