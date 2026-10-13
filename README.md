@@ -203,7 +203,8 @@ in the TNL repository, installed together with TNL).
      the CPU for each number of threads, the heatmap of the fastest library,
      the performance profile with the best number of threads for each
      matrix and library (per-matrix oracle) and the parallel efficiency of
-     the libraries for groups of matrices by the number of nonzeros, in
+     the libraries for all matrices and for groups of matrices by the
+     number of nonzeros, in
      `CPU-libraries/`, and the performance profiles of TNL, cuSPARSE or
      hipSPARSE, Ginkgo and Hypre on the GPUs for the best CSR and for the
      best benchmarked format of each library, in `GPU-libraries/`

@@ -19,9 +19,9 @@ not a configuration which can be chosen without knowing the results.
 
 The parallel efficiency t_L(A, 1) / (p t_L(A, p)) of each library is shown by
 its median over the matrices with the band between the 25th and the 75th
-percentile, for all matrices and for the matrices grouped by the number of
-nonzeros (see NNZ_GROUPS). Only the matrices with the results of all
-libraries for all numbers of threads are used.
+percentile, in one graph for all matrices and in another one for the matrices
+grouped by the number of nonzeros (see NNZ_GROUPS). Only the matrices with the
+results of all libraries for all numbers of threads are used.
 
 Only the matrices with the results of all libraries for the given number of
 threads are compared, the others are listed in a text file.
@@ -57,9 +57,8 @@ NONZEROS = ("nonzeros", "", "", "", "")
 # the approximate size of the CSR data in double precision (12 bytes per nonzero)
 NNZ_GROUPS = [
     ("Small: $nnz < 10^5$ ($<$ 1.2 MB)", 0, 1e5),
-    ("Medium: $10^5 \\leq nnz < 10^6$ (1.2--12 MB)", 1e5, 1e6),
-    ("Large: $10^6 \\leq nnz < 10^7$ (12--120 MB)", 1e6, 1e7),
-    ("Very large: $nnz \\geq 10^7$ ($>$ 120 MB)", 1e7, np.inf),
+    ("Medium: $10^5 \\leq nnz < 10^7$ (1.2--120 MB)", 1e5, 1e7),
+    ("Large: $nnz \\geq 10^7$ ($>$ 120 MB)", 1e7, np.inf),
 ]
 
 
@@ -433,19 +432,30 @@ def cpu_libraries_graphs(df, launch_configs, transposed=False, output_dir="CPU-l
     efficiency = parallel_efficiency(times_by_threads)
     nonzeros = pd.Series(pd.to_numeric(df[NONZEROS], errors="coerce").values, index=df[MATRIX_NAME].values)
     nonzeros = nonzeros.loc[efficiency.index]
-    efficiency_by_panel = {"All matrices": efficiency}
+    efficiency_by_group = {}
     for label, lower, upper in NNZ_GROUPS:
         group = efficiency[(nonzeros >= lower) & (nonzeros < upper)]
         if not group.empty:
-            efficiency_by_panel[label] = group
+            efficiency_by_group[label] = group
     statistics = pd.concat(
-        {panel: efficiency_statistics(group) for panel, group in efficiency_by_panel.items()},
+        {
+            panel: efficiency_statistics(group)
+            for panel, group in {"All matrices": efficiency, **efficiency_by_group}.items()
+        },
         names=["matrices"],
     )
     statistics.to_csv(os.path.join(output_dir, f"parallel-efficiency{suffix}.csv"))
     print("Writing the parallel efficiency of the CPU libraries")
+    title = f"Parallel efficiency of SpMV on the CPU (median and 25th--75th percentile), {matrices}"
     draw_efficiency(
-        efficiency_by_panel,
+        {"All matrices": efficiency},
         os.path.join(output_dir, f"parallel-efficiency{suffix}.pdf"),
-        title=f"Parallel efficiency of SpMV on the CPU (median and 25th--75th percentile), {matrices}",
+        title=title,
+        panel_size=(6.0, 4.2),
     )
+    if efficiency_by_group:
+        draw_efficiency(
+            efficiency_by_group,
+            os.path.join(output_dir, f"parallel-efficiency-by-nonzeros{suffix}.pdf"),
+            title=title,
+        )
