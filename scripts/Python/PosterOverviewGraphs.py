@@ -59,8 +59,8 @@ Entry points:
     achievable without, within that same class (see
     collect_sorted_segments_overview() / SORTED_SEGMENTS_CLASSES).
 
-Every bar chart (PDF) comes with a heatmap of the same rows in the file with
-the suffix "-margins": the percentage of matrices where the subject, resp.
+Every bar chart (PDF) comes with a heatmap of the same rows in the directory
+GPU-heatmaps (see HEATMAPS_DIR), in the file with the suffix "-margins": the percentage of matrices where the subject, resp.
 the reference, is faster by more than 25%, 50%, 100%, 200% and 400% (see
 SPEEDUP_MARGINS / draw_speedup_margins_heatmap()), and with the same heatmap
 with the numbers of matrices in the file with the suffix "-margins-counts".
@@ -112,6 +112,8 @@ from PosterGraphsCommon import (
 SPEEDUP_MARGINS = (0.25, 0.50, 1.00, 2.00, 4.00)
 # Margins of the charts comparing TNL with the best result of another library.
 LIBRARY_SPEEDUP_MARGINS = (0.10, 0.25, 0.50, 1.00)
+# Directory of all heatmaps of the margins, next to the directory of the charts.
+HEATMAPS_DIR = "GPU-heatmaps"
 ALL_SPEEDUP_MARGINS = sorted(set(SPEEDUP_MARGINS) | set(LIBRARY_SPEEDUP_MARGINS))
 
 
@@ -191,6 +193,21 @@ def _is_library_format(format):
     return is_vendor_format(format) or format.startswith(THIRD_PARTY_FORMAT_PREFIXES)
 
 
+# Tags of the variants of the formats: a format without any of them is a base
+# format, the name of its variant is "<tag> <base format>".
+VARIANT_NAME_TAGS = ("Binary", "Symmetric", "Sorted", "Legacy")
+
+
+def _is_pure_variant(format, tag):
+    """
+    True for the variant `tag` of a base format alone, e.g. "Sorted CSR" for
+    the tag "Sorted", but not "Binary Sorted CSR", "Symmetric Sorted CSR" or
+    "Sigma-256-Sorted CSR", which combine it with other variants.
+    """
+    prefix = f"{tag} "
+    return format.startswith(prefix) and not any(other in format[len(prefix):] for other in VARIANT_NAME_TAGS)
+
+
 def default_label(format, launch_config):
     label = f"{format} {launch_config}".strip()
     return LatexLabels.latex_label(label)
@@ -216,6 +233,7 @@ def collect_speedup_overview(
     skip_formats=("CSR Best",),
     exclude_substrings=("Binary", "Symmetric", "Sorted", "Legacy"),
     require_substring=None,
+    variant_tag=None,
     format_filter=None,
     label_fn=None,
 ):
@@ -239,6 +257,11 @@ def collect_speedup_overview(
     build a separate overview for one variant tag (see
     speedup_overview_variants()).
 
+    If variant_tag is given (e.g. "Sorted"), only the pure variants of the
+    base formats are kept, i.e. "<tag> <base format>" where the base format
+    carries no variant tag itself (see _is_pure_variant()), and
+    exclude_substrings and require_substring are ignored.
+
     format_filter, if given, is an extra predicate applied on top of the
     above (e.g. restrict to CSR-family formats only, see
     speedup_overview_csr_vs_libraries()).
@@ -249,7 +272,10 @@ def collect_speedup_overview(
     for format in formats:
         if format in skip_formats or _is_library_format(format):
             continue
-        if require_substring is not None:
+        if variant_tag is not None:
+            if not _is_pure_variant(format, variant_tag):
+                continue
+        elif require_substring is not None:
             if require_substring not in format:
                 continue
         elif any(substr in format for substr in exclude_substrings):
@@ -283,25 +309,27 @@ def draw_speedup_overview(
     fig_width=8,
     row_height=0.55,
     margins=SPEEDUP_MARGINS,
+    heatmaps_dir=HEATMAPS_DIR,
 ):
     """
     Draw a 100% stacked horizontal bar chart from rows produced by
     collect_speedup_overview(): one row per format/launch-config, split into
     "subject_label faster" / "within threshold" / "reference_label faster"
     segments. The bars tell only who is faster by more than the threshold, so
-    the heatmap of the same rows with more margins is written next to the
-    chart, to the file with the suffix "-margins", and the same heatmap with
-    the numbers of matrices to the file with the suffix "-margins-counts"
-    (see draw_speedup_margins_heatmap()).
+    the heatmap of the same rows with more margins is written to the
+    directory heatmaps_dir, to the file with the suffix "-margins", and the
+    same heatmap with the numbers of matrices to the file with the suffix
+    "-margins-counts" (see draw_speedup_margins_heatmap()).
     """
     if not rows:
         print(f"No data to draw for {filename}, skipping.")
         return
-    base, extension = os.path.splitext(filename)
+    base, extension = os.path.splitext(os.path.basename(filename))
+    os.makedirs(heatmaps_dir, exist_ok=True)
     for suffix, counts in [("-margins", False), ("-margins-counts", True)]:
         draw_speedup_margins_heatmap(
             rows,
-            f"{base}{suffix}{extension}",
+            os.path.join(heatmaps_dir, f"{base}{suffix}{extension}"),
             subject_label=subject_label,
             reference_label=reference_label,
             title=title,
@@ -432,15 +460,20 @@ def draw_speedup_margins_heatmap(
               aspect="auto", extent=extent_slower)
     ax.imshow(faster, cmap=colormap("faster", ["white", COLOR_FASTER]), vmin=0, vmax=100,
               aspect="auto", extent=extent_faster)
+    # The numbers of matrices make thousands of different texts and LaTeX is
+    # run for each new one, which takes minutes. Such cells are drawn without
+    # LaTeX, the percentages repeat and are cached.
+    cells_usetex = not counts
+    percent = "\\%" if cells_usetex else "%"
     for i in range(len(rows)):
         row_counts = np.concatenate([slower_counts[i], faster_counts[i]])
         for j, value in enumerate(np.concatenate([slower[i], faster[i]])):
-            text = f"{row_counts[j]}" if counts else f"{value:.0f}\\%"
+            text = f"{row_counts[j]}" if counts else f"{value:.0f}{percent}"
             ax.text(j, i, text, ha="center", va="center", fontsize=10,
-                    color="white" if value > 60 else INK_PRIMARY)
+                    color="white" if value > 60 else INK_PRIMARY, usetex=cells_usetex)
         if counts:
             ax.text(columns - 0.4, i, f"of {totals[i, 0]:.0f}", ha="left", va="center", fontsize=10,
-                    color=INK_SECONDARY)
+                    color=INK_SECONDARY, usetex=cells_usetex)
     ax.axvline(len(margins) - 0.5, color=INK_PRIMARY, linewidth=1.2)
     ax.set_xlim(-0.5, columns - 0.5)
     ax.set_ylim(len(rows) - 0.5, -0.5)
@@ -1121,12 +1154,13 @@ def speedup_overview_variants(
     accelerator_devices,
     output_dir="Poster",
     threshold=0.10,
-    variant_classes=("Symmetric", "Binary", "Sorted"),
+    variant_classes=("Symmetric", "Binary", "Sorted", "Sigma-256-Sorted"),
 ):
     """
     Entry point: for every accelerator device and every variant tag in
-    variant_classes, draw an overview chart restricted to formats carrying
-    that tag (e.g. "Sorted CSR"), comparing each one against its own
+    variant_classes, draw an overview chart restricted to the pure variants
+    of the base formats with that tag (e.g. "Sorted CSR", but not "Binary
+    Sorted CSR", see _is_pure_variant()), comparing each one against its own
     non-variant counterpart (e.g. "Sorted CSR" vs "CSR") using the "speed-up"
     vs. "non-binary"/"non-symmetric"/"non-sorted" column that
     tnl-spmv-benchmark-parse-logs.py already computes for these
@@ -1139,7 +1173,8 @@ def speedup_overview_variants(
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
     for variant_class in variant_classes:
-        reference = f"non-{variant_class.lower()}"
+        # the Sigma-256-Sorted formats are compared with the non-sorted ones too
+        reference = "non-sorted" if variant_class.endswith("Sorted") else f"non-{variant_class.lower()}"
         for device in accelerator_devices:
             rows = collect_speedup_overview(
                 df,
@@ -1148,7 +1183,7 @@ def speedup_overview_variants(
                 device,
                 reference=reference,
                 threshold=threshold,
-                require_substring=variant_class,
+                variant_tag=variant_class,
             )
             if not rows:
                 continue
