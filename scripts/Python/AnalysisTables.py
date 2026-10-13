@@ -29,6 +29,7 @@ from PosterGraphsCommon import (
     _min_time_per_matrix,
     _is_csr_baseline_format,
     _vendor_format_filter,
+    _library_format_filter,
     FAMILY_FILTERS,
 )
 
@@ -237,8 +238,8 @@ def collect_implementation_times(df, device):
     vendor_ok = _vendor_format_filter(device)
     if vendor_ok is not None:
         filters["Vendor"] = vendor_ok
-    for label, format in OTHER_LIBRARIES:
-        filters[label] = lambda name, format=format: name == format
+    for label, library in OTHER_LIBRARIES:
+        filters[label] = _library_format_filter(library)
 
     times = pd.DataFrame(index=df[MATRIX_NAME].values)
     for label, format_ok in filters.items():
@@ -288,8 +289,8 @@ def winners_by_size_table(df, accelerator_devices, transposed=False, output_dir=
             "counted. The time of an implementation on a matrix is its best time over all its formats and "
             "launch configurations: TNL CSR over CSR and Adaptive CSR, TNL ELLPACK over Ellpack, "
             "SlicedEllpack, BiEllpack and ChunkedEllpack (both also with sorted rows), the vendor library "
-            "over all its formats and algorithms, Ginkgo and hypre have one configuration. TNL total is the "
-            "sum of TNL CSR and TNL ELLPACK."
+            "over all its formats and algorithms, Ginkgo and hypre over all their benchmarked formats and "
+            "kernels. TNL total is the sum of TNL CSR and TNL ELLPACK."
         ),
     )
     classes = NNZ_CLASSES + [("All", 0, np.inf)]

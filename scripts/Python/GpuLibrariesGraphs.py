@@ -10,12 +10,16 @@ of TNL, the algorithms of cuSPARSE), i.e. a per-matrix oracle best:
   - best CSR: all libraries use the CSR format. TNL chooses from CSR and
     Adaptive CSR, both with the rows in the original order and sorted by
     their length (the same formats as the "best CSR" baseline of the other
-    poster graphs), the vendor library uses only its CSR format.
-  - best available format: TNL chooses from all its formats and the vendor
+    poster graphs), the vendor library uses only its CSR format, Ginkgo its
+    Csr matrix with all its SpMV strategies and Hypre both its kernels.
+  - best available format: TNL chooses from all its formats, the vendor
     library from all its benchmarked formats (cuSPARSE CSR and SlicedEll,
-    hipSPARSE CSR only). Ginkgo and Hypre are benchmarked only with one
-    format and configuration, so their times are the same as in the best CSR
-    variant and they are not the best the library can do.
+    hipSPARSE CSR only) and Ginkgo also from its Ell, Sellp, Hybrid and Coo
+    matrices. The Csr strategy of Ginkgo which only calls the vendor library
+    is not counted (see _library_format_filter()). Hypre calls the vendor
+    library by default (launch config "Default"), so this is counted as
+    Hypre together with its own kernel ("Internal"). Older logs have only
+    one configuration of Ginkgo and Hypre.
 
 The binary and symmetric formats of TNL are left out, they need a matrix with
 unit values or a symmetric one. A library which is not benchmarked on a device
@@ -30,7 +34,7 @@ import os
 import pandas as pd
 
 from VendorLibraries import vendor_label, vendor_format, is_vendor_format
-from PosterGraphsCommon import _min_time_per_matrix, _is_csr_baseline_format
+from PosterGraphsCommon import _min_time_per_matrix, _is_csr_baseline_format, _library_format_filter
 from CpuLibrariesGraphs import MATRIX_NAME, performance_ratios, draw_performance_profiles
 
 # formats of the other libraries, they are benchmarked with one configuration
@@ -65,17 +69,20 @@ def _is_tnl_format(format):
     )
 
 
-# variant -> (title, formats of TNL, formats of the vendor library with the given prefix)
+# variant -> (title, formats of TNL, formats of the vendor library with the given prefix,
+# only the CSR format of the other libraries)
 VARIANTS = {
     "best-csr": (
         "best CSR of each library",
         _is_csr_baseline_format,
         lambda prefix: lambda format: format == prefix,
+        True,
     ),
     "best-format": (
         "best benchmarked format of each library",
         _is_tnl_format,
         lambda prefix: lambda format: format.startswith(prefix),
+        False,
     ),
 }
 
@@ -85,12 +92,12 @@ def collect_times(df, device, variant):
     Return a dataframe indexed by the matrix name with the best time of each
     library benchmarked on the device (NaN where it is missing)
     """
-    _, tnl_ok, vendor_ok = VARIANTS[variant]
+    _, tnl_ok, vendor_ok, csr_only = VARIANTS[variant]
     filters = {"TNL": tnl_ok}
     if vendor_format(device) is not None:
         filters[vendor_label(device)] = vendor_ok(vendor_format(device))
     for library in OTHER_LIBRARIES:
-        filters[library] = lambda format, library=library: format == library
+        filters[library] = _library_format_filter(library, csr_only)
 
     times = pd.DataFrame(index=df[MATRIX_NAME].values)
     for label, format_ok in filters.items():
@@ -105,12 +112,16 @@ def used_formats(df, device, variant):
     Return the formats of TNL and the vendor library on the device over which
     the best time is taken
     """
-    _, tnl_ok, vendor_ok = VARIANTS[variant]
+    _, tnl_ok, vendor_ok, csr_only = VARIANTS[variant]
     formats = sorted({column[0] for column in df.columns if len(column) == 5 and column[1] == device})
     result = {"TNL": [format for format in formats if tnl_ok(format)]}
     if vendor_format(device) is not None:
         prefix_ok = vendor_ok(vendor_format(device))
         result[vendor_label(device)] = [format for format in formats if prefix_ok(format)]
+    for library in OTHER_LIBRARIES:
+        library_formats = [format for format in formats if _library_format_filter(library, csr_only)(format)]
+        if library_formats:
+            result[library] = library_formats
     return result
 
 
@@ -181,7 +192,7 @@ def gpu_libraries_graphs(df, accelerator_devices, transposed=False, output_dir="
     devices = list(dict.fromkeys(device for device, _ in times_by_panel))
     vendors_label = " / ".join(vendor_label(device) for device in devices if vendor_label(device))
 
-    for variant, (variant_title, _, _) in VARIANTS.items():
+    for variant, (variant_title, _, _, _) in VARIANTS.items():
         ratios_by_device = {
             device: performance_ratios(times.loc[common])
             for (device, panel_variant), times in times_by_panel.items()

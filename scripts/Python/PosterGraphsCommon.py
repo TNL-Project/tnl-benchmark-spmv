@@ -133,6 +133,30 @@ def _vendor_format_filter(device):
     return lambda format: format.startswith(prefix)
 
 
+# ---------------------------------------------------------------------------
+# The other libraries (Ginkgo, Hypre). Hypre has only the CSR format, logged
+# as "Hypre". The CSR format of Ginkgo is logged as "Ginkgo" with its SpMV
+# strategies as launch configs, the other formats as "Ginkgo Ell", "Ginkgo
+# Sellp", "Ginkgo Hybrid" and "Ginkgo Coo". "Ginkgo Sparselib" is the CSR
+# format with the strategy which calls the vendor library (cuSPARSE,
+# hipSPARSE), so it is not counted as a kernel of Ginkgo. Hypre calls the
+# vendor library by default (launch config "Default", its own kernel is
+# "Internal"), which cannot be told apart by the format, so both are Hypre.
+# ---------------------------------------------------------------------------
+
+GINKGO_VENDOR_FORMAT = "Ginkgo Sparselib"
+
+
+def _library_format_filter(library, csr_only=False):
+    """
+    Predicate matching the formats of `library` ("Ginkgo" or "Hypre") which
+    are its own kernels: all of them, or only the CSR format with csr_only.
+    """
+    if csr_only:
+        return lambda format: format == library
+    return lambda format: (format == library or format.startswith(f"{library} ")) and format != GINKGO_VENDOR_FORMAT
+
+
 def _best_vendor_time(df, device):
     """
     Per-matrix best time of the vendor library on `device` (best format and

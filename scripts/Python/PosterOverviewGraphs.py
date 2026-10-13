@@ -99,6 +99,8 @@ from PosterGraphsCommon import (
     _is_csr_baseline_format,
     _best_vendor_time,
     _vendor_format_filter,
+    _library_format_filter,
+    GINKGO_VENDOR_FORMAT,
 )
 
 # ---------------------------------------------------------------------------
@@ -746,7 +748,7 @@ def _reference_library(df, device, library):
         reference_time = _best_vendor_time(df, device)
     else:
         label = library
-        reference_time = _min_time_per_matrix(df, device, lambda format: format == library)
+        reference_time = _min_time_per_matrix(df, device, _library_format_filter(library))
     if label is None or reference_time is None:
         return None
     return label, reference_time
@@ -1078,8 +1080,10 @@ def speedup_overview_ellpack_vs_libraries(
 
 
 # CSR implementations of the other libraries: they are benchmarked under the
-# name of the library (the vendor library under vendor_format(device)).
-CSR_LIBRARY_FORMAT_PREFIXES = ("Ginkgo", "Hypre", "LightSpMV")
+# name of the library (the vendor library under vendor_format(device)), the
+# other formats of Ginkgo have longer names (see _library_format_filter()).
+CSR_LIBRARY_FORMATS = ("Ginkgo", GINKGO_VENDOR_FORMAT, "Hypre")
+CSR_LIBRARY_FORMAT_PREFIXES = ("LightSpMV",)
 
 
 def _is_any_csr_format(device):
@@ -1092,7 +1096,7 @@ def _is_any_csr_format(device):
     vendor_csr = vendor_format(device)
 
     def format_ok(format):
-        if format == vendor_csr or format.startswith(CSR_LIBRARY_FORMAT_PREFIXES):
+        if format == vendor_csr or format in CSR_LIBRARY_FORMATS or format.startswith(CSR_LIBRARY_FORMAT_PREFIXES):
             return True
         return _is_csr_baseline_format(format) and not _is_library_format(format)
 
