@@ -200,6 +200,12 @@ fi
 COMMAND=()
 if [[ "$MPI_ENABLED" == "yes" ]]; then
     COMMAND+=(mpirun)
+    # mpirun binds each process to one core by default (Open MPI does so for
+    # up to two processes), so all OpenMP threads of the process would share
+    # this core
+    if [[ "$OMP_ENABLED" == "yes" && "$MPI_EXTRA_ARGS" != *bind-to* ]]; then
+        COMMAND+=(--bind-to none)
+    fi
     if [[ -n "$MPI_EXTRA_ARGS" ]]; then
         COMMAND+=($MPI_EXTRA_ARGS)
     fi
