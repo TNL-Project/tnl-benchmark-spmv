@@ -247,7 +247,8 @@ in the TNL repository, installed together with TNL).
      the original and the transposed matrices, in `Tables/`: the percentage
      of matrices on which TNL CSR, TNL ELLPACK, the vendor library, Ginkgo
      and hypre are the fastest on each GPU, by the number of nonzeros
-     (`winners-by-size`)
+     (`winners-by-size`), and the same for the wins by at least 10 % over
+     the second best implementation (`winners-by-size-margin-10`)
    - `--with-cpu-threads <all|list>` – the numbers of threads compared in
      the graphs in `CPU-libraries/`, e.g. `1,4,16,32` (default: `all`)
    - `--transposed` – process the table for the transposed matrices

@@ -16,6 +16,8 @@ Tables:
     nonzeros, the percentage of matrices on which each implementation (TNL
     CSR, TNL ELLPACK, the vendor library, Ginkgo, Hypre) is the fastest one,
     see winners_by_size_table().
+  - winners-by-size-margin-10: the same, but an implementation wins only if
+    it is at least 10 % faster than the second best one.
 """
 
 import html
@@ -249,7 +251,7 @@ def collect_implementation_times(df, device):
     return times
 
 
-def winners_by_size_table(df, accelerator_devices, transposed=False, output_dir=TABLES_DIR):
+def winners_by_size_table(df, accelerator_devices, transposed=False, output_dir=TABLES_DIR, margin=0.0):
     """
     Write the table of the percentages of matrices on which each
     implementation is the fastest one, for each GPU and each class of matrices
@@ -260,8 +262,20 @@ def winners_by_size_table(df, accelerator_devices, transposed=False, output_dir=
     Only the matrices with the results of all implementations on all devices
     are counted, so the numbers of matrices are the same for all devices. The
     largest percentage in each row is emphasized, an implementation which is
-    not benchmarked on the device has a dash. "TNL total" is the sum of TNL
-    CSR and TNL ELLPACK, it is not emphasized.
+    not benchmarked on the device has a dash.
+
+    With margin > 0 (e.g. 0.1 for 10 %), an implementation wins only if it is
+    faster than the second best one by at least the margin, i.e. (second best
+    time) / (best time) >= 1 + margin. The matrices without such a winner are
+    in the column "No clear winner" and the table is written to the files with
+    the suffix "-margin-<percent>".
+
+    "TNL total" is the percentage of matrices on which TNL wins as a library,
+    i.e. the better of TNL CSR and TNL ELLPACK is faster than the best of the
+    other libraries (by at least the margin). Without the margin, it is the
+    sum of TNL CSR and TNL ELLPACK. With the margin it may be larger than the
+    sum, since TNL CSR and TNL ELLPACK may be close to each other and both
+    well ahead of the others. It is not emphasized.
     """
     times_by_device = {device: collect_implementation_times(df, device) for device in accelerator_devices}
     times_by_device = {device: times for device, times in times_by_device.items() if len(times.columns) > 1}
@@ -280,70 +294,94 @@ def winners_by_size_table(df, accelerator_devices, transposed=False, output_dir=
 
     suffix = "-transposed" if transposed else ""
     matrices = "transposed matrices" if transposed else "original matrices"
+    no_winner = "No clear winner"
     columns = TNL_IMPLEMENTATIONS + ["TNL total", "Vendor"] + [label for label, _ in OTHER_LIBRARIES]
-    table = Table(
-        f"Percentage of matrices on which each implementation is the fastest one, {matrices}",
-        ["Matrix size (nnz)", "N"] + columns,
-        note=(
-            f"Only the {len(common)} matrices with the results of all implementations on all devices are "
-            "counted. The time of an implementation on a matrix is its best time over all its formats and "
-            "launch configurations: TNL CSR over CSR and Adaptive CSR, TNL ELLPACK over Ellpack, "
-            "SlicedEllpack, BiEllpack and ChunkedEllpack (both also with sorted rows), the vendor library "
-            "over all its formats and algorithms, Ginkgo and hypre over all their benchmarked formats and "
-            "kernels. TNL total is the sum of TNL CSR and TNL ELLPACK."
-        ),
+    title = f"Percentage of matrices on which each implementation is the fastest one, {matrices}"
+    note = (
+        f"Only the {len(common)} matrices with the results of all implementations on all devices are "
+        "counted. The time of an implementation on a matrix is its best time over all its formats and "
+        "launch configurations: TNL CSR over CSR and Adaptive CSR, TNL ELLPACK over Ellpack, "
+        "SlicedEllpack, BiEllpack and ChunkedEllpack (both also with sorted rows), the vendor library "
+        "over all its formats and algorithms, Ginkgo and hypre over all their benchmarked formats and "
+        "kernels. TNL total is the sum of TNL CSR and TNL ELLPACK."
     )
+    if margin > 0:
+        columns.append(no_winner)
+        title = (
+            f"Percentage of matrices on which each implementation is the fastest one by at least "
+            f"{100 * margin:g} %, {matrices}"
+        )
+        note = note.replace(
+            "TNL total is the sum of TNL CSR and TNL ELLPACK.",
+            f"An implementation wins only if it is at least {100 * margin:g} % faster than the second best "
+            "one, i.e. (second best time) / (best time) >= "
+            f"{1 + margin:g}, the other matrices are in the last column. TNL total is the percentage of "
+            "matrices on which the better of TNL CSR and TNL ELLPACK is that much faster than the best of "
+            "the other libraries, so it may be larger than the sum of TNL CSR and TNL ELLPACK.",
+        )
+    table = Table(title, ["Matrix size (nnz)", "N"] + columns, note=note)
     classes = NNZ_CLASSES + [("All", 0, np.inf)]
     records = []
     ties = 0
     for device, times in times_by_device.items():
         times = times.loc[common]
-        winner = times.idxmin(axis=1)
+        ordered = np.sort(times.values, axis=1)
+        clear = pd.Series(ordered[:, 1] >= (1 + margin) * ordered[:, 0], index=times.index)
+        winner = times.idxmin(axis=1).where(clear, no_winner)
         ties += int((times.eq(times.min(axis=1), axis=0).sum(axis=1) > 1).sum())
+        # TNL as a library against the best of the other libraries
+        tnl_time = times[[c for c in TNL_IMPLEMENTATIONS if c in times.columns]].min(axis=1)
+        others_time = times[[c for c in times.columns if c not in TNL_IMPLEMENTATIONS]].min(axis=1)
+        tnl_wins = others_time >= (1 + margin) * tnl_time if margin > 0 else tnl_time < others_time
         vendor = vendor_label(device)
         table.add_group(f"{device} (vendor: {vendor})" if vendor else device)
         for label, lower, upper in classes:
             in_class = (nonzeros >= lower) & (nonzeros < upper)
             total = int(in_class.sum())
-            wins = winner[in_class].value_counts()
-            shares = {
-                implementation: 100.0 * wins.get(implementation, 0) / total if total else np.nan
-                for implementation in times.columns
-            }
-            shares["TNL total"] = sum(shares[implementation] for implementation in TNL_IMPLEMENTATIONS)
+            wins = winner[in_class].value_counts().to_dict()
+            wins["TNL total"] = int(tnl_wins[in_class].sum())
+            if margin == 0:
+                # keep the sum also with ties of TNL and another library
+                wins["TNL total"] = sum(wins.get(implementation, 0) for implementation in TNL_IMPLEMENTATIONS)
+            available = list(times.columns) + ["TNL total"] + ([no_winner] if margin > 0 else [])
+            shares = {column: 100.0 * wins.get(column, 0) / total if total else np.nan for column in available}
             cells = [label, total]
             bold = []
             best = max(shares[implementation] for implementation in times.columns) if total else None
-            for j, column in enumerate(columns):
+            for column in columns:
                 if column not in shares or not total:
                     cells.append(DASH)
                     continue
                 cells.append(Text(f"{shares[column]:.1f}%", f"{shares[column]:.1f}\\,\\%"))
-                if column != "TNL total" and shares[column] == best:
+                if column in times.columns and shares[column] == best and best > 0:
                     bold.append(len(cells) - 1)
             table.add_row(cells, bold)
             class_name = label if isinstance(label, str) else f"[{lower:g}, {upper:g})"
-            for implementation in times.columns:
+            for column in available:
                 records.append(
                     {
                         "device": device,
                         "nonzeros": class_name,
                         "matrices": total,
-                        "implementation": implementation,
-                        "wins": int(wins.get(implementation, 0)),
-                        "share": shares[implementation],
+                        "implementation": column,
+                        "wins": int(wins.get(column, 0)),
+                        "share": shares[column],
                     }
                 )
 
-    name = f"winners-by-size{suffix}"
+    name = f"winners-by-size{f'-margin-{100 * margin:g}' if margin > 0 else ''}{suffix}"
     table.write(output_dir, name)
     pd.DataFrame(records).to_csv(os.path.join(output_dir, f"{name}.csv"), index=False)
     print(
         f"Table of the winners by the size of the matrix for {len(common)} {matrices} written to "
         f"{os.path.join(output_dir, name)}.html/.tex/.csv"
     )
-    if ties:
+    if ties and margin == 0:
         print(f"   {ties} ties of the best time, the first implementation in the order of the columns wins.")
+
+
+# margin of the table of the clear winners, see winners_by_size_table()
+CLEAR_WIN_MARGIN = 0.10
 
 
 def write_tables(df, accelerator_devices, transposed=False, output_dir=TABLES_DIR):
@@ -351,3 +389,4 @@ def write_tables(df, accelerator_devices, transposed=False, output_dir=TABLES_DI
     Entry point: write all tables
     """
     winners_by_size_table(df, accelerator_devices, transposed, output_dir)
+    winners_by_size_table(df, accelerator_devices, transposed, output_dir, margin=CLEAR_WIN_MARGIN)
