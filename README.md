@@ -61,7 +61,7 @@ LightSpMV).
 | `tnl-benchmark-spmv-cuda`, `tnl-benchmark-spmv-hip` | TNL formats on a CUDA or HIP GPU |
 | `tnl-benchmark-spmv-reference` | Hypre and Ginkgo on the CPU |
 | `tnl-benchmark-spmv-reference-cuda` | cuSPARSE (CSR and SlicedEll), LightSpMV, Hypre and Ginkgo on a CUDA GPU |
-| `tnl-benchmark-spmv-reference-hip` | hipSPARSE, Hypre and Ginkgo on a HIP GPU |
+| `tnl-benchmark-spmv-reference-hip` | hipSPARSE, rocSPARSE (all CSR SpMV algorithms and Sliced ELL), Hypre and Ginkgo on a HIP GPU |
 | `tnl-benchmark-spmv-legacy`, `tnl-benchmark-spmv-legacy-cuda` | the legacy (pre-segments) TNL formats |
 
 The TNL formats are CSR (with all kernels), Ellpack, SlicedEllpack

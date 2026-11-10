@@ -34,6 +34,14 @@ def vendor_format(device):
     return vendor[1] if vendor else None
 
 
+# Other format prefixes of the vendor libraries: on HIP, rocSPARSE (which
+# hipSPARSE calls) is benchmarked also directly with all its SpMV algorithms
+# (formats "rocsparse" and "rocsparse SlicedEll").
+OTHER_VENDOR_FORMAT_PREFIXES = ("rocsparse",)
+
+
 def is_vendor_format(format):
     """True for every format of any vendor library."""
-    return any(format.startswith(prefix) for _, prefix in VENDOR_LIBRARIES.values())
+    return any(format.startswith(prefix) for _, prefix in VENDOR_LIBRARIES.values()) or format.startswith(
+        OTHER_VENDOR_FORMAT_PREFIXES
+    )

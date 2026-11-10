@@ -33,6 +33,7 @@
 #include "cusparseCSRMatrix.h"
 #include "cusparseSlicedEllMatrix.h"
 #include "hipsparseCSRMatrix.h"
+#include "rocsparseMatrix.h"
 #include "LightSpMVBenchmark.h"
 #include "CSR5Benchmark.h"
 
@@ -252,13 +253,16 @@ benchmarkHypreOnGpu( BenchmarkType& benchmark,
 }
 #endif
 
-#ifdef __CUDACC__
+#if defined( __CUDACC__ ) || defined( __HIP__ )
 // cuSPARSE's Sliced ELLPACK matches TNL's column-major SlicedEllpack segments,
-// see the comment in cusparseSlicedEllMatrix.h. Alias templates must live at
-// namespace scope, so this cannot be declared inside benchmarkSpmv().
+// see the comment in cusparseSlicedEllMatrix.h, and so is assumed for
+// rocSPARSE. Alias templates must live at namespace scope, so this cannot be
+// declared inside benchmarkSpmv().
 template< typename Device_, typename Index_, typename IndexAllocator_ >
 using SlicedEllpackSegments = TNL::Algorithms::Segments::ColumnMajorSlicedEllpack< Device_, Index_, IndexAllocator_ >;
+#endif
 
+#ifdef __CUDACC__
 // A cuSPARSE SpMV algorithm to benchmark and its name for the "launch cfg." column.
 // It is declared at namespace scope, because some nvcc versions fail to compile
 // a local struct used in a function template.
@@ -293,6 +297,8 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
 #ifdef __HIP__
    using CSRHipMatrix = TNL::Matrices::SparseMatrix< Real, TNL::Devices::Hip, int >;
    using HipsparseMatrix = TNL::HipsparseCSR< Real >;
+   using SlicedEllHipMatrix =
+      TNL::Matrices::SparseMatrix< Real, TNL::Devices::Hip, int, Matrices::GeneralMatrix, SlicedEllpackSegments >;
 #endif
 
    using HostVector = Containers::Vector< Real, Devices::Host, int >;
@@ -634,6 +640,71 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
    benchmark.setMetadataElement( { "format", "hipsparse" } );
    benchmark.setMetadataElement( { "launch cfg.", "Default" } );
    benchmark.time< Devices::Hip >( resetHipVectors, "HIP", spmvHipsparse, hipBenchmarkResults );
+
+   #ifdef HAVE_ROCSPARSE
+   ////
+   // Perform benchmark on HIP device with all CSR SpMV algorithms of rocSPARSE
+   // (hipSPARSE above uses the legacy csrmv without the analysis)
+   //
+   if constexpr( std::is_same_v< Real, double > || std::is_same_v< Real, float > ) {
+      rocsparse_handle rocsparseHandle;
+      CHECK_ROCSPARSE( rocsparse_create_handle( &rocsparseHandle ) );
+      int rocsparseVersion = 0;
+      CHECK_ROCSPARSE( rocsparse_get_version( rocsparseHandle, &rocsparseVersion ) );
+      benchmark.setMetadataElement( { "rocsparse version", convertToString( rocsparseVersion ) } );
+
+      for( const auto& variant : getRocsparseCSRAlgorithms() ) {
+         // A failure of one algorithm (e.g. not enough memory for the analysis)
+         // must not stop the benchmark of the others.
+         try {
+            RocsparseCSR< Real > rocsparseMatrix;
+            rocsparseMatrix.init( csrHipMatrix, hipInVector, hipOutVector, rocsparseHandle, variant.alg );
+            auto spmvRocsparse = [ & ]()
+            {
+               rocsparseMatrix.vectorProduct( hipInVector, hipOutVector );
+            };
+            benchmark.setMetadataElement( { "format", "rocsparse" } );
+            benchmark.setMetadataElement( std::make_pair( std::string( "launch cfg." ), variant.name ) );
+            benchmark.time< Devices::Hip >( resetHipVectors, "HIP", spmvRocsparse, hipBenchmarkResults );
+         }
+         catch( const std::exception& e ) {
+            std::cerr << "rocSPARSE " << variant.name << " failed: " << e.what() << std::endl;
+         }
+      }
+
+      #ifdef TNL_ROCSPARSE_HAS_SELL
+      ////
+      // Perform benchmark on HIP device with rocSPARSE's Sliced ELL format
+      //
+      try {
+         SlicedEllHipMatrix slicedEllHipMatrix;
+         slicedEllHipMatrix = csrHostMatrix;
+         for( const auto& variant : getRocsparseSlicedEllAlgorithms() ) {
+            try {
+               RocsparseSlicedEll< Real > rocsparseSlicedEllMatrix;
+               rocsparseSlicedEllMatrix.init( slicedEllHipMatrix, hipInVector, hipOutVector, rocsparseHandle, variant.alg );
+               auto spmvRocsparseSlicedEll = [ & ]()
+               {
+                  rocsparseSlicedEllMatrix.vectorProduct( hipInVector, hipOutVector );
+               };
+               benchmark.setMetadataElement( { "format", "rocsparse SlicedEll" } );
+               benchmark.setMetadataElement( std::make_pair( std::string( "launch cfg." ), variant.name ) );
+               benchmark.time< Devices::Hip >( resetHipVectors, "HIP", spmvRocsparseSlicedEll, hipBenchmarkResults );
+            }
+            catch( const std::exception& e ) {
+               std::cerr << "rocSPARSE SlicedEll " << variant.name << " failed: " << e.what() << std::endl;
+            }
+         }
+      }
+      catch( const std::exception& e ) {
+         // e.g. the padded matrix does not fit into the GPU memory
+         std::cerr << "rocSPARSE SlicedEll: cannot create the matrix: " << e.what() << std::endl;
+      }
+      #endif
+
+      rocsparse_destroy_handle( rocsparseHandle );
+   }
+   #endif
 
    #if defined( HAVE_HYPRE ) && defined( HYPRE_USING_HIP )
    benchmarkHypreOnGpu< Real, Devices::Hip >(

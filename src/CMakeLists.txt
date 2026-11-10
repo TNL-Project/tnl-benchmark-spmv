@@ -108,6 +108,24 @@ if(BUILD_HIP)
             tnl-benchmark-spmv-reference-hip
             PUBLIC TNL::TNL roc::hipsparse
         )
+        # rocSPARSE is called directly to benchmark all its SpMV algorithms,
+        # hipSPARSE exposes only some of them
+        find_package(rocsparse)
+        if(rocsparse_FOUND)
+            target_link_libraries(
+                tnl-benchmark-spmv-reference-hip
+                PUBLIC roc::rocsparse
+            )
+            target_compile_definitions(
+                tnl-benchmark-spmv-reference-hip
+                PUBLIC "-DHAVE_ROCSPARSE"
+            )
+        else()
+            message(
+                WARNING
+                "rocsparse was not found and so its SpMV algorithms will not be benchmarked."
+            )
+        endif()
         add_reference_libraries(tnl-benchmark-spmv-reference-hip HIP)
     else()
         message(
