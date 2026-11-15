@@ -9,6 +9,7 @@
 #include "SpmvBenchmarkResult.h"
 #include "CpuBenchmarking.h"
 #include "MatrixTransposition.h"
+#include "benchmark-progress.h"
 #include <TNL/Benchmarks/Benchmark.h>
 
 #include <TNL/Algorithms/Segments/BiEllpack.h>
@@ -198,6 +199,7 @@ template< typename Real,
           typename MatrixType = TNL::Matrices::GeneralMatrix >
 void
 benchmarkSpMVWithDevice( BenchmarkType& benchmark,
+                         BenchmarkProgress& progress,
                          const InputMatrix& inputMatrix,
                          const TNL::Containers::Vector< Real, Devices::Host, Index >& csrResultVector,
                          const String& inputFileName,
@@ -230,8 +232,10 @@ benchmarkSpMVWithDevice( BenchmarkType& benchmark,
    DeviceVector deviceInVector( deviceMatrix.getColumns() ), deviceOutVector( deviceMatrix.getRows() );
 
    for( auto [ launch_config, tag ] : TNL::Algorithms::Segments::reductionLaunchConfigurations( deviceMatrix.getSegments() ) ) {
-      benchmark.setMetadataElement(
-         { "format", applySigmaToFormatName( MatrixInfo< typename DeviceMatrix::Base >::getFormat(), sigma ) } );
+      const std::string format = applySigmaToFormatName( MatrixInfo< typename DeviceMatrix::Base >::getFormat(), sigma );
+      if( progress.isDone( getType< Real >(), format, deviceName, tag ) )
+         continue;
+      benchmark.setMetadataElement( { "format", format } );
       benchmark.setMetadataElement( { "launch cfg.", tag } );
 
       auto resetDeviceVectors = [ & ]()
@@ -247,6 +251,7 @@ benchmarkSpMVWithDevice( BenchmarkType& benchmark,
       };
       SpmvBenchmarkResult< Real, Device, Index > deviceBenchmarkResults( csrResultVector, deviceOutVector );
       benchmark.time< Device >( resetDeviceVectors, deviceName, spmvDevice, deviceBenchmarkResults );
+      progress.markDone( getType< Real >(), format, deviceName, tag );
    }
 }
 
@@ -258,6 +263,7 @@ template< typename Real,
           typename MatrixType = TNL::Matrices::GeneralMatrix >
 void
 benchmarkSpMV( BenchmarkType& benchmark,
+               BenchmarkProgress& progress,
                const InputMatrix& inputMatrix,
                const TNL::Containers::Vector< Real, Devices::Host, Index >& csrResultVector,
                const String& inputFileName,
@@ -271,8 +277,8 @@ benchmarkSpMV( BenchmarkType& benchmark,
    const bool cpuTests =
       parameters.getParameter< bool >( "with-cpu-tests" )
       && ( parameters.getParameter< bool >( "with-all-cpu-tests" ) || TestMatrix::isBinary() || TestMatrix::isSymmetric() );
-   benchmark.setMetadataElement(
-      { "format", applySigmaToFormatName( MatrixInfo< typename TestMatrix::Base >::getFormat(), sigma ) } );
+   const std::string format = applySigmaToFormatName( MatrixInfo< typename TestMatrix::Base >::getFormat(), sigma );
+   benchmark.setMetadataElement( { "format", format } );
    benchmark.setMetadataElement( { "launch cfg.", "Default" } );
 
    TestMatrix hostMatrix;
@@ -309,27 +315,31 @@ benchmarkSpMV( BenchmarkType& benchmark,
       forEachCpuThreadsCount( parameters.getParameter< bool >( "cpu-threads-sweep" ),
                               [ & ]( const std::string& launchConfig )
                               {
+                                 if( progress.isDone( getType< Real >(), format, "CPU", launchConfig ) )
+                                    return;
                                  benchmark.setMetadataElement( { "launch cfg.", launchConfig } );
                                  benchmark.time< Devices::Host >( resetHostVectors, "CPU", spmvHost, hostBenchmarkResults );
+                                 progress.markDone( getType< Real >(), format, "CPU", launchConfig );
                               } );
    }
 
 #ifdef __CUDACC__
    // Benchmark SpMV on CUDA
    benchmarkSpMVWithDevice< Real, Devices::Cuda, Index, InputMatrix, SegmentsType, TestValue, MatrixType >(
-      benchmark, inputMatrix, csrResultVector, inputFileName, parameters, verboseMR, sigma );
+      benchmark, progress, inputMatrix, csrResultVector, inputFileName, parameters, verboseMR, sigma );
 #endif
 
 #ifdef __HIP__
    // Benchmark SpMV on HIP
    benchmarkSpMVWithDevice< Real, Devices::Hip, Index, InputMatrix, SegmentsType, TestValue, MatrixType >(
-      benchmark, inputMatrix, csrResultVector, inputFileName, parameters, verboseMR, sigma );
+      benchmark, progress, inputMatrix, csrResultVector, inputFileName, parameters, verboseMR, sigma );
 #endif
 }
 
 template< typename Real, typename Index, typename TestValue, typename MatrixType, typename InputMatrix >
 void
 dispatchSpMV( BenchmarkType& benchmark,
+              BenchmarkProgress& progress,
               const InputMatrix& hostMatrix,
               const TNL::Containers::Vector< Real, Devices::Host, Index >& hostOutVector,
               const String& inputFileName,
@@ -337,36 +347,36 @@ dispatchSpMV( BenchmarkType& benchmark,
               bool verboseMR )
 {
    benchmarkSpMV< Real, Index, InputMatrix, CSRSegments, TestValue, MatrixType >(
-      benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+      benchmark, progress, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
    benchmarkSpMV< Real, Index, InputMatrix, AdaptiveCSRSegments, TestValue, MatrixType >(
-      benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+      benchmark, progress, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
    if( parameters.getParameter< bool >( "with-ellpack-formats" ) ) {
       benchmarkSpMV< Real, Index, InputMatrix, EllpackSegments, TestValue, MatrixType >(
-         benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+         benchmark, progress, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
       benchmarkSpMV< Real, Index, InputMatrix, RowMajorSlicedEllpackSegments_SliceSize_2, TestValue, MatrixType >(
-         benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+         benchmark, progress, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
       benchmarkSpMV< Real, Index, InputMatrix, RowMajorSlicedEllpackSegments_SliceSize_4, TestValue, MatrixType >(
-         benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+         benchmark, progress, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
       benchmarkSpMV< Real, Index, InputMatrix, RowMajorSlicedEllpackSegments_SliceSize_8, TestValue, MatrixType >(
-         benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+         benchmark, progress, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
       benchmarkSpMV< Real, Index, InputMatrix, RowMajorSlicedEllpackSegments_SliceSize_16, TestValue, MatrixType >(
-         benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+         benchmark, progress, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
       benchmarkSpMV< Real, Index, InputMatrix, RowMajorSlicedEllpackSegments_SliceSize_32, TestValue, MatrixType >(
-         benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+         benchmark, progress, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
       benchmarkSpMV< Real, Index, InputMatrix, ColumnMajorSlicedEllpackSegments_SliceSize_2, TestValue, MatrixType >(
-         benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+         benchmark, progress, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
       benchmarkSpMV< Real, Index, InputMatrix, ColumnMajorSlicedEllpackSegments_SliceSize_4, TestValue, MatrixType >(
-         benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+         benchmark, progress, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
       benchmarkSpMV< Real, Index, InputMatrix, ColumnMajorSlicedEllpackSegments_SliceSize_8, TestValue, MatrixType >(
-         benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+         benchmark, progress, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
       benchmarkSpMV< Real, Index, InputMatrix, ColumnMajorSlicedEllpackSegments_SliceSize_16, TestValue, MatrixType >(
-         benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+         benchmark, progress, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
       benchmarkSpMV< Real, Index, InputMatrix, ColumnMajorSlicedEllpackSegments_SliceSize_32, TestValue, MatrixType >(
-         benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+         benchmark, progress, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
       benchmarkSpMV< Real, Index, InputMatrix, ChunkedEllpackSegments, TestValue, MatrixType >(
-         benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+         benchmark, progress, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
       benchmarkSpMV< Real, Index, InputMatrix, BiEllpackSegments, TestValue, MatrixType >(
-         benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+         benchmark, progress, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
    }
    if( parameters.getParameter< bool >( "with-sorted-segments" ) ) {
       // sigma == -1 sorts all segments together (the historical "Sorted" behavior); sigma == 256
@@ -374,44 +384,46 @@ dispatchSpMV( BenchmarkType& benchmark,
       auto benchmarkSortedFormats = [ & ]( Index sigma )
       {
          benchmarkSpMV< Real, Index, InputMatrix, Algorithms::Segments::SortedCSR, TestValue, MatrixType >(
-            benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
+            benchmark, progress, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
          benchmarkSpMV< Real, Index, InputMatrix, Algorithms::Segments::SortedAdaptiveCSR, TestValue, MatrixType >(
-            benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
+            benchmark, progress, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
          if( parameters.getParameter< bool >( "with-ellpack-formats" ) ) {
             benchmarkSpMV< Real, Index, InputMatrix, Algorithms::Segments::SortedEllpack, TestValue, MatrixType >(
-               benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
+               benchmark, progress, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
             benchmarkSpMV< Real, Index, InputMatrix, SortedRowMajorSlicedEllpackSegments_SliceSize_2, TestValue, MatrixType >(
-               benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
+               benchmark, progress, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
             benchmarkSpMV< Real, Index, InputMatrix, SortedRowMajorSlicedEllpackSegments_SliceSize_4, TestValue, MatrixType >(
-               benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
+               benchmark, progress, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
             benchmarkSpMV< Real, Index, InputMatrix, SortedRowMajorSlicedEllpackSegments_SliceSize_8, TestValue, MatrixType >(
-               benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
+               benchmark, progress, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
             benchmarkSpMV< Real, Index, InputMatrix, SortedRowMajorSlicedEllpackSegments_SliceSize_16, TestValue, MatrixType >(
-               benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
+               benchmark, progress, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
             benchmarkSpMV< Real, Index, InputMatrix, SortedRowMajorSlicedEllpackSegments_SliceSize_32, TestValue, MatrixType >(
-               benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
+               benchmark, progress, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
             benchmarkSpMV< Real, Index, InputMatrix, SortedColumnMajorSlicedEllpackSegments_SliceSize_2, TestValue, MatrixType >(
-               benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
+               benchmark, progress, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
             benchmarkSpMV< Real, Index, InputMatrix, SortedColumnMajorSlicedEllpackSegments_SliceSize_4, TestValue, MatrixType >(
-               benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
+               benchmark, progress, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
             benchmarkSpMV< Real, Index, InputMatrix, SortedColumnMajorSlicedEllpackSegments_SliceSize_8, TestValue, MatrixType >(
-               benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
+               benchmark, progress, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
             benchmarkSpMV< Real,
                            Index,
                            InputMatrix,
                            SortedColumnMajorSlicedEllpackSegments_SliceSize_16,
                            TestValue,
-                           MatrixType >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
+                           MatrixType >(
+               benchmark, progress, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
             benchmarkSpMV< Real,
                            Index,
                            InputMatrix,
                            SortedColumnMajorSlicedEllpackSegments_SliceSize_32,
                            TestValue,
-                           MatrixType >( benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
+                           MatrixType >(
+               benchmark, progress, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
             benchmarkSpMV< Real, Index, InputMatrix, Algorithms::Segments::SortedChunkedEllpack, TestValue, MatrixType >(
-               benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
+               benchmark, progress, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
             benchmarkSpMV< Real, Index, InputMatrix, Algorithms::Segments::SortedBiEllpack, TestValue, MatrixType >(
-               benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
+               benchmark, progress, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR, sigma );
          }
       };
       benchmarkSortedFormats( -1 );
@@ -422,6 +434,7 @@ dispatchSpMV( BenchmarkType& benchmark,
 template< typename Real, typename Index, typename InputMatrix >
 void
 dispatchGeneral( BenchmarkType& benchmark,
+                 BenchmarkProgress& progress,
                  const InputMatrix& hostMatrix,
                  const TNL::Containers::Vector< Real, Devices::Host, Index >& hostOutVector,
                  const String& inputFileName,
@@ -429,16 +442,17 @@ dispatchGeneral( BenchmarkType& benchmark,
                  bool verboseMR )
 {
    dispatchSpMV< Real, Index, Real, TNL::Matrices::GeneralMatrix >(
-      benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+      benchmark, progress, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
 
    // Dispatch binary SpMV for general matrices
    dispatchSpMV< Real, Index, bool, TNL::Matrices::GeneralMatrix >(
-      benchmark, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+      benchmark, progress, hostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
 }
 
 template< typename Real, typename Index >
 void
 dispatchSymmetric( BenchmarkType& benchmark,
+                   BenchmarkProgress& progress,
                    const TNL::Containers::Vector< Real, Devices::Host, Index >& hostOutVector,
                    const String& inputFileName,
                    const Config::ParameterContainer& parameters,
@@ -460,11 +474,11 @@ dispatchSymmetric( BenchmarkType& benchmark,
    }
    compressSparseMatrix( symmetricHostMatrix );
    dispatchSpMV< Real, Index, Real, TNL::Matrices::SymmetricMatrix >(
-      benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+      benchmark, progress, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
 
    // Dispatch binary SpMV for general matrices
    dispatchSpMV< Real, Index, bool, TNL::Matrices::SymmetricMatrix >(
-      benchmark, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+      benchmark, progress, symmetricHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
 }
 
 // Runs the full benchmark suite (CSR host scan + dispatchGeneral, and
@@ -498,6 +512,9 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
    if( matrixName.empty() )
       matrixName = inputFileName;
 
+   const std::string progressDir = parameters.getParameter< String >( "progress-dir" ).getString();
+   BenchmarkProgress progress( progressDir, matrixName, transposed );
+
    ////
    // Perform benchmark on host with CSR as a reference CPU format
    //
@@ -524,26 +541,32 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
       csrHostMatrix.vectorProduct( hostInVector, hostOutVector );
    };
 
+   // The reference result every other format's Diff.Max/L2 is compared with is established once,
+   // unconditionally, as a separate copy - decoupled from the timed/logged sweep below, so that
+   // skipping an already-done (precision, launch cfg) combination on resume never leaves it
+   // uninitialized (mirrors the pattern already used in spmv-reference.h).
+   resetHostVectors();
+   spmvCSRHost();
+   const HostVector csrResultVector( hostOutVector );
+
    // CSR on the CPU is benchmarked always with all numbers of threads, since
-   // it is the reference for the speed-up of the other formats. Its result in
-   // hostOutVector is the reference result the other formats are compared with,
-   // so it must be computed even without the CPU benchmarks.
+   // it is the reference for the speed-up of the other formats.
    if( parameters.getParameter< bool >( "with-cpu-tests" ) ) {
-      SpmvBenchmarkResult< Real, Devices::Host, Index > csrBenchmarkResults( hostOutVector, hostOutVector );
-      benchmark.setMetadataElement( { "format", "CSR" } );
+      SpmvBenchmarkResult< Real, Devices::Host, Index > csrBenchmarkResults( csrResultVector, hostOutVector );
+      const std::string format = "CSR";
+      benchmark.setMetadataElement( { "format", format } );
       forEachCpuThreadsCount( true,
                               [ & ]( const std::string& launchConfig )
                               {
+                                 if( progress.isDone( getType< Real >(), format, "CPU", launchConfig ) )
+                                    return;
                                  benchmark.setMetadataElement( { "launch cfg.", launchConfig } );
                                  benchmark.time< Devices::Host >( resetHostVectors, "CPU", spmvCSRHost, csrBenchmarkResults );
+                                 progress.markDone( getType< Real >(), format, "CPU", launchConfig );
                               } );
    }
-   else {
-      resetHostVectors();
-      spmvCSRHost();
-   }
 
-   dispatchGeneral< Real, Index >( benchmark, csrHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
+   dispatchGeneral< Real, Index >( benchmark, progress, csrHostMatrix, hostOutVector, inputFileName, parameters, verboseMR );
 
    // A symmetric matrix's transpose equals itself, so re-running the
    // symmetric dispatch for the transposed matrix would just duplicate the
@@ -551,7 +574,7 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
    // matrix only from an MTX file declared as symmetric, for the other ones it
    // would only log an error.
    if( ! transposed && symmetry.symmetric && parameters.getParameter< bool >( "with-symmetric-matrices" ) )
-      dispatchSymmetric< Real, Index >( benchmark, hostOutVector, inputFileName, parameters, verboseMR );
+      dispatchSymmetric< Real, Index >( benchmark, progress, hostOutVector, inputFileName, parameters, verboseMR );
 }
 
 template< typename Real = double, typename Index = int >

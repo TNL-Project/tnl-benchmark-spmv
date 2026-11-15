@@ -8,6 +8,7 @@
 #include "SpmvBenchmarkResult.h"
 #include "CpuBenchmarking.h"
 #include "MatrixTransposition.h"
+#include "benchmark-progress.h"
 
 #include <TNL/Matrices/MatrixReader.h>
 #include <TNL/Matrices/MatrixInfo.h>
@@ -95,6 +96,7 @@ template< typename Real,
           typename ResetVectors >
 void
 benchmarkGinkgoOnGpu( BenchmarkType& benchmark,
+                      BenchmarkProgress& progress,
                       std::shared_ptr< const gko::Executor > exec,
                       CsrMatrix& csrMatrix,
                       InVector& inVector,
@@ -115,6 +117,9 @@ benchmarkGinkgoOnGpu( BenchmarkType& benchmark,
    // `create` returns the matrix to benchmark, it throws if it cannot be created
    auto benchmarkMatrix = [ & ]( const std::string& format, const std::string& launchConfig, auto&& create )
    {
+      // skip before paying for `create()` (matrix format conversion), not just before time()
+      if( progress.isDone( getType< Real >(), format, performer, launchConfig ) )
+         return;
       benchmark.setMetadataElement( { "format", format } );
       benchmark.setMetadataElement( { "launch cfg.", launchConfig } );
       std::shared_ptr< const gko::LinOp > gko_A;
@@ -130,6 +135,7 @@ benchmarkGinkgoOnGpu( BenchmarkType& benchmark,
          gko_A->apply( gko_b.get(), gko_x.get() );
       };
       benchmark.time< Device >( resetVectors, performer.c_str(), spmvGinkgo, benchmarkResults );
+      progress.markDone( getType< Real >(), format, performer, launchConfig );
    };
 
    const GinkgoCsrStrategy strategies[] = {
@@ -205,6 +211,7 @@ template< typename Real,
           typename ResetVectors >
 void
 benchmarkHypreOnGpu( BenchmarkType& benchmark,
+                     BenchmarkProgress& progress,
                      CsrMatrix& csrMatrix,
                      InVector& inVector,
                      OutVector& outVector,
@@ -230,20 +237,27 @@ benchmarkHypreOnGpu( BenchmarkType& benchmark,
       };
 
       SpmvBenchmarkResult< Real, Device, int > hypreBenchmarkResults( csrResultVector, outVector );
-      benchmark.setMetadataElement( { "format", "Hypre" } );
+      const std::string format = "Hypre";
+      benchmark.setMetadataElement( { "format", format } );
    #if defined( HYPRE_USING_CUSPARSE ) || defined( HYPRE_USING_ROCSPARSE )
       // The setting is global and kept for the next matrix, so the default
       // one must be set explicitly too.
       const std::pair< std::string, HYPRE_Int > implementations[] = { { "Default", 1 }, { "Internal", 0 } };
       for( const auto& [ launchConfig, useVendor ] : implementations ) {
+         if( progress.isDone( getType< Real >(), format, performer, launchConfig ) )
+            continue;
          HYPRE_SetSpMVUseVendor( useVendor );
          benchmark.setMetadataElement( { "launch cfg.", launchConfig } );
          benchmark.time< Device >( resetVectors, performer.c_str(), spmvHypreCSR, hypreBenchmarkResults );
+         progress.markDone( getType< Real >(), format, performer, launchConfig );
       }
       HYPRE_SetSpMVUseVendor( 1 );
    #else
-      benchmark.setMetadataElement( { "launch cfg.", "Default" } );
-      benchmark.time< Device >( resetVectors, performer.c_str(), spmvHypreCSR, hypreBenchmarkResults );
+      if( ! progress.isDone( getType< Real >(), format, performer, "Default" ) ) {
+         benchmark.setMetadataElement( { "launch cfg.", "Default" } );
+         benchmark.time< Device >( resetVectors, performer.c_str(), spmvHypreCSR, hypreBenchmarkResults );
+         progress.markDone( getType< Real >(), format, performer, "Default" );
+      }
    #endif
    }
    else {
@@ -313,6 +327,9 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
    if( matrixName.empty() )
       matrixName = inputFileName;
 
+   const std::string progressDir = parameters.getParameter< String >( "progress-dir" ).getString();
+   BenchmarkProgress progress( progressDir, matrixName, transposed );
+
    ////
    // Perform benchmark on host with CSR as a reference CPU format
    //
@@ -376,10 +393,13 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
       };
 
       SpmvBenchmarkResult< Real, Devices::Host, int > petscBenchmarkResults( csrResultVector, outVector );
-      benchmark.setMetadataElement( { "format", "Petsc" } );
       // MatCreateSeqAIJWithArrays creates a sequential matrix
-      benchmark.setMetadataElement( { "launch cfg.", getCpuLaunchConfig( 1 ) } );
-      benchmark.time< Devices::Host >( resetPetscVectors, "CPU", petscSpmvCSRHost, petscBenchmarkResults );
+      if( ! progress.isDone( getType< Real >(), "Petsc", "CPU", getCpuLaunchConfig( 1 ) ) ) {
+         benchmark.setMetadataElement( { "format", "Petsc" } );
+         benchmark.setMetadataElement( { "launch cfg.", getCpuLaunchConfig( 1 ) } );
+         benchmark.time< Devices::Host >( resetPetscVectors, "CPU", petscSpmvCSRHost, petscBenchmarkResults );
+         progress.markDone( getType< Real >(), "Petsc", "CPU", getCpuLaunchConfig( 1 ) );
+      }
    }
 #endif
 
@@ -403,13 +423,17 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
          };
 
          SpmvBenchmarkResult< Real, Devices::Host, int > hypreBenchmarkResults( csrResultVector, hostOutVector );
-         benchmark.setMetadataElement( { "format", "Hypre" } );
+         const std::string format = "Hypre";
+         benchmark.setMetadataElement( { "format", format } );
          forEachCpuThreadsCount( true,
                                  [ & ]( const std::string& launchConfig )
                                  {
+                                    if( progress.isDone( getType< Real >(), format, "CPU", launchConfig ) )
+                                       return;
                                     benchmark.setMetadataElement( { "launch cfg.", launchConfig } );
                                     benchmark.time< Devices::Host >(
                                        resetHostVectors, "CPU", spmvHypreCSRHost, hypreBenchmarkResults );
+                                    progress.markDone( getType< Real >(), format, "CPU", launchConfig );
                                  } );
       }
    }
@@ -441,13 +465,17 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
       };
 
       SpmvBenchmarkResult< Real, Devices::Host, int > ginkgoHostBenchmarkResults( csrResultVector, hostOutVector );
-      benchmark.setMetadataElement( { "format", "Ginkgo" } );
+      const std::string format = "Ginkgo";
+      benchmark.setMetadataElement( { "format", format } );
       forEachCpuThreadsCount( true,
                               [ & ]( const std::string& launchConfig )
                               {
+                                 if( progress.isDone( getType< Real >(), format, "CPU", launchConfig ) )
+                                    return;
                                  benchmark.setMetadataElement( { "launch cfg.", launchConfig } );
                                  benchmark.time< Devices::Host >(
                                     resetHostVectors, "CPU", spmvGinkgoCSRHost, ginkgoHostBenchmarkResults );
+                                 progress.markDone( getType< Real >(), format, "CPU", launchConfig );
                               } );
    }
 #endif
@@ -484,6 +512,9 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
       { "CSR ALG2", CUSPARSE_SPMV_CSR_ALG2 },
    };
    for( const auto& variant : cusparseAlgorithms ) {
+      // skip before paying for cusparseMatrix.init() (format conversion + analysis), not just time()
+      if( progress.isDone( getType< Real >(), "cusparse", "CUDA", variant.name ) )
+         continue;
       CusparseMatrix cusparseMatrix;
       cusparseMatrix.init( csrCudaMatrix, cudaInVector, cudaOutVector, &cusparseHandle, variant.alg );
 
@@ -495,6 +526,7 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
       benchmark.setMetadataElement( { "format", "cusparse" } );
       benchmark.setMetadataElement( std::make_pair( std::string( "launch cfg." ), variant.name ) );
       benchmark.time< Devices::Cuda >( resetCudaVectors, "CUDA", spmvCusparse, cudaBenchmarkResults );
+      progress.markDone( getType< Real >(), "cusparse", "CUDA", variant.name );
    }
 
    ////
@@ -508,6 +540,8 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
       { "SELL ALG1", CUSPARSE_SPMV_SELL_ALG1 },
    };
    for( const auto& variant : cusparseSlicedEllAlgorithms ) {
+      if( progress.isDone( getType< Real >(), "cusparse SlicedEll", "CUDA", variant.name ) )
+         continue;
       CusparseSlicedEllMatrix cusparseSlicedEllMatrix;
       cusparseSlicedEllMatrix.init( slicedEllCudaMatrix, cudaInVector, cudaOutVector, &cusparseHandle, variant.alg );
 
@@ -519,15 +553,17 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
       benchmark.setMetadataElement( { "format", "cusparse SlicedEll" } );
       benchmark.setMetadataElement( std::make_pair( std::string( "launch cfg." ), variant.name ) );
       benchmark.time< Devices::Cuda >( resetCudaVectors, "CUDA", spmvCusparseSlicedEll, cudaBenchmarkResults );
+      progress.markDone( getType< Real >(), "cusparse SlicedEll", "CUDA", variant.name );
    }
 
    #if defined( HAVE_HYPRE ) && defined( HYPRE_USING_CUDA )
    benchmarkHypreOnGpu< Real, Devices::Cuda >(
-      benchmark, csrCudaMatrix, cudaInVector, cudaOutVector, csrResultVector, resetCudaVectors, "CUDA" );
+      benchmark, progress, csrCudaMatrix, cudaInVector, cudaOutVector, csrResultVector, resetCudaVectors, "CUDA" );
    #endif
 
    #ifdef HAVE_GINKGO
    benchmarkGinkgoOnGpu< Real, Devices::Cuda >( benchmark,
+                                                progress,
                                                 gko::CudaExecutor::create( 0, gko_host_exec ),
                                                 csrCudaMatrix,
                                                 cudaInVector,
@@ -541,19 +577,22 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
    ////
    // Perform benchmark on CUDA device with CSR5 as a reference GPU format
    //
-   CudaVector cudaOutVector2( cudaOutVector );
-   CSR5Benchmark::CSR5Benchmark< CSRCudaMatrix > csr5Benchmark( csrCudaMatrix, cudaInVector, cudaOutVector );
+   if( ! progress.isDone( getType< Real >(), "CSR5", "CUDA", "Default" ) ) {
+      CudaVector cudaOutVector2( cudaOutVector );
+      CSR5Benchmark::CSR5Benchmark< CSRCudaMatrix > csr5Benchmark( csrCudaMatrix, cudaInVector, cudaOutVector );
 
-   auto csr5SpMV = [ & ]()
-   {
-      csr5Benchmark.vectorProduct();
-   };
+      auto csr5SpMV = [ & ]()
+      {
+         csr5Benchmark.vectorProduct();
+      };
 
-   benchmark.setMetadataElement( { "format", "CSR5" } );
-   benchmark.setMetadataElement( { "launch cfg.", "Default" } );
-   benchmark.time< Devices::Cuda >( resetCusparseVectors, "CUDA", csr5SpMV, cudaBenchmarkResults );
-   std::cerr << "CSR5 error = " << max( abs( cudaOutVector - cudaOutVector2 ) ) << std::endl;
-   csrCudaMatrix.reset();
+      benchmark.setMetadataElement( { "format", "CSR5" } );
+      benchmark.setMetadataElement( { "launch cfg.", "Default" } );
+      benchmark.time< Devices::Cuda >( resetCusparseVectors, "CUDA", csr5SpMV, cudaBenchmarkResults );
+      std::cerr << "CSR5 error = " << max( abs( cudaOutVector - cudaOutVector2 ) ) << std::endl;
+      csrCudaMatrix.reset();
+      progress.markDone( getType< Real >(), "CSR5", "CUDA", "Default" );
+   }
    #endif
 
    // LightSpMV fails with CUDA 12
@@ -574,14 +613,20 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
    {
       lightSpMVBenchmark.vectorProduct();
    };
-   benchmark.setMetadataElement( { "format", "LightSpMV Vector" } );
-   benchmark.setMetadataElement( { "launch cfg.", "Default" } );
-   benchmark.time< Devices::Cuda >( resetLightSpMVVectors, "CUDA", spmvLightSpMV, cudaBenchmarkResults );
+   if( ! progress.isDone( getType< Real >(), "LightSpMV Vector", "CUDA", "Default" ) ) {
+      benchmark.setMetadataElement( { "format", "LightSpMV Vector" } );
+      benchmark.setMetadataElement( { "launch cfg.", "Default" } );
+      benchmark.time< Devices::Cuda >( resetLightSpMVVectors, "CUDA", spmvLightSpMV, cudaBenchmarkResults );
+      progress.markDone( getType< Real >(), "LightSpMV Vector", "CUDA", "Default" );
+   }
 
    lightSpMVBenchmark.setKernelType( LightSpMVBenchmarkKernelWarp );
-   benchmark.setMetadataElement( { "format", "LightSpMV Warp" } );
-   benchmark.setMetadataElement( { "launch cfg.", "Default" } );
-   benchmark.time< Devices::Cuda >( resetLightSpMVVectors, "CUDA", spmvLightSpMV, cudaBenchmarkResults );
+   if( ! progress.isDone( getType< Real >(), "LightSpMV Warp", "CUDA", "Default" ) ) {
+      benchmark.setMetadataElement( { "format", "LightSpMV Warp" } );
+      benchmark.setMetadataElement( { "launch cfg.", "Default" } );
+      benchmark.time< Devices::Cuda >( resetLightSpMVVectors, "CUDA", spmvLightSpMV, cudaBenchmarkResults );
+      progress.markDone( getType< Real >(), "LightSpMV Warp", "CUDA", "Default" );
+   }
    #endif
 
    cusparseDestroy( cusparseHandle );
@@ -600,24 +645,27 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
 
    HipVector hipInVector( csrHipMatrix.getColumns() ), hipOutVector( csrHipMatrix.getRows() );
 
-   HipsparseMatrix hipsparseMatrix;
-   hipsparseMatrix.init( csrHipMatrix, hipInVector, hipOutVector, &hipsparseHandle );
-
    auto resetHipVectors = [ & ]()
    {
       hipInVector = 1.0;
       hipOutVector = 0.0;
    };
 
-   auto spmvHipsparse = [ & ]()
-   {
-      hipsparseMatrix.vectorProduct( hipInVector, hipOutVector );
-   };
-
    SpmvBenchmarkResult< Real, Devices::Hip, int > hipBenchmarkResults( csrResultVector, hipOutVector );
-   benchmark.setMetadataElement( { "format", "hipsparse" } );
-   benchmark.setMetadataElement( { "launch cfg.", "Default" } );
-   benchmark.time< Devices::Hip >( resetHipVectors, "HIP", spmvHipsparse, hipBenchmarkResults );
+   if( ! progress.isDone( getType< Real >(), "hipsparse", "HIP", "Default" ) ) {
+      HipsparseMatrix hipsparseMatrix;
+      hipsparseMatrix.init( csrHipMatrix, hipInVector, hipOutVector, &hipsparseHandle );
+
+      auto spmvHipsparse = [ & ]()
+      {
+         hipsparseMatrix.vectorProduct( hipInVector, hipOutVector );
+      };
+
+      benchmark.setMetadataElement( { "format", "hipsparse" } );
+      benchmark.setMetadataElement( { "launch cfg.", "Default" } );
+      benchmark.time< Devices::Hip >( resetHipVectors, "HIP", spmvHipsparse, hipBenchmarkResults );
+      progress.markDone( getType< Real >(), "hipsparse", "HIP", "Default" );
+   }
 
    #ifdef HAVE_ROCSPARSE
    ////
@@ -632,6 +680,9 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
       benchmark.setMetadataElement( { "rocsparse version", convertToString( rocsparseVersion ) } );
 
       for( const auto& variant : getRocsparseCSRAlgorithms() ) {
+         // skip before paying for rocsparseMatrix.init() (includes the analysis stage), not just time()
+         if( progress.isDone( getType< Real >(), "rocsparse", "HIP", variant.name ) )
+            continue;
          // A failure of one algorithm (e.g. not enough memory for the analysis)
          // must not stop the benchmark of the others.
          try {
@@ -644,6 +695,7 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
             benchmark.setMetadataElement( { "format", "rocsparse" } );
             benchmark.setMetadataElement( std::make_pair( std::string( "launch cfg." ), variant.name ) );
             benchmark.time< Devices::Hip >( resetHipVectors, "HIP", spmvRocsparse, hipBenchmarkResults );
+            progress.markDone( getType< Real >(), "rocsparse", "HIP", variant.name );
          }
          catch( const std::exception& e ) {
             std::cerr << "rocSPARSE " << variant.name << " failed: " << e.what() << std::endl;
@@ -658,6 +710,8 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
          SlicedEllHipMatrix slicedEllHipMatrix;
          slicedEllHipMatrix = csrHostMatrix;
          for( const auto& variant : getRocsparseSlicedEllAlgorithms() ) {
+            if( progress.isDone( getType< Real >(), "rocsparse SlicedEll", "HIP", variant.name ) )
+               continue;
             try {
                RocsparseSlicedEll< Real > rocsparseSlicedEllMatrix;
                rocsparseSlicedEllMatrix.init( slicedEllHipMatrix, hipInVector, hipOutVector, rocsparseHandle, variant.alg );
@@ -668,6 +722,7 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
                benchmark.setMetadataElement( { "format", "rocsparse SlicedEll" } );
                benchmark.setMetadataElement( std::make_pair( std::string( "launch cfg." ), variant.name ) );
                benchmark.time< Devices::Hip >( resetHipVectors, "HIP", spmvRocsparseSlicedEll, hipBenchmarkResults );
+               progress.markDone( getType< Real >(), "rocsparse SlicedEll", "HIP", variant.name );
             }
             catch( const std::exception& e ) {
                std::cerr << "rocSPARSE SlicedEll " << variant.name << " failed: " << e.what() << std::endl;
@@ -686,11 +741,12 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
 
    #if defined( HAVE_HYPRE ) && defined( HYPRE_USING_HIP )
    benchmarkHypreOnGpu< Real, Devices::Hip >(
-      benchmark, csrHipMatrix, hipInVector, hipOutVector, csrResultVector, resetHipVectors, "HIP" );
+      benchmark, progress, csrHipMatrix, hipInVector, hipOutVector, csrResultVector, resetHipVectors, "HIP" );
    #endif
 
    #ifdef HAVE_GINKGO
    benchmarkGinkgoOnGpu< Real, Devices::Hip >( benchmark,
+                                               progress,
                                                gko::HipExecutor::create( 0, gko_host_exec ),
                                                csrHipMatrix,
                                                hipInVector,

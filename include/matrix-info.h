@@ -10,6 +10,7 @@
 
 #include "MatrixStatistics.h"
 #include "MatrixTransposition.h"
+#include "matrix-name.h"
 
 using namespace TNL::Matrices;
 
@@ -27,12 +28,11 @@ writeFillingFile( const std::string& dir, const String& matrixName, bool transpo
    TNL::Containers::Vector< IndexType, TNL::Devices::Host, IndexType > rowLengths( matrix.getRows() );
    matrix.getCompressedRowLengths( rowLengths );
 
-   std::filesystem::path path =
-      std::filesystem::path( dir ) / ( std::string( matrixName.getString() ) + ( transposed ? ".transposed" : "" ) + ".txt" );
-   std::filesystem::create_directories( path.parent_path() );
+   const std::filesystem::path path = matrixFilePath( dir, matrixName, transposed, "txt" );
    std::ofstream file( path );
    for( IndexType i = 0; i < rowLengths.getSize(); i++ )
       file << rowLengths[ i ] << '\n';
+   file.flush();
 }
 
 // Writes one JSON line with the structural info (dimensions, symmetry,

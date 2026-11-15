@@ -16,27 +16,7 @@ output_file="matrix-info.jsonl"
 filling_dir=""
 with_transposed_matrix="true"
 continue_benchmark="no"
-
-# Function to execute a command and continue on segfault
-run_command() {
-    echo "$@"
-    "$@"
-    local status=$?
-    if [ $status -eq 139 ]; then
-        echo "Caught segfault, but continuing script execution."
-        touch segfaults.log
-        echo "$@" >> segfaults.log
-    fi
-    rm -f core*
-    return $status
-}
-
-# get the path of directory where this script is located, so matrix-name-from-path.sh
-# can be sourced regardless of the caller's current directory
-THIS_DIR="$( builtin cd -P "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-
-# shellcheck source=matrix-name-from-path.sh
-source "$THIS_DIR/matrix-name-from-path.sh"
+MAX_CONSECUTIVE_FAILURES=3
 
 # Loop through all the positional arguments
 while [[ "$#" -gt 0 ]]; do
@@ -77,6 +57,10 @@ while [[ "$#" -gt 0 ]]; do
             DEBUG="$2"
             shift
             ;;
+        --max-consecutive-failures)  # Give up on a matrix after this many crashes with no progress
+            MAX_CONSECUTIVE_FAILURES="$2"
+            shift
+            ;;
         -h|--help)  # Display help
             echo "Usage: $0 [options]"
             echo "Options:"
@@ -89,6 +73,9 @@ while [[ "$#" -gt 0 ]]; do
             echo "  -s, --size-limit SIZE                Size limit for matrices, -1 for no limit. Default: -1"
             echo "  -n, --count-limit NUM                Maximum number of matrices to process, -1 for no limit. Default: -1"
             echo "  -d, --debug  yes/no                  Debug mode. Default: no"
+            echo "      --max-consecutive-failures NUM"
+            echo "                                       Give up on (and skip) a matrix after this many consecutive"
+            echo "                                       crashes in a row. Default: 3"
             echo "  -h, --help                           Display help"
             exit 0
             ;;
@@ -138,23 +125,52 @@ if [[ ! -f "input-files" ]]; then
 fi
 
 COMMAND=("$BINARY" --output-file "$output_file" --output-mode append --with-transposed-matrix "$with_transposed_matrix")
+COMMAND+=(--matrix-list input-files --matrix-list-base-path "$matrices_base_path")
 if [[ -n "$filling_dir" ]]; then
     COMMAND+=(--filling-dir "$filling_dir")
 fi
 
-total_lines=$(wc -l < input-files)
-while [[ -s input-files ]];
-do
-   matrix=$(head -n 1 input-files)
-   lines=$(wc -l < input-files)
-   lines=$((total_lines - lines))
-   matrix_name=$(matrix_name_from_path "$matrix")
-   echo "$lines / $total_lines : Computing info for matrix $matrix_name ($matrix) ..."
+# The binary now manages the whole list itself in one process (see --matrix-list above), removing
+# each matrix only once it is fully processed - a crash leaves it at the head of the list, so
+# simply re-running the same command resumes from there. This loop only matters when that happens:
+# the common case is a single pass through it.
+consecutive_failures=0
+while [[ -s input-files ]]; do
+   before_count=$(wc -l < input-files)
+   head_matrix=$(head -n 1 input-files)
+
+   echo "${COMMAND[@]}"
    if [[ "$DEBUG" == "yes" ]]; then
-      gdb --args "${COMMAND[@]}" --input-file "$matrix" --matrix-name "$matrix_name"
+      gdb --args "${COMMAND[@]}"
+      status=$?
    else
-      run_command "${COMMAND[@]}" --input-file "$matrix" --matrix-name "$matrix_name"
+      "${COMMAND[@]}"
+      status=$?
    fi
-   sed -i '1d' input-files
+   if [ $status -eq 139 ]; then
+      echo "Caught segfault, but continuing script execution."
+      touch segfaults.log
+      echo "${COMMAND[@]}" >> segfaults.log
+   fi
+   rm -f core*
+
+   if [[ ! -s input-files ]]; then
+      break
+   fi
+   after_count=$(wc -l < input-files)
+   after_head=$(head -n 1 input-files)
+   if [[ "$after_count" -lt "$before_count" || "$after_head" != "$head_matrix" ]]; then
+      consecutive_failures=0
+   else
+      consecutive_failures=$((consecutive_failures + 1))
+      echo "No progress on matrix $head_matrix after exit status $status (consecutive failures: $consecutive_failures)"
+      if [[ $consecutive_failures -ge $MAX_CONSECUTIVE_FAILURES ]]; then
+         echo "WARNING: giving up on $head_matrix after $consecutive_failures consecutive failures - skipping it."
+         touch failed-matrices.txt
+         echo "$head_matrix" >> failed-matrices.txt
+         sed -i.bak '1d' input-files && rm -f input-files.bak
+         consecutive_failures=0
+      fi
+   fi
 done
-rm input-files
+rm -f input-files

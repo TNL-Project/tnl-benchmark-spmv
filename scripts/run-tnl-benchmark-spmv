@@ -15,33 +15,14 @@ DEBUG="no"
 SIZE_LIMIT=-1 # no size limit
 COUNT_LIMIT=-1 # no count limit
 log_file="sparse-matrix-benchmark.log"
+progress_dir="progress"
 continue_benchmark="no"
 MPI_ENABLED="no"
 MPI_PROCESSES=1
 MPI_EXTRA_ARGS=""
 PRECISION="float"
 LOOPS=""
-
-# Function to execute a command and continue on segfault
-run_command() {
-    echo "$@"
-    "$@"
-    local status=$?
-    if [ $status -eq 139 ]; then
-        echo "Caught segfault, but continuing script execution."
-        touch segfaults.log
-        echo "$@" >> segfaults.log
-    fi
-    rm -f core*
-    return $status
-}
-
-# get the path of directory where this script is located, so matrix-name-from-path.sh
-# can be sourced regardless of the caller's current directory
-THIS_DIR="$( builtin cd -P "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-
-# shellcheck source=matrix-name-from-path.sh
-source "$THIS_DIR/matrix-name-from-path.sh"
+MAX_CONSECUTIVE_FAILURES=3
 
 # Loop through all the positional arguments
 while [[ "$#" -gt 0 ]]; do
@@ -56,6 +37,10 @@ while [[ "$#" -gt 0 ]]; do
             ;;
         -l|--log-file)  # Log file
             log_file="$2"
+            shift
+            ;;
+        -g|--progress-dir)  # Directory for the per-matrix progress files
+            progress_dir="$2"
             shift
             ;;
         -c|--continue)  # Continue from a previous run
@@ -102,12 +87,17 @@ while [[ "$#" -gt 0 ]]; do
             LOOPS="$2"
             shift
             ;;
+        --max-consecutive-failures)  # Give up on a matrix after this many crashes with no progress
+            MAX_CONSECUTIVE_FAILURES="$2"
+            shift
+            ;;
         -h|--help)  # Display help
             echo "Usage: $0 [options]"
             echo "Options:"
             echo "  -b, --benchmark BINARY        Binary to benchmark"
             echo "  -i, --input-dir DIR           Input directory. Default: ./mtx_matrices"
             echo "  -l, --log-file FILE           Log file. Default: sparse-matrix-benchmark.log"
+            echo "  -g, --progress-dir DIR        Directory for the per-matrix progress files. Default: progress"
             echo "  -c, --continue yes/no         Continue from a previous run. Default: no"
             echo "  -s, --size-limit SIZE         Size limit for matrices, -1 for no limit. Default: -1"
             echo "  -n, --count-limit NUM         Maximum number of matrices to benchmark, -1 for no limit. Default: -1"
@@ -119,6 +109,9 @@ while [[ "$#" -gt 0 ]]; do
             echo "  -e, --mpi-extra-args STRING   Extra mpirun arguments, inserted before -np. Default: (none)"
             echo "  -r, --precision VALUE         Precision passed to the benchmark binary. Default: float"
             echo "      --loops NUM               Number of benchmark loops passed to the benchmark binary. Default: (binary's own default)"
+            echo "      --max-consecutive-failures NUM"
+            echo "                                Give up on (and skip) a matrix after this many consecutive"
+            echo "                                crashes with no progress recorded for it. Default: 3"
             echo "  -h, --help                    Display help"
             exit 0
             ;;
@@ -196,6 +189,7 @@ if [[ "$MPI_ENABLED" == "yes" ]]; then
     COMMAND+=(-np "$MPI_PROCESSES")
 fi
 COMMAND+=("$BENCHMARK" --precision "$PRECISION" --log-file "$log_file" --output-mode append --verbose 1)
+COMMAND+=(--matrix-list input-files --matrix-list-base-path "$matrices_base_path" --progress-dir "$progress_dir")
 
 if [[ -n "$LOOPS" ]]; then
     COMMAND+=(--loops "$LOOPS")
@@ -210,19 +204,50 @@ else
     COMMAND+=(--openmp-enabled no)
 fi
 
-total_lines=$(wc -l < input-files)
-while [[ -s input-files ]];
-do
-   matrix=$(head -n 1 input-files)
-   lines=$(wc -l < input-files)
-   lines=$((total_lines - lines))
-   matrix_name=$(matrix_name_from_path "$matrix")
-   echo "$lines / $total_lines : Benchmarking matrix $matrix_name ($matrix) ..."
+# The binary now manages the whole list itself in one process (see --matrix-list above), removing
+# each matrix only once it is fully benchmarked - a crash (e.g. a segfault) leaves it at the head
+# of the list, so simply re-running the same command resumes from there, continuing mid-matrix via
+# its progress file. This loop only matters when that happens: the common case is a single pass
+# through it. consecutive_failures guards against spinning forever on one matrix that crashes
+# before ever recording any progress for itself.
+consecutive_failures=0
+while [[ -s input-files ]]; do
+   before_count=$(wc -l < input-files)
+   head_matrix=$(head -n 1 input-files)
+
+   echo "${COMMAND[@]}"
    if [[ "$DEBUG" == "yes" ]]; then
-      gdb --args "${COMMAND[@]}" --input-file "$matrix" --matrix-name "$matrix_name"
+      gdb --args "${COMMAND[@]}"
+      status=$?
    else
-      run_command "${COMMAND[@]}" --input-file "$matrix" --matrix-name "$matrix_name"
+      "${COMMAND[@]}"
+      status=$?
    fi
-   sed -i '1d' input-files
+   if [ $status -eq 139 ]; then
+      echo "Caught segfault, but continuing script execution."
+      touch segfaults.log
+      echo "${COMMAND[@]}" >> segfaults.log
+   fi
+   rm -f core*
+
+   if [[ ! -s input-files ]]; then
+      break
+   fi
+   after_count=$(wc -l < input-files)
+   after_head=$(head -n 1 input-files)
+   if [[ "$after_count" -lt "$before_count" || "$after_head" != "$head_matrix" ]]; then
+      # at least one matrix got fully processed since the last attempt
+      consecutive_failures=0
+   else
+      consecutive_failures=$((consecutive_failures + 1))
+      echo "No progress on matrix $head_matrix after exit status $status (consecutive failures: $consecutive_failures)"
+      if [[ $consecutive_failures -ge $MAX_CONSECUTIVE_FAILURES ]]; then
+         echo "WARNING: giving up on $head_matrix after $consecutive_failures consecutive failures with no progress - skipping it."
+         touch failed-matrices.txt
+         echo "$head_matrix" >> failed-matrices.txt
+         sed -i.bak '1d' input-files && rm -f input-files.bak
+         consecutive_failures=0
+      fi
+   fi
 done
-rm input-files
+rm -f input-files

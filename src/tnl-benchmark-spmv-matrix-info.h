@@ -4,6 +4,7 @@
 #include <TNL/Config/parseCommandLine.h>
 
 #include "matrix-info.h"
+#include "matrix-list.h"
 
 #include <exception>
 
@@ -14,9 +15,22 @@ void
 setupConfig( Config::ConfigDescription& config )
 {
    config.addDelimiter( "Matrix info settings:" );
-   config.addRequiredEntry< String >( "input-file", "Input file name." );
+   config.addEntry< String >(
+      "input-file", "Input file name. Required, unless --matrix-list is given instead.", "" );
    config.addEntry< String >(
       "matrix-name", "Matrix name used as the join key with the SpMV benchmark logs. Defaults to the input file name.", "" );
+   config.addEntry< String >(
+      "matrix-list",
+      "File listing the remaining matrices to process, one path per line (the format "
+      "scripts/run-tnl-benchmark-spmv-matrix-info's directory scan writes). When given, takes "
+      "priority over --input-file: every matrix in the list is processed in this single process, "
+      "and removed from the list only once it is fully done, so a crash leaves it at the head of "
+      "the list for the next run to resume.",
+      "" );
+   config.addEntry< String >(
+      "matrix-list-base-path",
+      "Base path stripped from each --matrix-list entry to derive its matrix name.",
+      "./mtx_matrices" );
    config.addEntry< String >( "output-file", "JSONL file the matrix info is appended to.", "matrix-info.jsonl" );
    config.addEntry< String >( "output-mode", "Mode for opening the output file.", "overwrite" );
    config.addEntryEnum( "append" );
@@ -54,16 +68,27 @@ main( int argc, char* argv[] )
 
    Devices::Host::setup( parameters );
 
-   const String& inputFileName = parameters.getParameter< String >( "input-file" );
-   const int verboseMR = parameters.getParameter< int >( "verbose-MReader" );
-
-   if( inputFileName.empty() ) {
-      std::cerr << "ERROR: Input file name is required." << std::endl;
-      return EXIT_FAILURE;
-   }
+   auto processCurrentMatrix = [ & ]()
+   {
+      const String& inputFileName = parameters.getParameter< String >( "input-file" );
+      const int verboseMR = parameters.getParameter< int >( "verbose-MReader" );
+      TNL::Benchmarks::SpMV::writeMatrixInfo( inputFileName, parameters, verboseMR );
+   };
 
    try {
-      TNL::Benchmarks::SpMV::writeMatrixInfo( inputFileName, parameters, verboseMR );
+      const String& matrixListFile = parameters.getParameter< String >( "matrix-list" );
+      if( ! matrixListFile.empty() ) {
+         const std::string basePath = parameters.getParameter< String >( "matrix-list-base-path" ).getString();
+         // no --progress-dir: tnl-benchmark-spmv-matrix-info is atomic per matrix, nothing to resume mid-matrix
+         SpMV::runOverMatrixList( parameters, matrixListFile.getString(), basePath, "", processCurrentMatrix );
+      }
+      else {
+         if( parameters.getParameter< String >( "input-file" ).empty() ) {
+            std::cerr << "ERROR: Input file name is required (or pass --matrix-list)." << std::endl;
+            return EXIT_FAILURE;
+         }
+         processCurrentMatrix();
+      }
    }
    catch( const std::exception& ex ) {
       std::cerr << ex.what() << std::endl;
