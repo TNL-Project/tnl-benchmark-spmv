@@ -15,7 +15,6 @@
 #include <TNL/Matrices/MatrixType.h>
 #include <TNL/Algorithms/Segments/CSR.h>
 #include <TNL/Algorithms/SegmentsReductionKernels/CSRScalarKernel.h>
-#include <TNL/Algorithms/sort.h>
 
 #ifdef HAVE_PETSC
    #include <petscmat.h>
@@ -310,20 +309,6 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
    const double datasetSize = (double) nonzeros * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
    benchmark.setDatasetSize( datasetSize );
 
-   ////
-   // Nonzero elements per row statistics
-   //
-   TNL::Containers::Vector< int > nonzerosPerRow( csrHostMatrix.getRows() );
-   TNL::Containers::Vector< double > aux;
-   csrHostMatrix.getCompressedRowLengths( nonzerosPerRow );
-   double average = sum( nonzerosPerRow ) / nonzerosPerRow.getSize();
-   aux = nonzerosPerRow - average;
-   double std_dev = lpNorm( aux, 2.0 ) / nonzerosPerRow.getSize();
-   TNL::Algorithms::ascendingSort( nonzerosPerRow );
-   double percentile_25 = nonzerosPerRow[ nonzerosPerRow.getSize() * 0.25 ];
-   double percentile_50 = nonzerosPerRow[ nonzerosPerRow.getSize() * 0.5 ];
-   double percentile_75 = nonzerosPerRow[ nonzerosPerRow.getSize() * 0.75 ];
-
    String matrixName = parameters.getParameter< String >( "matrix-name" );
    if( matrixName.empty() )
       matrixName = inputFileName;
@@ -331,21 +316,14 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
    ////
    // Perform benchmark on host with CSR as a reference CPU format
    //
+   // Matrix dimensions, symmetry and row-length statistics are not logged here anymore - they
+   // are written once per matrix by tnl-benchmark-spmv-matrix-info and joined in by "matrix name" (and
+   // "transposed") when the logs are parsed, instead of being repeated on every record here.
    benchmark.setMetadataColumns( {
       { "matrix name", matrixName },
       { "transposed", transposed ? "true" : "false" },
-      { "symmetric", symmetry.symmetric ? "true" : "false" },
-      { "structurally symmetric", symmetry.structurallySymmetric ? "true" : "false" },
       { "precision", getType< Real >() },
       { "build", getBuildName() },
-      { "rows", convertToString( csrHostMatrix.getRows() ) },
-      { "columns", convertToString( csrHostMatrix.getColumns() ) },
-      { "nonzeros", convertToString( nonzeros ) },
-      { "nonzeros per row std_dev", convertToString( std_dev ) },
-      { "nonzeros per row percentile 25", convertToString( percentile_25 ) },
-      { "nonzeros per row percentile 50", convertToString( percentile_50 ) },
-      { "nonzeros per row percentile 75", convertToString( percentile_75 ) }
-      // NOTE: 'nonzeros per row average' can be easily calculated with Pandas based on the other metadata
    } );
 
    HostVector hostInVector( csrHostMatrix.getColumns() ), hostOutVector( csrHostMatrix.getRows() );

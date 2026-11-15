@@ -1,0 +1,160 @@
+#!/usr/bin/env bash
+
+# Uncomment if you want to exit as soon as there is an error
+# set -o errexit
+
+# abort when an unset variable is used
+set -o nounset
+# enable recursive globbing
+shopt -s globstar
+
+matrices_base_path="./mtx_matrices"
+DEBUG="no"
+SIZE_LIMIT=-1 # no size limit
+COUNT_LIMIT=-1 # no count limit
+output_file="matrix-info.jsonl"
+filling_dir=""
+with_transposed_matrix="true"
+continue_benchmark="no"
+
+# Function to execute a command and continue on segfault
+run_command() {
+    echo "$@"
+    "$@"
+    local status=$?
+    if [ $status -eq 139 ]; then
+        echo "Caught segfault, but continuing script execution."
+        touch segfaults.log
+        echo "$@" >> segfaults.log
+    fi
+    rm -f core*
+    return $status
+}
+
+# get the path of directory where this script is located, so matrix-name-from-path.sh
+# can be sourced regardless of the caller's current directory
+THIS_DIR="$( builtin cd -P "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
+# shellcheck source=matrix-name-from-path.sh
+source "$THIS_DIR/matrix-name-from-path.sh"
+
+# Loop through all the positional arguments
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        -b|--binary)  # Path to the tnl-benchmark-spmv-matrix-info binary
+            BINARY="$2"
+            shift
+            ;;
+        -i|--input-dir)  # Input directory
+            matrices_base_path="$2"
+            shift
+            ;;
+        -o|--output-file)  # Output JSONL file
+            output_file="$2"
+            shift
+            ;;
+        -f|--filling-dir)  # Directory to write the per-row fill-in files into (default: disabled)
+            filling_dir="$2"
+            shift
+            ;;
+        -t|--with-transposed-matrix)  # Also write info for the transposed matrix: false, true or only
+            with_transposed_matrix="$2"
+            shift
+            ;;
+        -c|--continue)  # Continue from a previous run
+            continue_benchmark="$2"
+            shift
+            ;;
+        -s|--size-limit)  # Size limit for matrices
+            SIZE_LIMIT="$2"
+            shift
+            ;;
+        -n|--count-limit)  # Count limit for matrices
+            COUNT_LIMIT="$2"
+            shift
+            ;;
+        -d|--debug)  # Debug mode
+            DEBUG="$2"
+            shift
+            ;;
+        -h|--help)  # Display help
+            echo "Usage: $0 [options]"
+            echo "Options:"
+            echo "  -b, --binary BINARY                 Path to the tnl-benchmark-spmv-matrix-info binary"
+            echo "  -i, --input-dir DIR                 Input directory. Default: ./mtx_matrices"
+            echo "  -o, --output-file FILE              Output JSONL file. Default: matrix-info.jsonl"
+            echo "  -f, --filling-dir DIR                Directory for the per-row fill-in files. Default: (disabled)"
+            echo "  -t, --with-transposed-matrix VALUE   false/true/only. Default: true"
+            echo "  -c, --continue yes/no                Continue from a previous run. Default: no"
+            echo "  -s, --size-limit SIZE                Size limit for matrices, -1 for no limit. Default: -1"
+            echo "  -n, --count-limit NUM                Maximum number of matrices to process, -1 for no limit. Default: -1"
+            echo "  -d, --debug  yes/no                  Debug mode. Default: no"
+            echo "  -h, --help                           Display help"
+            exit 0
+            ;;
+        *)  # Handle unknown options
+            echo "Unknown option: $1"
+            exit 1
+            ;;
+    esac
+    shift  # Move to the next key or value
+done
+
+if [[ ! -d "$matrices_base_path" ]]; then
+    echo "The path '$matrices_base_path' does not exist." >&2
+    exit 1
+fi
+
+if [[ ! -d "$(dirname "$output_file")" ]]; then
+    mkdir -p "$(dirname "$output_file")"
+fi
+
+if [[ -f "$output_file" ]] && [[ "$continue_benchmark" != "yes" ]]; then
+    echo "WARNING: deleting an existing output file $output_file."
+    rm -f "$output_file"
+fi
+
+if [[ -f "input-files" ]] && [[ "$continue_benchmark" != "yes" ]]; then
+    echo "WARNING: deleting an existing list of input files."
+    rm -f input-files
+fi
+
+if [[ ! -f "input-files" ]]; then
+   echo "Creating list of input files..."
+   touch input-files
+   for matrix in "$matrices_base_path"/**/*.mtx; do
+      file_size=$(stat --format="%s" "$matrix")
+      if [ $SIZE_LIMIT -eq -1 ] || [ $file_size -lt $SIZE_LIMIT ]; then
+         echo "$matrix"
+         echo "$matrix" >> input-files
+      else
+         echo "Matrix $matrix is too large - SKIPPING."
+      fi
+   done
+   if [[ $COUNT_LIMIT -gt -1 ]]; then
+      head -n $COUNT_LIMIT input-files > input-files-tmp
+      mv input-files-tmp input-files
+   fi
+fi
+
+COMMAND=("$BINARY" --output-file "$output_file" --output-mode append --with-transposed-matrix "$with_transposed_matrix")
+if [[ -n "$filling_dir" ]]; then
+    COMMAND+=(--filling-dir "$filling_dir")
+fi
+
+total_lines=$(wc -l < input-files)
+while [[ -s input-files ]];
+do
+   matrix=$(head -n 1 input-files)
+   lines=$(wc -l < input-files)
+   lines=$((total_lines - lines))
+   matrix_name=$(matrix_name_from_path "$matrix")
+   echo "$lines / $total_lines : Computing info for matrix $matrix_name ($matrix) ..."
+   if [[ "$DEBUG" == "yes" ]]; then
+      gdb --args "${COMMAND[@]}" --input-file "$matrix" --matrix-name "$matrix_name"
+   else
+      run_command "${COMMAND[@]}" --input-file "$matrix" --matrix-name "$matrix_name"
+   fi
+   sed -i '1d' input-files
+done
+rm input-files

@@ -23,8 +23,6 @@
 #include <TNL/Matrices/MatrixType.h>
 #include <TNL/Matrices/SparseMatrix.h>
 
-#include "MatrixStatistics.h"
-
 using namespace TNL::Matrices;
 
 namespace TNL::Benchmarks::SpMV {
@@ -482,7 +480,6 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
                             bool transposed,
                             const MatrixSymmetry& symmetry )
 {
-   using CSRHostMatrix = Matrices::SparseMatrix< Real, TNL::Devices::Host, Index >;
    using HostVector = Containers::Vector< Real, Devices::Host, Index >;
 
    ////
@@ -497,14 +494,6 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
       / oneGB;
    benchmark.setDatasetSize( datasetSize );
 
-   ////
-   // Nonzero elements per row statistics
-   //
-   TNL::Containers::Vector< Index > nonzerosPerRow( csrHostMatrix.getRows() );
-   TNL::Containers::Vector< double > aux;
-   csrHostMatrix.getCompressedRowLengths( nonzerosPerRow );
-   MatrixStatistics< CSRHostMatrix > matrixStats( csrHostMatrix );
-
    String matrixName = parameters.getParameter< String >( "matrix-name" );
    if( matrixName.empty() )
       matrixName = inputFileName;
@@ -512,37 +501,13 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
    ////
    // Perform benchmark on host with CSR as a reference CPU format
    //
+   // Matrix dimensions, symmetry and MatrixStatistics are not logged here anymore - they are
+   // written once per matrix by tnl-benchmark-spmv-matrix-info and joined in by "matrix name" (and "transposed")
+   // when the logs are parsed, instead of being repeated on every record of every benchmark binary.
    benchmark.setMetadataColumns( { { "matrix name", matrixName },
                                    { "transposed", transposed ? "true" : "false" },
-                                   { "symmetric", symmetry.symmetric ? "true" : "false" },
-                                   { "structurally symmetric", symmetry.structurallySymmetric ? "true" : "false" },
                                    { "precision", getType< Real >() },
                                    { "build", getBuildName() },
-                                   { "rows", convertToString( csrHostMatrix.getRows() ) },
-                                   { "columns", convertToString( csrHostMatrix.getColumns() ) },
-                                   { "nonzeros", convertToString( nonzeros ) },
-                                   { "nonzeros/row average", convertToString( matrixStats.getAverage() ) },
-                                   { "nonzeros/row std_dev", convertToString( matrixStats.getStddev() ) },
-                                   { "nonzeros/row P50", convertToString( matrixStats.getP50() ) },
-                                   { "nonzeros/row P95", convertToString( matrixStats.getP95() ) },
-                                   { "nonzeros/row P99", convertToString( matrixStats.getP99() ) },
-                                   { "nonzeros/row R50", convertToString( matrixStats.getR50() ) },
-                                   { "nonzeros/row R95", convertToString( matrixStats.getR95() ) },
-                                   { "nonzeros/row R99", convertToString( matrixStats.getR99() ) },
-                                   { "warps/row average", convertToString( matrixStats.getAverageWarpsPerRow() ) },
-                                   { "rho ELL", convertToString( matrixStats.getRhoELL() ) },
-                                   { "rho SELL 2", convertToString( matrixStats.getRhoSELL()[ 0 ] ) },
-                                   { "rho SELL 4", convertToString( matrixStats.getRhoSELL()[ 1 ] ) },
-                                   { "rho SELL 8", convertToString( matrixStats.getRhoSELL()[ 2 ] ) },
-                                   { "rho SELL 16", convertToString( matrixStats.getRhoSELL()[ 3 ] ) },
-                                   { "rho SELL 32", convertToString( matrixStats.getRhoSELL()[ 4 ] ) },
-                                   { "eta SELL 2", convertToString( matrixStats.getEtaSELL()[ 0 ] ) },
-                                   { "eta SELL 4", convertToString( matrixStats.getEtaSELL()[ 1 ] ) },
-                                   { "eta SELL 8", convertToString( matrixStats.getEtaSELL()[ 2 ] ) },
-                                   { "eta SELL 16", convertToString( matrixStats.getEtaSELL()[ 3 ] ) },
-                                   { "eta SELL 32", convertToString( matrixStats.getEtaSELL()[ 4 ] ) },
-                                   { "entropy", convertToString( matrixStats.getEntropy() ) },
-                                   { "Gini", convertToString( matrixStats.getGini() ) },
                                    { "format", "" },
                                    { "launch cfg.", "" } } );
 

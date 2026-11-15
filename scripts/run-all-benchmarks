@@ -34,6 +34,11 @@ COUNT_LIMIT=10 # -1 for all
 # set the path to the directory containing the sparse matrices
 matrices_base_path="./mtx_matrices"
 
+# compute each matrix's structural info (dimensions, symmetry, MatrixStatistics) once, instead
+# of letting every benchmark binary below recompute and repeat it in its own log
+matrix_info="$BIN_DIR/run-tnl-benchmark-spmv-matrix-info"
+$matrix_info --binary "$BIN_DIR/tnl-benchmark-spmv-matrix-info" --input-dir "$matrices_base_path" --output-file "./log-files/matrix-info.jsonl" --size-limit "$SIZE_LIMIT" --count-limit "$COUNT_LIMIT" --debug "$DEBUG" --continue "$CONTINUE"
+
 $benchmark --benchmark "$BIN_DIR/tnl-benchmark-spmv"                --log-file "./log-files/sparse-matrix-benchmark.log"                --size-limit "$SIZE_LIMIT" --count-limit "$COUNT_LIMIT" --debug "$DEBUG" --continue "$CONTINUE" --openmp-enabled "$OMP_ENABLED"
 $benchmark --benchmark "$BIN_DIR/tnl-benchmark-spmv-cuda"           --log-file "./log-files/sparse-matrix-benchmark-cuda.log"           --size-limit "$SIZE_LIMIT" --count-limit "$COUNT_LIMIT" --debug "$DEBUG" --continue "$CONTINUE" --openmp-enabled "$OMP_ENABLED"
 $benchmark --benchmark "$BIN_DIR/tnl-benchmark-spmv-legacy"         --log-file "./log-files/sparse-matrix-benchmark-legacy.log"         --size-limit "$SIZE_LIMIT" --count-limit "$COUNT_LIMIT" --debug "$DEBUG" --continue "$CONTINUE" --openmp-enabled "$OMP_ENABLED"

@@ -58,6 +58,15 @@ add_executable(tnl-benchmark-spmv tnl-benchmark-spmv.cpp)
 target_link_libraries(tnl-benchmark-spmv PUBLIC TNL::TNL)
 tnl_set_host_arch(tnl-benchmark-spmv)
 
+# computes the structural info (dimensions, symmetry, MatrixStatistics) of a matrix once, so the
+# SpMV benchmark binaries below don't need to recompute and repeat it in every log record. Named
+# tnl-benchmark-spmv-matrix-info (not tnl-matrix-info) because TNL itself already ships a
+# differently-scoped tool of that name (src/Tools/tnl-matrix-info.cpp), which would otherwise
+# collide with this CMake target.
+add_executable(tnl-benchmark-spmv-matrix-info tnl-benchmark-spmv-matrix-info.cpp)
+target_link_libraries(tnl-benchmark-spmv-matrix-info PUBLIC TNL::TNL)
+tnl_set_host_arch(tnl-benchmark-spmv-matrix-info)
+
 add_executable(tnl-benchmark-spmv-legacy tnl-benchmark-spmv-legacy.cpp)
 target_link_libraries(tnl-benchmark-spmv-legacy PUBLIC TNL::TNL)
 tnl_set_host_arch(tnl-benchmark-spmv-legacy)

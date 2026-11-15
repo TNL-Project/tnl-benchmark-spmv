@@ -14,6 +14,7 @@ import pandas as pd
 import numpy as np
 import argparse
 import sys
+from pathlib import Path
 from TNL.BenchmarkLogs import *
 import MultiindexCreator as mic
 import Speedup
@@ -66,6 +67,15 @@ def get_arg_parser():
         "appearing more than once, e.g. the CPU results which the CUDA and HIP benchmarks "
         "repeat: use the first or the last one in the order of the input files, or the one "
         "with the smaller or the larger median time (default: first)",
+    )
+    parser.add_argument(
+        "--matrix-info",
+        default="matrix-info.jsonl",
+        metavar="FILE",
+        help="JSONL file with the structural matrix info (dimensions, symmetry, "
+        "MatrixStatistics) written once per matrix by tnl-benchmark-spmv-matrix-info, joined in here by "
+        "(matrix name, transposed). If the file does not exist, these fields are taken from "
+        "the benchmark logs instead, as before (default: matrix-info.jsonl)",
     )
     parser.add_argument(
         "--fill-transposed",
@@ -333,13 +343,20 @@ def convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=-1)
     metadata = df.groupby("matrix name", sort=False).first()
     metadata = metadata.reindex(matrix_names)
 
-    nonzeros = pd.to_numeric(metadata["nonzeros"], errors="coerce")
+    # "rows"/"columns"/"nonzeros" are missing only if both the logs and
+    # --matrix-info lack them, e.g. trimmed logs parsed without having run
+    # tnl-benchmark-spmv-matrix-info first (see load_matrix_info()/combine_with_matrix_info())
+    rows = metadata["rows"] if "rows" in metadata.columns else pd.Series(np.nan, index=metadata.index)
+    nonzeros = pd.to_numeric(
+        metadata["nonzeros"] if "nonzeros" in metadata.columns else pd.Series(np.nan, index=metadata.index),
+        errors="coerce",
+    )
     metadata_columns = {
         "Matrix name": metadata.index.to_series(index=metadata.index),
-        "rows": metadata["rows"],
-        "columns": metadata["columns"],
+        "rows": rows,
+        "columns": metadata["columns"] if "columns" in metadata.columns else pd.Series(np.nan, index=metadata.index),
         "nonzeros": nonzeros,
-        "nonzeros per row": nonzeros / pd.to_numeric(metadata["rows"], errors="coerce"),
+        "nonzeros per row": nonzeros / pd.to_numeric(rows, errors="coerce"),
     }
     for column in symmetry_columns:
         if column in metadata.columns:
@@ -418,6 +435,57 @@ def matrix_name(path):
     return path.removeprefix("./")
 
 
+# Structural columns written once per matrix by tnl-benchmark-spmv-matrix-info (see
+# include/matrix-info.h), instead of being repeated on every record of every
+# SpMV benchmark binary.
+matrix_info_columns = ["rows", "columns", "nonzeros"] + symmetry_columns + PosterHeatmapGraphs.MATRIX_STAT_COLUMNS
+
+
+def load_matrix_info(path):
+    """
+    Load the structural matrix info (dimensions, symmetry, MatrixStatistics)
+    written by tnl-benchmark-spmv-matrix-info, indexed by (matrix name, transposed). Returns
+    an empty DataFrame when `path` does not exist, so combine_with_matrix_info()
+    falls back to whatever the benchmark logs themselves carry - logs written
+    before tnl-benchmark-spmv-matrix-info existed, or runs where it was not used.
+    """
+    if not path or not Path(path).is_file():
+        print(f"No matrix info file at {path!r}, using the structural columns from the benchmark logs instead.")
+        return pd.DataFrame()
+    print(f"Loading matrix info from {path}")
+    df = get_benchmark_dataframe(path)
+    df = normalize_transposed_column(df)
+    df["matrix name"] = df["matrix name"].map(matrix_name)
+    df = df.set_index(["matrix name", "transposed"])
+    # keep the last record of a (matrix, orientation) pair appearing more than
+    # once, e.g. because tnl-benchmark-spmv-matrix-info was re-run with --continue
+    return df[~df.index.duplicated(keep="last")]
+
+
+def combine_with_matrix_info(df, matrix_info):
+    """
+    Overlay the structural columns (see matrix_info_columns) from `matrix_info`
+    (see load_matrix_info()) onto `df`, matched by each row's own ("matrix
+    name", "transposed") pair. Falls back to whatever `df` already carries for
+    a (matrix, orientation) missing from matrix_info, so logs written before
+    tnl-benchmark-spmv-matrix-info existed keep working unchanged.
+    """
+    if matrix_info.empty:
+        return df
+    keys = pd.MultiIndex.from_arrays([df["matrix name"], df["transposed"]])
+    aligned = matrix_info.reindex(keys)
+    aligned.index = df.index
+    df = df.copy()
+    for column in matrix_info_columns:
+        if column not in aligned.columns:
+            continue
+        if column in df.columns:
+            df[column] = aligned[column].combine_first(df[column])
+        else:
+            df[column] = aligned[column]
+    return df
+
+
 def csr_bytes(rows, nonzeros, precision):
     """
     Estimate the memory needed by the CSR format with 32-bit indexes.
@@ -437,7 +505,10 @@ def get_matrices_properties(input_df):
     df = df.groupby("matrix name", sort=True).first()
     properties = pd.DataFrame(index=df.index)
     for column in ["rows", "columns", "nonzeros"]:
-        properties[column] = pd.to_numeric(df[column], errors="coerce").astype("Int64")
+        # missing only if both the logs and --matrix-info lack it, e.g. trimmed
+        # logs parsed without having run tnl-benchmark-spmv-matrix-info first
+        values = df[column] if column in df.columns else pd.Series(np.nan, index=df.index)
+        properties[column] = pd.to_numeric(values, errors="coerce").astype("Int64")
     # the dimensions of the transposed matrix are swapped
     swap = df["transposed"]
     properties.loc[swap, ["rows", "columns"]] = properties.loc[swap, ["columns", "rows"]].values
@@ -497,7 +568,7 @@ def write_matrices_list(file_name, input_df):
     print(f"List of {len(names)} processed matrices written to {file_name}")
 
 
-def parse_input_files(file_list, matrices_report=None):
+def parse_input_files(file_list, matrices_report=None, matrix_info=None):
     """
     Parse input files and return a single dataframe
     """
@@ -510,6 +581,18 @@ def parse_input_files(file_list, matrices_report=None):
         df["matrix name"] = df["matrix name"].map(matrix_name)
         matrices_in_files[file] = set(df["matrix name"])
         input_df = pd.concat([input_df, df])
+    if matrix_info is not None:
+        input_df = combine_with_matrix_info(input_df, matrix_info)
+    if "nonzeros" not in input_df.columns:
+        # the logs no longer carry matrix dimensions/statistics themselves (see
+        # include/matrix-info.h), so without --matrix-info there is no source for
+        # them at all - fail here with a clear message instead of further down,
+        # in e.g. TableChecks.py or PosterHeatmapGraphs.py
+        raise ValueError(
+            "No 'nonzeros' column found in the input files, and no (usable) --matrix-info file "
+            "was given either. Run tnl-benchmark-spmv-matrix-info on the same matrices first, or "
+            "pass --matrix-info pointing at its output."
+        )
     if matrices_report and len(matrices_in_files) > 1:
         write_matrices_report(matrices_report, matrices_in_files, get_matrices_properties(input_df))
     if "time median" not in input_df.columns:
@@ -706,8 +789,9 @@ def build_tables(args):
     transposed matrices (None if there are no results for them). Returns the
     tables and the results of their integrity checks.
     """
+    matrix_info = load_matrix_info(args.matrix_info)
     print(f"Parsing input files: {args.input}")
-    input_df = parse_input_files(args.input, args.matrices_report)
+    input_df = parse_input_files(args.input, args.matrices_report, matrix_info)
     input_df = resolve_duplicates(input_df, args.duplicates)
     if args.list_matrices:
         write_matrices_list(args.list_matrices, input_df)

@@ -36,28 +36,12 @@ run_command() {
     return $status
 }
 
-# Derive a system-independent matrix name from its path, e.g.
-# ./mtx_matrices/suitesparse-collection-website.herokuapp.com/MM/ANSYS/Delor64K/Delor64K.mtx
-# becomes ANSYS/Delor64K.mtx.
-matrix_name_from_path() {
-    local name="${1#"${matrices_base_path%/}"/}"
-    name="${name##/}"
-    # strip the prefix of known matrix collections
-    case "$name" in
-        */MM/*)              name="${name##*/MM/}" ;;               # SuiteSparse
-        */MatrixMarket2/*)   name="${name##*/MatrixMarket2/}" ;;    # Matrix Market (NIST)
-    esac
-    # SuiteSparse archives unpack into a directory named after the matrix,
-    # so Group/Name/Name.mtx is collapsed into Group/Name.mtx
-    local file dir
-    file="$(basename "$name")"
-    dir="$(dirname "$name")"
-    if [[ "$(basename "$dir")" == "${file%.mtx}" ]]; then
-        name="$(dirname "$dir")/$file"
-        name="${name#./}"
-    fi
-    echo "$name"
-}
+# get the path of directory where this script is located, so matrix-name-from-path.sh
+# can be sourced regardless of the caller's current directory
+THIS_DIR="$( builtin cd -P "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
+# shellcheck source=matrix-name-from-path.sh
+source "$THIS_DIR/matrix-name-from-path.sh"
 
 # Loop through all the positional arguments
 while [[ "$#" -gt 0 ]]; do
