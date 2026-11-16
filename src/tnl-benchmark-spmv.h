@@ -3,11 +3,16 @@
 #include <TNL/Devices/Host.h>
 #include <TNL/Devices/Cuda.h>
 #include <TNL/Config/parseCommandLine.h>
+#include <TNL/MPI/ScopedInitializer.h>
+#include <TNL/MPI/Utils.h>
+#include <TNL/Benchmarks/JsonLogging.h>
 
 #include "spmv.h"
 #include "matrix-list.h"
 
 #include <exception>
+#include <filesystem>
+#include <fstream>
 
 using namespace TNL;
 using namespace TNL::Benchmarks;
@@ -95,6 +100,14 @@ setupConfig( Config::ConfigDescription& config )
 int
 main( int argc, char* argv[] )
 {
+   // Lets several MPI ranks split one matrix's sweep between them, each bound to its own GPU (see
+   // the TNL::MPI::selectGPU() call below) - only meaningful when actually launched via `mpirun
+   // -np N`, a no-op single-process run otherwise. HAVE_MPI is only defined when MPI was found by
+   // CMake (see add_mpi_support() in src/CMakeLists.txt).
+#ifdef HAVE_MPI
+   TNL::MPI::ScopedInitializer mpi( argc, argv );
+#endif
+
    Config::ParameterContainer parameters;
    Config::ConfigDescription conf_desc;
 
@@ -105,9 +118,39 @@ main( int argc, char* argv[] )
 
    Devices::Host::setup( parameters );
    Devices::Cuda::setup( parameters );
+#ifdef HAVE_MPI
+   // Overrides whatever --cuda-device/--hip-device set (including the default) with a device
+   // chosen from this rank's position on the node - only when actually running with more than one
+   // rank, so a single-process run (the common case) keeps today's --cuda-device-driven behavior
+   // untouched.
+   if( TNL::MPI::GetSize() > 1 )
+      TNL::MPI::selectGPU();
+#endif
 
    Benchmark benchmark;
    benchmark.setup( parameters, argv[ 0 ] );
+
+   // Benchmark::setup() only wires up logging for rank 0 ("only root rank initializes loggers",
+   // TNL's convention for the usual case where every rank computes the same collective result and
+   // only rank 0's report matters). Here every rank benchmarks a different, equally significant
+   // slice of formats, so every other rank needs its own JSONL log - appended with a rank suffix
+   // so it never collides with rank 0's own --log-file. rankLogFile must outlive `benchmark`.
+   std::ofstream rankLogFile;
+#ifdef HAVE_MPI
+   if( TNL::MPI::GetRank() > 0 ) {
+      String logFileName = parameters.getParameter< String >( "log-file" );
+      if( logFileName.empty() )
+         logFileName = std::filesystem::path( argv[ 0 ] ).stem().string() + ".log";
+      const std::string rankLogFileName =
+         std::string( logFileName.getString() ) + ".rank" + std::to_string( TNL::MPI::GetRank() );
+      const String& outputMode = parameters.getParameter< String >( "output-mode" );
+      auto mode = std::ios::out;
+      if( outputMode == "append" )
+         mode |= std::ios::app;
+      rankLogFile.open( rankLogFileName, mode );
+      benchmark.addLogger( std::make_unique< JsonLogging >( rankLogFile, parameters.getParameter< int >( "verbose" ) ) );
+   }
+#endif
 
    // Runs both precisions (as selected by --precision) for whichever matrix is currently set as
    // "input-file"/"matrix-name" on `parameters` - either the one given directly, or the current

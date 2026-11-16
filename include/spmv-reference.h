@@ -5,6 +5,7 @@
 #include <utility>
 
 #include <TNL/Benchmarks/Benchmark.h>
+#include <TNL/MPI/Comm.h>
 #include "SpmvBenchmarkResult.h"
 #include "CpuBenchmarking.h"
 #include "MatrixTransposition.h"
@@ -328,7 +329,10 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
       matrixName = inputFileName;
 
    const std::string progressDir = parameters.getParameter< String >( "progress-dir" ).getString();
-   BenchmarkProgress progress( progressDir, matrixName, transposed );
+   // GetRank()/GetSize() always return 0/1 unless an MPI rank is actually running under mpirun
+   // with TNL::MPI::ScopedInitializer constructed (see src/tnl-benchmark-spmv-reference.h), so
+   // this is a no-op for the common single-process case.
+   BenchmarkProgress progress( progressDir, matrixName, transposed, TNL::MPI::GetRank(), TNL::MPI::GetSize() );
 
    ////
    // Perform benchmark on host with CSR as a reference CPU format

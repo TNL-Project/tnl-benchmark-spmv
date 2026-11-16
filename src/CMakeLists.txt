@@ -53,10 +53,23 @@ function(add_reference_libraries target backend)
     endif()
 endfunction()
 
+# Links MPI and defines HAVE_MPI for a target, when MPI is available. Unlike
+# add_reference_libraries() (needed because Hypre/Ginkgo themselves require MPI), this is for the
+# plain SpMV benchmark binaries: it lets several MPI ranks split one matrix's format sweep between
+# them, each bound to its own GPU via TNL::MPI::selectGPU() (see src/tnl-benchmark-spmv.h) - a
+# single-rank run (no mpirun) is unaffected either way.
+function(add_mpi_support target)
+    if(MPI_CXX_FOUND)
+        target_compile_definitions(${target} PUBLIC HAVE_MPI)
+        target_link_libraries(${target} PUBLIC MPI::MPI_CXX)
+    endif()
+endfunction()
+
 # host binaries
 add_executable(tnl-benchmark-spmv tnl-benchmark-spmv.cpp)
 target_link_libraries(tnl-benchmark-spmv PUBLIC TNL::TNL)
 tnl_set_host_arch(tnl-benchmark-spmv)
+add_mpi_support(tnl-benchmark-spmv)
 
 # computes the structural info (dimensions, symmetry, MatrixStatistics) of a matrix once, so the
 # SpMV benchmark binaries below don't need to recompute and repeat it in every log record. Named
@@ -80,6 +93,7 @@ add_reference_libraries(tnl-benchmark-spmv-reference HOST)
 if(BUILD_CUDA)
     add_executable(tnl-benchmark-spmv-cuda tnl-benchmark-spmv.cu)
     target_link_libraries(tnl-benchmark-spmv-cuda PUBLIC TNL::TNL)
+    add_mpi_support(tnl-benchmark-spmv-cuda)
 
     add_executable(tnl-benchmark-spmv-legacy-cuda tnl-benchmark-spmv-legacy.cu)
     target_link_libraries(tnl-benchmark-spmv-legacy-cuda PUBLIC TNL::TNL)
@@ -102,6 +116,7 @@ endif()
 if(BUILD_HIP)
     add_executable(tnl-benchmark-spmv-hip tnl-benchmark-spmv.hip)
     target_link_libraries(tnl-benchmark-spmv-hip PUBLIC TNL::TNL)
+    add_mpi_support(tnl-benchmark-spmv-hip)
     target_compile_definitions(
         tnl-benchmark-spmv-hip
         PUBLIC "-DHIP_ENABLE_PRINTF"

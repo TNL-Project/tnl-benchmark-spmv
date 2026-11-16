@@ -160,7 +160,10 @@ machines can be merged. Other options limit the size (`--size-limit`, in
 bytes) and the number (`--count-limit`) of the matrices, set OpenMP
 (`--openmp-enabled`, `--openmp-max-threads`, default: the number of
 physical cores) or run the benchmark via `mpirun` (`--mpi-enabled`,
-`--mpi-processes`), see `--help`.
+`--mpi-processes`), see `--help`. With more than one MPI process, each
+rank splits the sweep of formats by itself (e.g. to use multiple GPUs on
+one node) and writes to its own log file, `<log-file>.rank<N>` for rank
+`N` > 0; pass all of them to `tnl-spmv-benchmark-parse-logs.py`.
 
 [scripts/run-all-benchmarks](./scripts/run-all-benchmarks) is an example
 which runs `run-tnl-benchmark-spmv` for several binaries one after another,

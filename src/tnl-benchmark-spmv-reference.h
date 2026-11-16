@@ -4,6 +4,8 @@
 #include <TNL/Devices/Cuda.h>
 #include <TNL/Config/parseCommandLine.h>
 #include <TNL/MPI/ScopedInitializer.h>
+#include <TNL/MPI/Utils.h>
+#include <TNL/Benchmarks/JsonLogging.h>
 
 #include "spmv-reference.h"
 #include "matrix-list.h"
@@ -15,6 +17,8 @@
 using namespace TNL::Matrices;
 
 #include <exception>
+#include <filesystem>
+#include <fstream>
 
 using namespace TNL;
 using namespace TNL::Benchmarks;
@@ -107,9 +111,40 @@ main( int argc, char* argv[] )
 
    Devices::Host::setup( parameters );
    Devices::Cuda::setup( parameters );
+#ifdef HAVE_MPI
+   // Lets several ranks split one matrix's sweep between them, each bound to its own GPU.
+   // Overrides whatever --cuda-device/--hip-device set (including the default) - only when
+   // actually running with more than one rank, so a single-process run (the common case, which is
+   // also why ScopedInitializer above is still constructed even then - Hypre/Ginkgo need it
+   // regardless) keeps today's --cuda-device-driven behavior untouched.
+   if( TNL::MPI::GetSize() > 1 )
+      TNL::MPI::selectGPU();
+#endif
 
    Benchmark benchmark;
    benchmark.setup( parameters, argv[ 0 ] );
+
+   // Benchmark::setup() only wires up logging for rank 0 ("only root rank initializes loggers",
+   // TNL's convention for the usual case where every rank computes the same collective result and
+   // only rank 0's report matters). Here every rank benchmarks a different, equally significant
+   // slice of formats, so every other rank needs its own JSONL log - appended with a rank suffix
+   // so it never collides with rank 0's own --log-file. rankLogFile must outlive `benchmark`.
+   std::ofstream rankLogFile;
+#ifdef HAVE_MPI
+   if( TNL::MPI::GetRank() > 0 ) {
+      String logFileName = parameters.getParameter< String >( "log-file" );
+      if( logFileName.empty() )
+         logFileName = std::filesystem::path( argv[ 0 ] ).stem().string() + ".log";
+      const std::string rankLogFileName =
+         std::string( logFileName.getString() ) + ".rank" + std::to_string( TNL::MPI::GetRank() );
+      const String& outputMode = parameters.getParameter< String >( "output-mode" );
+      auto mode = std::ios::out;
+      if( outputMode == "append" )
+         mode |= std::ios::app;
+      rankLogFile.open( rankLogFileName, mode );
+      benchmark.addLogger( std::make_unique< JsonLogging >( rankLogFile, parameters.getParameter< int >( "verbose" ) ) );
+   }
+#endif
 
    auto processCurrentMatrix = [ & ]()
    {
