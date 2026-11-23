@@ -230,6 +230,11 @@ benchmarkSpMVWithDevice( BenchmarkType& benchmark,
       benchmark.addErrorMessage( "Unable to copy the matrix on GPU: " + String( e.what() ) );
       return;
    }
+
+   const Index nonzeros = deviceMatrix.getNonzeroElementsCount();
+   const double datasetSize = (double) nonzeros * ( 2 * sizeof( Real ) + sizeof( Index ) ) / oneGB;
+   benchmark.setDatasetSize( datasetSize );
+
    DeviceVector deviceInVector( deviceMatrix.getColumns() ), deviceOutVector( deviceMatrix.getRows() );
 
    for( auto [ launch_config, tag ] : TNL::Algorithms::Segments::reductionLaunchConfigurations( deviceMatrix.getSegments() ) ) {
@@ -282,24 +287,28 @@ benchmarkSpMV( BenchmarkType& benchmark,
    benchmark.setMetadataElement( { "format", format } );
    benchmark.setMetadataElement( { "launch cfg.", "Default" } );
 
-   TestMatrix hostMatrix;
-   if constexpr( Algorithms::Segments::isSortedSegments_v< typename TestMatrix::SegmentsType > )
-      if( sigma > 0 )
-         hostMatrix.setSigma( sigma );
-   try {
-      hostMatrix = inputMatrix;
-   }
-   catch( const std::exception& e ) {
-      benchmark.addErrorMessage( "Unable to convert the matrix to the target format:" + String( e.what() ) );
-      return;
-   }
-
-   const Index nonzeros = hostMatrix.getNonzeroElementsCount();
-   const double datasetSize = (double) nonzeros * ( 2 * sizeof( Real ) + sizeof( Index ) ) / oneGB;
-   benchmark.setDatasetSize( datasetSize );
-
-   // Benchmark SpMV on host
+   // Benchmark SpMV on host. The matrix is converted to the target format on
+   // the host only for the CPU tests, the GPU benchmarks convert the input
+   // matrix directly on the GPU. In the GPU builds the host code runs
+   // sequentially, so the needless conversion took most of the benchmark time
+   // for large matrices.
    if( cpuTests ) {
+      TestMatrix hostMatrix;
+      if constexpr( Algorithms::Segments::isSortedSegments_v< typename TestMatrix::SegmentsType > )
+         if( sigma > 0 )
+            hostMatrix.setSigma( sigma );
+      try {
+         hostMatrix = inputMatrix;
+      }
+      catch( const std::exception& e ) {
+         benchmark.addErrorMessage( "Unable to convert the matrix to the target format:" + String( e.what() ) );
+         return;
+      }
+
+      const Index nonzeros = hostMatrix.getNonzeroElementsCount();
+      const double datasetSize = (double) nonzeros * ( 2 * sizeof( Real ) + sizeof( Index ) ) / oneGB;
+      benchmark.setDatasetSize( datasetSize );
+
       HostVector hostInVector( hostMatrix.getColumns() ), hostOutVector( hostMatrix.getRows() );
 
       auto resetHostVectors = [ & ]()
