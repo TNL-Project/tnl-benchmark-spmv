@@ -53,6 +53,62 @@ function(add_reference_libraries target backend)
     endif()
 endfunction()
 
+# TNL enables OpenMP only for the CXX language, so the host code of the CUDA
+# and HIP binaries runs sequentially. For large matrices, the host part of the
+# benchmark (conversion of the input matrix, its transposition and copying the
+# matrices to the GPU) takes most of the time, so OpenMP is enabled for the
+# host code of the GPU binaries here. nvcc passes -fopenmp to the host
+# compiler, clang compiles the host code of HIP with its own OpenMP runtime
+# (libomp).
+option(
+    TNL_BENCHMARK_GPU_OPENMP
+    "Enable OpenMP in the host code of the CUDA and HIP binaries"
+    ON
+)
+
+function(enable_gpu_openmp target language)
+    if(NOT TNL_BENCHMARK_GPU_OPENMP)
+        return()
+    endif()
+    if(language STREQUAL "CUDA")
+        find_package(OpenMP COMPONENTS CXX)
+        if(NOT OpenMP_CXX_FOUND)
+            message(WARNING "${target}: OpenMP was not found, building without OpenMP")
+            return()
+        endif()
+        target_compile_definitions(
+            ${target}
+            PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:HAVE_OPENMP>
+        )
+        target_compile_options(
+            ${target}
+            PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=-fopenmp>
+        )
+        target_link_libraries(${target} PRIVATE ${OpenMP_CXX_LIBRARIES})
+    elseif(language STREQUAL "HIP")
+        # libomp is installed next to clang by the openmp-extras package of ROCm
+        get_filename_component(hip_compiler_dir "${CMAKE_HIP_COMPILER}" DIRECTORY)
+        get_filename_component(libomp_dir "${hip_compiler_dir}/../lib" ABSOLUTE)
+        find_library(LIBOMP_LIBRARY omp HINTS "${libomp_dir}" NO_DEFAULT_PATH)
+        if(NOT LIBOMP_LIBRARY)
+            message(WARNING "${target}: libomp was not found in ${libomp_dir}, building without OpenMP")
+            return()
+        endif()
+        get_filename_component(libomp_dir "${LIBOMP_LIBRARY}" DIRECTORY)
+        target_compile_definitions(
+            ${target}
+            PRIVATE $<$<COMPILE_LANGUAGE:HIP>:HAVE_OPENMP>
+        )
+        target_compile_options(
+            ${target}
+            PRIVATE $<$<COMPILE_LANGUAGE:HIP>:-fopenmp>
+        )
+        target_link_libraries(${target} PRIVATE ${LIBOMP_LIBRARY})
+        target_link_options(${target} PRIVATE "LINKER:-rpath,${libomp_dir}")
+    endif()
+    message(STATUS "${target}: OpenMP enabled in the host code")
+endfunction()
+
 # Links MPI and defines HAVE_MPI for a target, when MPI is available. Unlike
 # add_reference_libraries() (needed because Hypre/Ginkgo themselves require MPI), this is for the
 # plain SpMV benchmark binaries: it lets several MPI ranks split one matrix's format sweep between
@@ -94,6 +150,7 @@ if(BUILD_CUDA)
     add_executable(tnl-benchmark-spmv-cuda tnl-benchmark-spmv.cu)
     target_link_libraries(tnl-benchmark-spmv-cuda PUBLIC TNL::TNL)
     add_mpi_support(tnl-benchmark-spmv-cuda)
+    enable_gpu_openmp(tnl-benchmark-spmv-cuda CUDA)
 
     add_executable(tnl-benchmark-spmv-legacy-cuda tnl-benchmark-spmv-legacy.cu)
     target_link_libraries(tnl-benchmark-spmv-legacy-cuda PUBLIC TNL::TNL)
@@ -117,6 +174,7 @@ if(BUILD_HIP)
     add_executable(tnl-benchmark-spmv-hip tnl-benchmark-spmv.hip)
     target_link_libraries(tnl-benchmark-spmv-hip PUBLIC TNL::TNL)
     add_mpi_support(tnl-benchmark-spmv-hip)
+    enable_gpu_openmp(tnl-benchmark-spmv-hip HIP)
     target_compile_definitions(
         tnl-benchmark-spmv-hip
         PUBLIC "-DHIP_ENABLE_PRINTF"
