@@ -232,7 +232,8 @@ benchmarkSpMVWithDevice( BenchmarkType& benchmark,
    }
 
    const Index nonzeros = deviceMatrix.getNonzeroElementsCount();
-   const double datasetSize = (double) nonzeros * ( 2 * sizeof( Real ) + sizeof( Index ) ) / oneGB;
+   const std::size_t datasetSize =
+      static_cast< std::size_t >( nonzeros ) * ( 2 * sizeof( Real ) + sizeof( Index ) );  // in bytes
    benchmark.setDatasetSize( datasetSize );
 
    DeviceVector deviceInVector( deviceMatrix.getColumns() ), deviceOutVector( deviceMatrix.getRows() );
@@ -306,7 +307,8 @@ benchmarkSpMV( BenchmarkType& benchmark,
       }
 
       const Index nonzeros = hostMatrix.getNonzeroElementsCount();
-      const double datasetSize = (double) nonzeros * ( 2 * sizeof( Real ) + sizeof( Index ) ) / oneGB;
+      const std::size_t datasetSize =
+         static_cast< std::size_t >( nonzeros ) * ( 2 * sizeof( Real ) + sizeof( Index ) );  // in bytes
       benchmark.setDatasetSize( datasetSize );
 
       HostVector hostInVector( hostMatrix.getColumns() ), hostOutVector( hostMatrix.getRows() );
@@ -510,12 +512,12 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
    // Set-up benchmark datasize
    //
    const Index nonzeros = csrHostMatrix.getNonzeroElementsCount();
-   const double datasetSize =
-      (double) ( nonzeros
-                    * ( 2 * sizeof( Real )                     // matrix value + corresponding x[col] element, read per nonzero
-                        + sizeof( Index ) )                    // column index, read per nonzero
-                 + csrHostMatrix.getRows() * sizeof( Real ) )  // accumulated result written to y, once per row
-      / oneGB;
+   // in bytes
+   const std::size_t datasetSize = static_cast< std::size_t >( nonzeros )
+                                    * ( 2 * sizeof( Real )   // matrix value + corresponding x[col] element, read per nonzero
+                                        + sizeof( Index ) )  // column index, read per nonzero
+                                 + static_cast< std::size_t >( csrHostMatrix.getRows() )
+                                      * sizeof( Real );  // accumulated result written to y, once per row
    benchmark.setDatasetSize( datasetSize );
 
    String matrixName = parameters.getParameter< String >( "matrix-name" );

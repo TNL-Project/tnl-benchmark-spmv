@@ -321,7 +321,7 @@ runSpmvBenchmarksForMatrix( BenchmarkType& benchmark,
    // Set-up benchmark datasize
    //
    const int nonzeros = csrHostMatrix.getNonzeroElementsCount();
-   const double datasetSize = (double) nonzeros * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
+   const std::size_t datasetSize = static_cast< std::size_t >( nonzeros ) * ( 2 * sizeof( Real ) + sizeof( int ) );  // in bytes
    benchmark.setDatasetSize( datasetSize );
 
    String matrixName = parameters.getParameter< String >( "matrix-name" );

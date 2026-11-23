@@ -103,7 +103,7 @@ benchmarkSpMVLegacy( BenchmarkType& benchmark,
    }
 
    const int nonzeros = hostMatrix.getNonzeroElementsCount();
-   const double datasetSize = (double) nonzeros * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
+   const std::size_t datasetSize = static_cast< std::size_t >( nonzeros ) * ( 2 * sizeof( Real ) + sizeof( int ) );  // in bytes
    benchmark.setDatasetSize( datasetSize );
 
    /////
@@ -227,7 +227,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
    //
    SpMV::ReferenceFormats::Legacy::LegacyMatrixReader< CSRHostMatrix >::readMtxFile( inputFileName, csrHostMatrix, verboseMR );
    const int nonzeros = csrHostMatrix.getNonzeroElementsCount();
-   const double datasetSize = (double) nonzeros * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
+   const std::size_t datasetSize = static_cast< std::size_t >( nonzeros ) * ( 2 * sizeof( Real ) + sizeof( int ) );  // in bytes
    benchmark.setDatasetSize( datasetSize );
 
    String matrixName = parameters.getParameter< String >( "matrix-name" );
