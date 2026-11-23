@@ -161,7 +161,9 @@ main( int argc, char* argv[] )
    if( ! matrixListFile.empty() ) {
       const std::string basePath = parameters.getParameter< String >( "matrix-list-base-path" ).getString();
       const std::string progressDir = parameters.getParameter< String >( "progress-dir" ).getString();
-      SpMV::runOverMatrixList( parameters, matrixListFile.getString(), basePath, progressDir, processCurrentMatrix );
+      // qualified, SpMV alone is ambiguous with the SpMV class of LightSpMV in the CUDA build
+      TNL::Benchmarks::SpMV::runOverMatrixList(
+         parameters, matrixListFile.getString(), basePath, progressDir, processCurrentMatrix );
    }
    else {
       if( parameters.getParameter< String >( "input-file" ).empty() ) {
