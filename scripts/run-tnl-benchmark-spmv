@@ -22,6 +22,10 @@ MPI_PROCESSES=1
 MPI_EXTRA_ARGS=""
 PRECISION="float"
 LOOPS=""
+MIN_LOOPS=""
+MAX_LOOPS=""
+MIN_TIME=""
+MAX_TIME=""
 MAX_CONSECUTIVE_FAILURES=3
 
 # Loop through all the positional arguments
@@ -87,6 +91,22 @@ while [[ "$#" -gt 0 ]]; do
             LOOPS="$2"
             shift
             ;;
+        --min-loops)  # Minimal number of benchmark loops passed to the benchmark binary
+            MIN_LOOPS="$2"
+            shift
+            ;;
+        --max-loops)  # Maximal number of benchmark loops passed to the benchmark binary
+            MAX_LOOPS="$2"
+            shift
+            ;;
+        --min-time)  # Minimal time of benchmark loops passed to the benchmark binary
+            MIN_TIME="$2"
+            shift
+            ;;
+        --max-time)  # Maximal time of benchmark loops passed to the benchmark binary
+            MAX_TIME="$2"
+            shift
+            ;;
         --max-consecutive-failures)  # Give up on a matrix after this many crashes with no progress
             MAX_CONSECUTIVE_FAILURES="$2"
             shift
@@ -108,7 +128,12 @@ while [[ "$#" -gt 0 ]]; do
             echo "  -p, --mpi-processes NUM       Number of MPI processes (mpirun -np). Default: 1"
             echo "  -e, --mpi-extra-args STRING   Extra mpirun arguments, inserted before -np. Default: (none)"
             echo "  -r, --precision VALUE         Precision passed to the benchmark binary. Default: float"
-            echo "      --loops NUM               Number of benchmark loops passed to the benchmark binary. Default: (binary's own default)"
+            echo "      --loops NUM               Exact number of benchmark loops, overrides the bounds below. Default: (binary's own default)"
+            echo "      --min-loops NUM           Minimal number of benchmark loops. Default: (binary's own default)"
+            echo "      --max-loops NUM           Maximal number of benchmark loops, 0 for no limit. Default: (binary's own default)"
+            echo "      --min-time SECONDS        Minimal time of benchmark loops. Default: (binary's own default)"
+            echo "      --max-time SECONDS        Maximal time of benchmark loops, 0 for no limit; longer computations"
+            echo "                                are measured only once. Default: (binary's own default)"
             echo "      --max-consecutive-failures NUM"
             echo "                                Give up on (and skip) a matrix after this many consecutive"
             echo "                                crashes with no progress recorded for it. Default: 3"
@@ -193,6 +218,18 @@ COMMAND+=(--matrix-list input-files --matrix-list-base-path "$matrices_base_path
 
 if [[ -n "$LOOPS" ]]; then
     COMMAND+=(--loops "$LOOPS")
+fi
+if [[ -n "$MIN_LOOPS" ]]; then
+    COMMAND+=(--min-loops "$MIN_LOOPS")
+fi
+if [[ -n "$MAX_LOOPS" ]]; then
+    COMMAND+=(--max-loops "$MAX_LOOPS")
+fi
+if [[ -n "$MIN_TIME" ]]; then
+    COMMAND+=(--min-time "$MIN_TIME")
+fi
+if [[ -n "$MAX_TIME" ]]; then
+    COMMAND+=(--max-time "$MAX_TIME")
 fi
 
 if [[ "$OMP_ENABLED" == "yes" ]]; then
