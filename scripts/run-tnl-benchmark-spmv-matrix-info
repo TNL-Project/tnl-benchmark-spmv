@@ -14,6 +14,7 @@ SIZE_LIMIT=-1 # no size limit
 COUNT_LIMIT=-1 # no count limit
 output_file="matrix-info.jsonl"
 filling_dir=""
+histogram_dir=""
 with_transposed_matrix="true"
 continue_benchmark="no"
 MAX_CONSECUTIVE_FAILURES=3
@@ -35,6 +36,10 @@ while [[ "$#" -gt 0 ]]; do
             ;;
         -f|--filling-dir)  # Directory to write the per-row fill-in files into (default: disabled)
             filling_dir="$2"
+            shift
+            ;;
+        -H|--histogram-dir)  # Directory to write the histograms of the row lengths into (default: disabled)
+            histogram_dir="$2"
             shift
             ;;
         -t|--with-transposed-matrix)  # Also write info for the transposed matrix: false, true or only
@@ -68,6 +73,7 @@ while [[ "$#" -gt 0 ]]; do
             echo "  -i, --input-dir DIR                 Input directory. Default: ./mtx_matrices"
             echo "  -o, --output-file FILE              Output JSONL file. Default: matrix-info.jsonl"
             echo "  -f, --filling-dir DIR                Directory for the per-row fill-in files. Default: (disabled)"
+            echo "  -H, --histogram-dir DIR              Directory for the sparse histograms of the row lengths. Default: (disabled)"
             echo "  -t, --with-transposed-matrix VALUE   false/true/only. Default: true"
             echo "  -c, --continue yes/no                Continue from a previous run. Default: no"
             echo "  -s, --size-limit SIZE                Size limit for matrices, -1 for no limit. Default: -1"
@@ -128,6 +134,9 @@ COMMAND=("$BINARY" --output-file "$output_file" --output-mode append --with-tran
 COMMAND+=(--matrix-list input-files --matrix-list-base-path "$matrices_base_path")
 if [[ -n "$filling_dir" ]]; then
     COMMAND+=(--filling-dir "$filling_dir")
+fi
+if [[ -n "$histogram_dir" ]]; then
+    COMMAND+=(--histogram-dir "$histogram_dir")
 fi
 
 # The binary now manages the whole list itself in one process (see --matrix-list above), removing

@@ -49,6 +49,12 @@ setupConfig( Config::ConfigDescription& config )
       "If set, also write one file per matrix orientation into this directory, with the nonzero "
       "count of each row (one count per line, in row order).",
       "" );
+   config.addEntry< String >(
+      "histogram-dir",
+      "If set, also write one file per matrix orientation into this directory, with the histogram "
+      "of the nonzero counts of the rows in a sparse form: one line '<nonzeros per row> <number of "
+      "rows>' for each row length occurring in the matrix, in ascending order of the row length.",
+      "" );
    config.addEntry< int >( "verbose-MReader", "Verbose mode for Matrix Reader.", 0 );
 
    config.addDelimiter( "Device settings:" );

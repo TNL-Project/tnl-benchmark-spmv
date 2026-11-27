@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <vector>
 
 #include <TNL/Benchmarks/JsonLogging.h>
 #include <TNL/Containers/Vector.h>
@@ -16,29 +17,61 @@ using namespace TNL::Matrices;
 
 namespace TNL::Benchmarks::SpMV {
 
-// Writes the per-row nonzero counts of `matrix` into
+template< typename Matrix >
+using RowLengthsVector =
+   TNL::Containers::Vector< typename Matrix::IndexType, TNL::Devices::Host, typename Matrix::IndexType >;
+
+// Returns the number of nonzeros of each row of `matrix`.
+template< typename Matrix >
+RowLengthsVector< Matrix >
+getRowLengths( const Matrix& matrix )
+{
+   RowLengthsVector< Matrix > rowLengths( matrix.getRows() );
+   matrix.getCompressedRowLengths( rowLengths );
+   return rowLengths;
+}
+
+// Writes the per-row nonzero counts `rowLengths` into
 // `<dir>/<matrixName>[.transposed].txt`, one count per line, in row order.
 // Used for offline analysis of the row fill-in without re-parsing the MTX file.
-template< typename Matrix >
+template< typename RowLengths >
 void
-writeFillingFile( const std::string& dir, const String& matrixName, bool transposed, const Matrix& matrix )
+writeFillingFile( const std::string& dir, const String& matrixName, bool transposed, const RowLengths& rowLengths )
 {
-   using IndexType = typename Matrix::IndexType;
-
-   TNL::Containers::Vector< IndexType, TNL::Devices::Host, IndexType > rowLengths( matrix.getRows() );
-   matrix.getCompressedRowLengths( rowLengths );
-
    const std::filesystem::path path = matrixFilePath( dir, matrixName, transposed, "txt" );
    std::ofstream file( path );
-   for( IndexType i = 0; i < rowLengths.getSize(); i++ )
+   for( decltype( rowLengths.getSize() ) i = 0; i < rowLengths.getSize(); i++ )
       file << rowLengths[ i ] << '\n';
+   file.flush();
+}
+
+// Writes the histogram of the per-row nonzero counts `rowLengths` into
+// `<dir>/<matrixName>[.transposed].histogram.txt` in a sparse form: one line
+// "<nonzeros per row> <number of rows>" for each row length occurring in the
+// matrix, in ascending order of the row length. Row lengths with no rows are
+// omitted, empty rows are included as the row length 0.
+template< typename RowLengths >
+void
+writeHistogramFile( const std::string& dir, const String& matrixName, bool transposed, const RowLengths& rowLengths )
+{
+   const std::filesystem::path path = matrixFilePath( dir, matrixName, transposed, "histogram.txt" );
+   std::ofstream file( path );
+   if( rowLengths.getSize() > 0 ) {
+      std::vector< std::size_t > histogram( max( rowLengths ) + 1, 0 );
+      for( decltype( rowLengths.getSize() ) i = 0; i < rowLengths.getSize(); i++ )
+         histogram[ rowLengths[ i ] ]++;
+      for( std::size_t length = 0; length < histogram.size(); length++ )
+         if( histogram[ length ] > 0 )
+            file << length << ' ' << histogram[ length ] << '\n';
+   }
    file.flush();
 }
 
 // Writes one JSON line with the structural info (dimensions, symmetry,
 // MatrixStatistics) of `matrix` - the original or transposed orientation of
 // the matrix named `matrixName` - to `logger`. Optionally also writes the
-// per-row fill-in file when `fillingDir` is not empty.
+// per-row fill-in file when `fillingDir` is not empty and the histogram of
+// the row lengths when `histogramDir` is not empty.
 template< typename Matrix >
 void
 writeMatrixInfoRecord( TNL::Benchmarks::JsonLogging& logger,
@@ -46,7 +79,8 @@ writeMatrixInfoRecord( TNL::Benchmarks::JsonLogging& logger,
                        bool transposed,
                        const Matrix& matrix,
                        const MatrixSymmetry& symmetry,
-                       const std::string& fillingDir )
+                       const std::string& fillingDir,
+                       const std::string& histogramDir )
 {
    const auto nonzeros = matrix.getNonzeroElementsCount();
    MatrixStatistics< Matrix > stats( matrix );
@@ -82,8 +116,13 @@ writeMatrixInfoRecord( TNL::Benchmarks::JsonLogging& logger,
                                  { "Gini", convertToString( stats.getGini() ) } } );
    logger.writeRow( {}, {}, "" );
 
-   if( ! fillingDir.empty() )
-      writeFillingFile( fillingDir, matrixName, transposed, matrix );
+   if( ! fillingDir.empty() || ! histogramDir.empty() ) {
+      const auto rowLengths = getRowLengths( matrix );
+      if( ! fillingDir.empty() )
+         writeFillingFile( fillingDir, matrixName, transposed, rowLengths );
+      if( ! histogramDir.empty() )
+         writeHistogramFile( histogramDir, matrixName, transposed, rowLengths );
+   }
 }
 
 // Reads the matrix named by the "input-file" parameter and appends its
@@ -116,17 +155,18 @@ writeMatrixInfo( const String& inputFileName, const Config::ParameterContainer& 
    TNL::Benchmarks::JsonLogging logger( outputFile );
 
    const std::string fillingDir = parameters.getParameter< String >( "filling-dir" ).getString();
+   const std::string histogramDir = parameters.getParameter< String >( "histogram-dir" ).getString();
 
    const String& withTransposedMatrix = parameters.getParameter< String >( "with-transposed-matrix" );
    const bool withTransposition = withTransposedMatrix != "false" && ! symmetry.structurallySymmetric;
 
    if( withTransposedMatrix != "only" )
-      writeMatrixInfoRecord( logger, matrixName, false, csrHostMatrix, symmetry, fillingDir );
+      writeMatrixInfoRecord( logger, matrixName, false, csrHostMatrix, symmetry, fillingDir, histogramDir );
 
    if( withTransposition ) {
       CSRHostMatrix transposedMatrix;
       getSortedTransposition( transposedMatrix, csrHostMatrix );
-      writeMatrixInfoRecord( logger, matrixName, true, transposedMatrix, symmetry, fillingDir );
+      writeMatrixInfoRecord( logger, matrixName, true, transposedMatrix, symmetry, fillingDir, histogramDir );
    }
 }
 
