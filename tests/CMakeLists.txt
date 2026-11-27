@@ -1,14 +1,18 @@
 # include CTest only when the project is top-level (not when it is added to
 # the build tree of another project with add_subdirectory)
-if( PROJECT_IS_TOP_LEVEL )
+if(PROJECT_IS_TOP_LEVEL)
     # configure the project for testing with CTest/CDash
-    include( CTest )
+    include(CTest)
 
     # repeat failed tests to tolerate sporadic failures
     set(CMAKE_CTEST_ARGUMENTS ${CMAKE_CTEST_ARGUMENTS} --repeat until-pass:2)
 
     # let CTest write test results in the JUnit XML format
-    set(CMAKE_CTEST_ARGUMENTS ${CMAKE_CTEST_ARGUMENTS} --output-junit "${CMAKE_BINARY_DIR}/tests-report.xml")
+    set(CMAKE_CTEST_ARGUMENTS
+        ${CMAKE_CTEST_ARGUMENTS}
+        --output-junit
+        "${CMAKE_BINARY_DIR}/tests-report.xml"
+    )
 
     if(SYSTEM_GTEST)
         # find GoogleTest installed in the local system

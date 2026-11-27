@@ -3,7 +3,8 @@
 #include "SparseRow.h"
 #include <TNL/Exceptions/NotImplementedError.h>
 
-// Following includes are here to enable usage of std::vector and std::cout. To avoid having to include Device type (HOW would this be done anyway)
+// Following includes are here to enable usage of std::vector and std::cout. To avoid having to include Device type (HOW would
+// this be done anyway)
 #include <iostream>
 #include <vector>
 
@@ -11,40 +12,29 @@ namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy {
 
 template< typename Real, typename Index >
 __cuda_callable__
-SparseRow< Real, Index >::
-SparseRow()
+SparseRow< Real, Index >::SparseRow()
 : values( 0 ),
   columns( 0 ),
   length( 0 ),
   step( 0 )
-{
-}
+{}
 
 template< typename Real, typename Index >
 __cuda_callable__
-SparseRow< Real, Index >::
-SparseRow( Index* columns,
-                    Real* values,
-                    const Index length,
-                    const Index step )
+SparseRow< Real, Index >::SparseRow( Index* columns, Real* values, const Index length, const Index step )
 : values( values ),
   columns( columns ),
   length( length ),
   step( step )
-{
-}
+{}
 
 template< typename Real, typename Index >
 __cuda_callable__
 void
-SparseRow< Real, Index >::
-bind( Index* columns,
-      Real* values,
-      const Index length,
-      const Index step )
+SparseRow< Real, Index >::bind( Index* columns, Real* values, const Index length, const Index step )
 {
    this->columns = columns;
-   this-> values = values;
+   this->values = values;
    this->length = length;
    this->step = step;
 }
@@ -52,10 +42,7 @@ bind( Index* columns,
 template< typename Real, typename Index >
 __cuda_callable__
 void
-SparseRow< Real, Index >::
-setElement( const Index& elementIndex,
-            const Index& column,
-            const Real& value )
+SparseRow< Real, Index >::setElement( const Index& elementIndex, const Index& column, const Real& value )
 {
    TNL_ASSERT_TRUE( this->columns, "" );
    TNL_ASSERT_TRUE( this->values, "" );
@@ -71,8 +58,7 @@ setElement( const Index& elementIndex,
 template< typename Real, typename Index >
 __cuda_callable__
 const Index&
-SparseRow< Real, Index >::
-getElementColumn( const Index& elementIndex ) const
+SparseRow< Real, Index >::getElementColumn( const Index& elementIndex ) const
 {
    TNL_ASSERT_GE( elementIndex, 0, "" );
    TNL_ASSERT_LT( elementIndex, this->length, "" );
@@ -83,8 +69,7 @@ getElementColumn( const Index& elementIndex ) const
 template< typename Real, typename Index >
 __cuda_callable__
 const Real&
-SparseRow< Real, Index >::
-getElementValue( const Index& elementIndex ) const
+SparseRow< Real, Index >::getElementValue( const Index& elementIndex ) const
 {
    TNL_ASSERT_GE( elementIndex, 0, "" );
    TNL_ASSERT_LT( elementIndex, this->length, "" );
@@ -95,8 +80,7 @@ getElementValue( const Index& elementIndex ) const
 template< typename Real, typename Index >
 __cuda_callable__
 Index
-SparseRow< Real, Index >::
-getLength() const
+SparseRow< Real, Index >::getLength() const
 {
    return length;
 }
@@ -120,39 +104,37 @@ void getNonZeroRowLengthCudaKernel( const MatrixRow row, Index* result )
 template< typename Real, typename Index >
 __cuda_callable__
 Index
-SparseRow< Real, Index >::
-getNonZeroElementsCount() const
+SparseRow< Real, Index >::getNonZeroElementsCount() const
 {
-//    TODO: Fix/Implement
-    throw Exceptions::NotImplementedError( "TODO: Fix/Implement" );
-//    using NonConstIndex = typename std::remove_const< Index >::type;
-//
-//    NonConstIndex elementCount ( 0 );
-//
-//    for( NonConstIndex i = 0; i < length; i++ )
-//    {
-////        std::cout << "this->values[ i * step ] = " << this->values[ i * step ] << " != 0.0" << std::endl;
-//        if( this->values[ i * step ] != 0.0 ) // Returns the same amount of elements in a row as does getRowLength() in ChunkedEllpack. WHY?
-//            elementCount++;
-//    }
-//
-////    std::cout << "Element Count = " << elementCount << "\n";
-//
-//    return elementCount;
+   //    TODO: Fix/Implement
+   throw Exceptions::NotImplementedError( "TODO: Fix/Implement" );
+   //    using NonConstIndex = typename std::remove_const< Index >::type;
+   //
+   //    NonConstIndex elementCount ( 0 );
+   //
+   //    for( NonConstIndex i = 0; i < length; i++ )
+   //    {
+   ////        std::cout << "this->values[ i * step ] = " << this->values[ i * step ] << " != 0.0" << std::endl;
+   //        if( this->values[ i * step ] != 0.0 ) // Returns the same amount of elements in a row as does getRowLength() in
+   //        ChunkedEllpack. WHY?
+   //            elementCount++;
+   //    }
+   //
+   ////    std::cout << "Element Count = " << elementCount << "\n";
+   //
+   //    return elementCount;
 }
 
 template< typename Real, typename Index >
 void
-SparseRow< Real, Index >::
-print( std::ostream& str ) const
+SparseRow< Real, Index >::print( std::ostream& str ) const
 {
    using NonConstIndex = typename std::remove_const< Index >::type;
    NonConstIndex pos( 0 );
-   for( NonConstIndex i = 0; i < length; i++ )
-   {
+   for( NonConstIndex i = 0; i < length; i++ ) {
       str << " [ " << columns[ pos ] << " ] = " << values[ pos ] << ", ";
       pos += step;
    }
 }
 
-} // namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy
+}  // namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy

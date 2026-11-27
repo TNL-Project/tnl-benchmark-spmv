@@ -23,7 +23,7 @@ struct MatrixInfo< Benchmarks::SpMV::ReferenceFormats::Legacy::BiEllpack< Real, 
    static String
    getFormat()
    {
-      return "BiEllpack Legacy";
+      return "Legacy BiEllpack";
    }
 };
 
@@ -40,7 +40,7 @@ struct MatrixInfo< Benchmarks::SpMV::ReferenceFormats::Legacy::
    static String
    getFormat()
    {
-      return "CSR Legacy Scalar";
+      return "Legacy CSR Scalar";
    }
 };
 
@@ -57,7 +57,7 @@ struct MatrixInfo< Benchmarks::SpMV::ReferenceFormats::Legacy::
    static String
    getFormat()
    {
-      return "CSR Legacy Vector";
+      return "Legacy CSR Vector";
    }
 };
 
@@ -74,7 +74,7 @@ struct MatrixInfo< Benchmarks::SpMV::ReferenceFormats::Legacy::
    static String
    getFormat()
    {
-      return "CSR Legacy Light";
+      return "Legacy CSR Light";
    }
 };
 
@@ -91,7 +91,7 @@ struct MatrixInfo< Benchmarks::SpMV::ReferenceFormats::Legacy::
    static String
    getFormat()
    {
-      return "CSR Legacy Light2";
+      return "Legacy CSR Light2";
    }
 };
 
@@ -108,7 +108,7 @@ struct MatrixInfo< Benchmarks::SpMV::ReferenceFormats::Legacy::
    static String
    getFormat()
    {
-      return "CSR Legacy Light3";
+      return "Legacy CSR Light3";
    }
 };
 
@@ -125,7 +125,7 @@ struct MatrixInfo< Benchmarks::SpMV::ReferenceFormats::Legacy::
    static String
    getFormat()
    {
-      return "CSR Legacy Light4";
+      return "Legacy CSR Light4";
    }
 };
 
@@ -142,7 +142,7 @@ struct MatrixInfo< Benchmarks::SpMV::ReferenceFormats::Legacy::
    static String
    getFormat()
    {
-      return "CSR Legacy Light5";
+      return "Legacy CSR Light5";
    }
 };
 
@@ -159,7 +159,7 @@ struct MatrixInfo< Benchmarks::SpMV::ReferenceFormats::Legacy::
    static String
    getFormat()
    {
-      return "CSR Legacy Light6";
+      return "Legacy CSR Light6";
    }
 };
 
@@ -176,7 +176,7 @@ struct MatrixInfo< Benchmarks::SpMV::ReferenceFormats::Legacy::
    static String
    getFormat()
    {
-      return "CSR Legacy Adaptive";
+      return "Legacy CSR Adaptive";
    }
 };
 
@@ -193,7 +193,7 @@ struct MatrixInfo< Benchmarks::SpMV::ReferenceFormats::Legacy::
    static String
    getFormat()
    {
-      return "CSR Legacy MultiVector";
+      return "Legacy CSR MultiVector";
    }
 };
 
@@ -210,7 +210,7 @@ struct MatrixInfo< Benchmarks::SpMV::ReferenceFormats::Legacy::
    static String
    getFormat()
    {
-      return "CSR Legacy LightWithoutAtomic";
+      return "Legacy CSR LightWithoutAtomic";
    }
 };
 
@@ -226,7 +226,7 @@ struct MatrixInfo< Benchmarks::SpMV::ReferenceFormats::Legacy::ChunkedEllpack< R
    static String
    getFormat()
    {
-      return "ChunkedEllpack Legacy";
+      return "Legacy ChunkedEllpack";
    }
 };
 
@@ -242,7 +242,7 @@ struct MatrixInfo< Benchmarks::SpMV::ReferenceFormats::Legacy::Ellpack< Real, De
    static String
    getFormat()
    {
-      return "Ellpack Legacy";
+      return "Legacy Ellpack";
    }
 };
 
@@ -258,7 +258,7 @@ struct MatrixInfo< Benchmarks::SpMV::ReferenceFormats::Legacy::SlicedEllpack< Re
    static String
    getFormat()
    {
-      return "SlicedEllpack Legacy";
+      return "Legacy SlicedEllpack";
    }
 };
 

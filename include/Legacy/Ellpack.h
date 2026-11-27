@@ -33,153 +33,170 @@ public:
    typedef typename BaseType::MatrixRow MatrixRow;
    typedef SparseRow< const RealType, const IndexType > ConstMatrixRow;
 
-   template< typename _Real = Real,
-             typename _Device = Device,
-             typename _Index = Index >
+   template< typename _Real = Real, typename _Device = Device, typename _Index = Index >
    using Self = Ellpack< _Real, _Device, _Index >;
 
-   static constexpr bool isSymmetric() { return false; }
+   static constexpr bool
+   isSymmetric()
+   {
+      return false;
+   }
 
    Ellpack();
 
-   static std::string getSerializationType();
+   static std::string
+   getSerializationType();
 
-   std::string getSerializationTypeVirtual() const override;
+   std::string
+   getSerializationTypeVirtual() const;
 
-   void setDimensions( const IndexType rows,
-                       const IndexType columns ) override;
+   void
+   setDimensions( const IndexType rows, const IndexType columns ) override;
 
-   void setCompressedRowLengths( ConstRowCapacitiesTypeView rowLengths );
+   void
+   setCompressedRowLengths( ConstRowCapacitiesTypeView rowLengths );
 
-   void setRowCapacities( ConstRowCapacitiesTypeView rowLengths );
+   void
+   setRowCapacities( ConstRowCapacitiesTypeView rowLengths );
 
-   void getCompressedRowLengths( RowCapacitiesTypeView rowLengths ) const;
+   void
+   getCompressedRowLengths( RowCapacitiesTypeView rowLengths ) const;
 
-   void setConstantCompressedRowLengths( const IndexType& rowLengths );
+   void
+   setConstantCompressedRowLengths( const IndexType& rowLengths );
 
-   IndexType getRowLength( const IndexType row ) const;
+   IndexType
+   getRowLength( const IndexType row ) const;
 
    __cuda_callable__
-   IndexType getRowLengthFast( const IndexType row ) const;
+   IndexType
+   getRowLengthFast( const IndexType row ) const;
 
-   IndexType getNonZeroRowLength( const IndexType row ) const;
+   IndexType
+   getNonZeroRowLength( const IndexType row ) const;
 
    template< typename Real2, typename Device2, typename Index2 >
-   void setLike( const Ellpack< Real2, Device2, Index2 >& matrix );
+   void
+   setLike( const Ellpack< Real2, Device2, Index2 >& matrix );
 
-   void reset();
+   void
+   reset();
 
    template< typename Real2, typename Device2, typename Index2 >
-   bool operator == ( const Ellpack< Real2, Device2, Index2 >& matrix ) const;
+   bool
+   operator==( const Ellpack< Real2, Device2, Index2 >& matrix ) const;
 
    template< typename Real2, typename Device2, typename Index2 >
-   bool operator != ( const Ellpack< Real2, Device2, Index2 >& matrix ) const;
+   bool
+   operator!=( const Ellpack< Real2, Device2, Index2 >& matrix ) const;
 
    __cuda_callable__
-   bool setElementFast( const IndexType row,
-                        const IndexType column,
-                        const RealType& value );
+   bool
+   setElementFast( const IndexType row, const IndexType column, const RealType& value );
 
-   bool setElement( const IndexType row,
-                    const IndexType column,
-                    const RealType& value );
+   bool
+   setElement( const IndexType row, const IndexType column, const RealType& value );
 
    __cuda_callable__
-   bool addElementFast( const IndexType row,
-                        const IndexType column,
-                        const RealType& value,
-                        const RealType& thisElementMultiplicator = 1.0 );
+   bool
+   addElementFast( const IndexType row,
+                   const IndexType column,
+                   const RealType& value,
+                   const RealType& thisElementMultiplicator = 1.0 );
 
-   bool addElement( const IndexType row,
-                    const IndexType column,
-                    const RealType& value,
-                    const RealType& thisElementMultiplicator = 1.0 );
-
-
-   __cuda_callable__
-   bool setRowFast( const IndexType row,
-                    const IndexType* columnIndexes,
-                    const RealType* values,
-                    const IndexType elements );
-
-   bool setRow( const IndexType row,
-                const IndexType* columnIndexes,
-                const RealType* values,
-                const IndexType elements );
-
+   bool
+   addElement( const IndexType row,
+               const IndexType column,
+               const RealType& value,
+               const RealType& thisElementMultiplicator = 1.0 );
 
    __cuda_callable__
-   bool addRowFast( const IndexType row,
-                    const IndexType* columns,
-                    const RealType* values,
-                    const IndexType numberOfElements,
-                    const RealType& thisElementMultiplicator = 1.0 );
+   bool
+   setRowFast( const IndexType row, const IndexType* columnIndexes, const RealType* values, const IndexType elements );
 
-   bool addRow( const IndexType row,
-                const IndexType* columns,
-                const RealType* values,
-                const IndexType numberOfElements,
-                const RealType& thisElementMultiplicator = 1.0 );
+   bool
+   setRow( const IndexType row, const IndexType* columnIndexes, const RealType* values, const IndexType elements );
 
    __cuda_callable__
-   RealType getElementFast( const IndexType row,
-                            const IndexType column ) const;
+   bool
+   addRowFast( const IndexType row,
+               const IndexType* columns,
+               const RealType* values,
+               const IndexType numberOfElements,
+               const RealType& thisElementMultiplicator = 1.0 );
 
-   RealType getElement( const IndexType row,
-                        const IndexType column ) const;
+   bool
+   addRow( const IndexType row,
+           const IndexType* columns,
+           const RealType* values,
+           const IndexType numberOfElements,
+           const RealType& thisElementMultiplicator = 1.0 );
 
    __cuda_callable__
-   void getRowFast( const IndexType row,
-                    IndexType* columns,
-                    RealType* values ) const;
+   RealType
+   getElementFast( const IndexType row, const IndexType column ) const;
+
+   RealType
+   getElement( const IndexType row, const IndexType column ) const;
 
    __cuda_callable__
-   MatrixRow getRow( const IndexType rowIndex );
+   void
+   getRowFast( const IndexType row, IndexType* columns, RealType* values ) const;
 
    __cuda_callable__
-   ConstMatrixRow getRow( const IndexType rowIndex ) const;
+   MatrixRow
+   getRow( const IndexType rowIndex );
+
+   __cuda_callable__
+   ConstMatrixRow
+   getRow( const IndexType rowIndex ) const;
 
    template< typename Vector >
    __cuda_callable__
-   typename Vector::RealType rowVectorProduct( const IndexType row,
-                                               const Vector& vector ) const;
+   typename Vector::RealType
+   rowVectorProduct( const IndexType row, const Vector& vector ) const;
 
-   template< typename InVector,
-             typename OutVector >
-   void vectorProduct( const InVector& inVector,
-                       OutVector& outVector,
-                       RealType multiplicator = 1.0 ) const;
+   template< typename InVector, typename OutVector >
+   void
+   vectorProduct( const InVector& inVector, OutVector& outVector, RealType multiplicator = 1.0 ) const;
 
    template< typename Real2, typename Index2 >
-   void addMatrix( const Ellpack< Real2, Device, Index2 >& matrix,
-                   const RealType& matrixMultiplicator = 1.0,
-                   const RealType& thisMatrixMultiplicator = 1.0 );
+   void
+   addMatrix( const Ellpack< Real2, Device, Index2 >& matrix,
+              const RealType& matrixMultiplicator = 1.0,
+              const RealType& thisMatrixMultiplicator = 1.0 );
 
    template< typename Real2, typename Index2 >
-   void getTransposition( const Ellpack< Real2, Device, Index2 >& matrix,
-                          const RealType& matrixMultiplicator = 1.0 );
+   void
+   getTransposition( const Ellpack< Real2, Device, Index2 >& matrix, const RealType& matrixMultiplicator = 1.0 );
 
    // copy assignment
-   Ellpack& operator=( const Ellpack& matrix );
+   Ellpack&
+   operator=( const Ellpack& matrix );
 
    // cross-device copy assignment
-   template< typename Real2, typename Device2, typename Index2,
-             typename = typename Enabler< Device2 >::type >
-   Ellpack& operator=( const Ellpack< Real2, Device2, Index2 >& matrix );
+   template< typename Real2, typename Device2, typename Index2, typename = typename Enabler< Device2 >::type >
+   Ellpack&
+   operator=( const Ellpack< Real2, Device2, Index2 >& matrix );
 
-   void save( File& file ) const override;
+   void
+   save( File& file ) const;
 
-   void load( File& file ) override;
+   void
+   load( File& file );
 
-   void save( const String& fileName ) const;
+   void
+   save( const String& fileName ) const;
 
-   void load( const String& fileName );
+   void
+   load( const String& fileName );
 
-   void print( std::ostream& str ) const override;
+   void
+   print( std::ostream& str ) const override;
 
 protected:
-
-   void allocateElements();
+   void
+   allocateElements();
 
    IndexType rowLengths, alignedRows;
 
@@ -187,6 +204,6 @@ protected:
    friend class EllpackDeviceDependentCode< DeviceType >;
 };
 
-} // namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy
+}  // namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy
 
 #include "Ellpack_impl.h"

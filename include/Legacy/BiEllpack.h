@@ -13,7 +13,6 @@
 
 namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy {
 
-
 template< typename Device >
 class BiEllpackDeviceDependentCode;
 
@@ -21,196 +20,212 @@ template< typename Real, typename Device, typename Index >
 class BiEllpack : public Sparse< Real, Device, Index >
 {
 private:
+   // convenient template alias for controlling the selection of copy-assignment operator
+   template< typename Device2 >
+   using Enabler = std::enable_if< ! std::is_same< Device2, Device >::value >;
 
-    // convenient template alias for controlling the selection of copy-assignment operator
-    template< typename Device2 >
-    using Enabler = std::enable_if< ! std::is_same< Device2, Device >::value >;
-
-    // friend class will be needed for templated assignment operators
-    template< typename Real2, typename Device2, typename Index2 >
-    friend class BiEllpack;
+   // friend class will be needed for templated assignment operators
+   template< typename Real2, typename Device2, typename Index2 >
+   friend class BiEllpack;
 
 public:
-	typedef Real RealType;
-	typedef Device DeviceType;
-	typedef Index IndexType;
+   typedef Real RealType;
+   typedef Device DeviceType;
+   typedef Index IndexType;
    using RowCapacitiesType = typename Sparse< RealType, DeviceType, IndexType >::RowCapacitiesType;
    using RowCapacitiesTypeView = typename Sparse< RealType, DeviceType, IndexType >::RowCapacitiesView;
    using ConstRowCapacitiesTypeView = typename Sparse< RealType, DeviceType, IndexType >::ConstRowCapacitiesView;
-	typedef typename Sparse< RealType, DeviceType, IndexType >::ValuesVector ValuesVector;
-	typedef typename Sparse< RealType, DeviceType, IndexType >::ColumnIndexesVector ColumnIndexesVector;
+   typedef typename Sparse< RealType, DeviceType, IndexType >::ValuesVector ValuesVector;
+   typedef typename Sparse< RealType, DeviceType, IndexType >::ColumnIndexesVector ColumnIndexesVector;
 
-   template< typename _Real = Real,
-             typename _Device = Device,
-             typename _Index = Index >
+   template< typename _Real = Real, typename _Device = Device, typename _Index = Index >
    using Self = BiEllpack< _Real, _Device, _Index >;
 
-   static constexpr bool isSymmetric() { return false; }
+   static constexpr bool
+   isSymmetric()
+   {
+      return false;
+   }
 
-	BiEllpack();
+   BiEllpack();
 
-	void setDimensions( const IndexType rows,
-	                    const IndexType columns ) override;
+   void
+   setDimensions( const IndexType rows, const IndexType columns ) override;
 
-   void setCompressedRowLengths( ConstRowCapacitiesTypeView rowLengths );
+   void
+   setCompressedRowLengths( ConstRowCapacitiesTypeView rowLengths );
 
-   void setRowCapacities( ConstRowCapacitiesTypeView rowLengths );
+   void
+   setRowCapacities( ConstRowCapacitiesTypeView rowLengths );
 
-   void getCompressedRowLengths( RowCapacitiesTypeView rowLengths ) const;
+   void
+   getCompressedRowLengths( RowCapacitiesTypeView rowLengths ) const;
 
-	IndexType getRowLength( const IndexType row ) const;
+   IndexType
+   getRowLength( const IndexType row ) const;
 
-	template< typename Real2,
-			  typename Device2,
-			  typename Index2 >
-	void setLike( const BiEllpack< Real2, Device2, Index2 >& matrix );
+   template< typename Real2, typename Device2, typename Index2 >
+   void
+   setLike( const BiEllpack< Real2, Device2, Index2 >& matrix );
 
-        void reset();
+   void
+   reset();
 
-        template< typename Real2, typename Device2, typename Index2 >
-        bool operator == ( const BiEllpack< Real2, Device2, Index2 >& matrix ) const;
+   template< typename Real2, typename Device2, typename Index2 >
+   bool
+   operator==( const BiEllpack< Real2, Device2, Index2 >& matrix ) const;
 
-        template< typename Real2, typename Device2, typename Index2 >
-        bool operator != ( const BiEllpack< Real2, Device2, Index2 >& matrix ) const;
+   template< typename Real2, typename Device2, typename Index2 >
+   bool
+   operator!=( const BiEllpack< Real2, Device2, Index2 >& matrix ) const;
 
-	void getRowLengths( RowCapacitiesType& rowLengths ) const;
+   void
+   getRowLengths( RowCapacitiesType& rowLengths ) const;
 
-	bool setElement( const IndexType row,
-					 const IndexType column,
-					 const RealType& value );
-
-   __cuda_callable__
-	bool setElementFast( const IndexType row,
-						 const IndexType column,
-						 const RealType& value );
-
-	bool addElement( const IndexType row,
-					 const IndexType column,
-					 const RealType& value,
-					 const RealType& thisElementMultiplicator = 1.0 );
-
-   __cuda_callable__
-	bool addElementFast( const IndexType row,
-						 const IndexType column,
-						 const RealType& value,
-						 const RealType& thisElementMultiplicator = 1.0 );
-
-	bool setRow( const IndexType row,
-				 const IndexType* columns,
-				 const RealType* values,
-				 const IndexType numberOfElements );
-
-	bool addRow( const IndexType row,
-				 const IndexType* columns,
-				 const RealType* values,
-				 const IndexType numberOfElements,
-				 const RealType& thisElementMultiplicator = 1.0 );
-
-	RealType getElement( const IndexType row,
-					 	 const IndexType column ) const;
+   bool
+   setElement( const IndexType row, const IndexType column, const RealType& value );
 
    __cuda_callable__
-	RealType getElementFast( const IndexType row,
-							 const IndexType column ) const;
+   bool
+   setElementFast( const IndexType row, const IndexType column, const RealType& value );
+
+   bool
+   addElement( const IndexType row,
+               const IndexType column,
+               const RealType& value,
+               const RealType& thisElementMultiplicator = 1.0 );
+
+   __cuda_callable__
+   bool
+   addElementFast( const IndexType row,
+                   const IndexType column,
+                   const RealType& value,
+                   const RealType& thisElementMultiplicator = 1.0 );
+
+   bool
+   setRow( const IndexType row, const IndexType* columns, const RealType* values, const IndexType numberOfElements );
+
+   bool
+   addRow( const IndexType row,
+           const IndexType* columns,
+           const RealType* values,
+           const IndexType numberOfElements,
+           const RealType& thisElementMultiplicator = 1.0 );
+
+   RealType
+   getElement( const IndexType row, const IndexType column ) const;
+
+   __cuda_callable__
+   RealType
+   getElementFast( const IndexType row, const IndexType column ) const;
 
    // TODO: Change this to return MatrixRow type like in CSR format
-	void getRow( const IndexType row,
-			 	    IndexType* columns,
-			 	    RealType* values ) const;
+   void
+   getRow( const IndexType row, IndexType* columns, RealType* values ) const;
 
    __cuda_callable__
-	IndexType getGroupLength( const IndexType strip,
-							  const IndexType group ) const;
+   IndexType
+   getGroupLength( const IndexType strip, const IndexType group ) const;
 
-	template< typename InVector,
-			  typename OutVector >
-	void vectorProduct( const InVector& inVector,
-						OutVector& outVector ) const;
+   template< typename InVector, typename OutVector >
+   void
+   vectorProduct( const InVector& inVector, OutVector& outVector ) const;
 
-	template< typename InVector,
-			  typename OutVector >
-	void vectorProductHost( const InVector& inVector,
-							OutVector& outVector ) const;
+   template< typename InVector, typename OutVector >
+   void
+   vectorProductHost( const InVector& inVector, OutVector& outVector ) const;
 
-	void setVirtualRows(const IndexType rows);
+   void
+   setVirtualRows( const IndexType rows );
 
    __cuda_callable__
-	IndexType getNumberOfGroups( const IndexType row ) const;
+   IndexType
+   getNumberOfGroups( const IndexType row ) const;
 
-	bool vectorProductTest() const;
+   bool
+   vectorProductTest() const;
 
-        // copy assignment
-        BiEllpack& operator=( const BiEllpack& matrix );
+   // copy assignment
+   BiEllpack&
+   operator=( const BiEllpack& matrix );
 
-        // cross-device copy assignment
-        template< typename Real2, typename Device2, typename Index2,
-                 typename = typename Enabler< Device2 >::type >
-        BiEllpack& operator=( const BiEllpack< Real2, Device2, Index2 >& matrix );
+   // cross-device copy assignment
+   template< typename Real2, typename Device2, typename Index2, typename = typename Enabler< Device2 >::type >
+   BiEllpack&
+   operator=( const BiEllpack< Real2, Device2, Index2 >& matrix );
 
-	void save( File& file ) const override;
+   void
+   save( File& file ) const;
 
-	void load( File& file ) override;
+   void
+   load( File& file );
 
-	void save( const String& fileName ) const;
+   void
+   save( const String& fileName ) const;
 
-	void load( const String& fileName );
+   void
+   load( const String& fileName );
 
-	void print( std::ostream& str ) const override;
+   void
+   print( std::ostream& str ) const override;
 
-   void printValues() const;
+   void
+   printValues() const;
 
-	void performRowBubbleSort( Containers::Vector< Index, Device, Index >& tempRowLengths );
-	void computeColumnSizes( Containers::Vector< Index, Device, Index >& tempRowLengths );
+   void
+   performRowBubbleSort( Containers::Vector< Index, Device, Index >& tempRowLengths );
+   void
+   computeColumnSizes( Containers::Vector< Index, Device, Index >& tempRowLengths );
 
-//	void verifyRowLengths( const typename BiEllpack< Real, Device, Index >::RowCapacitiesType& rowLengths );
+   //	void verifyRowLengths( const typename BiEllpack< Real, Device, Index >::RowCapacitiesType& rowLengths );
 
-	template< typename InVector,
-			  typename OutVector >
+   template< typename InVector, typename OutVector >
 #ifdef __CUDACC__
    __device__
 #endif
-	void spmvCuda( const InVector& inVector,
-				   OutVector& outVector,
-				   /*const IndexType warpStart,
-				   const IndexType inWarpIdx*/
-				   int globalIdx ) const;
+   void
+   spmvCuda( const InVector& inVector,
+             OutVector& outVector,
+             /*const IndexType warpStart,
+             const IndexType inWarpIdx*/
+             int globalIdx ) const;
 
    __cuda_callable__
-	IndexType getStripLength( const IndexType strip ) const;
+   IndexType
+   getStripLength( const IndexType strip ) const;
 
    __cuda_callable__
-	void performRowBubbleSortCudaKernel( const typename BiEllpack< Real, Device, Index >::RowCapacitiesType& rowLengths,
-										 const IndexType strip );
+   void
+   performRowBubbleSortCudaKernel( const typename BiEllpack< Real, Device, Index >::RowCapacitiesType& rowLengths,
+                                   const IndexType strip );
 
    __cuda_callable__
-	void computeColumnSizesCudaKernel( const typename BiEllpack< Real, Device, Index >::RowCapacitiesType& rowLengths,
-									   const IndexType numberOfStrips,
-									   const IndexType strip );
+   void
+   computeColumnSizesCudaKernel( const typename BiEllpack< Real, Device, Index >::RowCapacitiesType& rowLengths,
+                                 const IndexType numberOfStrips,
+                                 const IndexType strip );
 
    __cuda_callable__
-	IndexType power( const IndexType number,
-				     const IndexType exponent ) const;
+   IndexType
+   power( const IndexType number, const IndexType exponent ) const;
 
-	typedef BiEllpackDeviceDependentCode< DeviceType > DeviceDependentCode;
-	friend class BiEllpackDeviceDependentCode< DeviceType >;
-        friend class BiEllpack< RealType, Devices::Host, IndexType >;
-        friend class BiEllpack< RealType, Devices::Cuda, IndexType >;
+   typedef BiEllpackDeviceDependentCode< DeviceType > DeviceDependentCode;
+   friend class BiEllpackDeviceDependentCode< DeviceType >;
+   friend class BiEllpack< RealType, Devices::Host, IndexType >;
+   friend class BiEllpack< RealType, Devices::Cuda, IndexType >;
 
 private:
+   IndexType warpSize;
 
-	IndexType warpSize;
+   IndexType logWarpSize;
 
-	IndexType logWarpSize;
+   IndexType virtualRows;
 
-	IndexType virtualRows;
+   Containers::Vector< Index, Device, Index > rowPermArray;
 
-	Containers::Vector< Index, Device, Index > rowPermArray;
-
-	Containers::Vector< Index, Device, Index > groupPointers;
-
+   Containers::Vector< Index, Device, Index > groupPointers;
 };
 
-} // namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy
+}  // namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy
 
 #include "BiEllpack_impl.h"
-

@@ -5,13 +5,10 @@
 
 namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy {
 
-template< typename Real,
-          typename Device,
-          typename Index >
+template< typename Real, typename Device, typename Index >
 class Sparse : public Matrix< Real, Device, Index >
 {
-   public:
-
+public:
    typedef Real RealType;
    typedef Device DeviceType;
    typedef Index IndexType;
@@ -24,33 +21,41 @@ class Sparse : public Matrix< Real, Device, Index >
    Sparse();
 
    template< typename Real2, typename Device2, typename Index2 >
-   void setLike( const Sparse< Real2, Device2, Index2 >& matrix );
+   void
+   setLike( const Sparse< Real2, Device2, Index2 >& matrix );
 
-   IndexType getNumberOfNonzeroMatrixElements() const;
+   IndexType
+   getNumberOfNonzeroMatrixElements() const;
 
-   IndexType getMaxRowLength() const;
+   IndexType
+   getMaxRowLength() const;
 
    __cuda_callable__
-   IndexType getPaddingIndex() const;
+   IndexType
+   getPaddingIndex() const;
 
-   void reset();
+   void
+   reset();
 
-   void save( File& file ) const override;
+   void
+   save( File& file ) const;
 
-   void load( File& file ) override;
+   void
+   load( File& file );
 
-   void printStructure( std::ostream& str ) const;
+   void
+   printStructure( std::ostream& str ) const;
 
-   protected:
-
-   void allocateMatrixElements( const IndexType& numberOfMatrixElements );
+protected:
+   void
+   allocateMatrixElements( const IndexType& numberOfMatrixElements );
 
    Containers::Vector< Index, Device, Index > columnIndexes;
 
    Index maxRowLength;
 };
 
-} // namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy
+}  // namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy
 
 #include "Sparse_impl.h"
 #include <TNL/Matrices/SparseOperations.h>

@@ -26,7 +26,7 @@ template< typename Real = double,
           typename Device = Devices::Host,
           typename Index = int,
           typename RealAllocator = typename Allocators::Default< Device >::template Allocator< std::remove_const_t< Real > > >
-class Matrix : public Object
+class Matrix
 {
 public:
    using RealAllocatorType = RealAllocator;
@@ -186,7 +186,7 @@ public:
     * \param file is the output file.
     */
    void
-   save( File& file ) const override;
+   save( File& file ) const;
 
    /**
     * \brief Method for loading the matrix from a file.
@@ -194,7 +194,7 @@ public:
     * \param file is the input file.
     */
    void
-   load( File& file ) override;
+   load( File& file );
 
    /**
     * \brief Method for printing the matrix to output stream.

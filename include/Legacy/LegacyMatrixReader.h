@@ -6,7 +6,6 @@
 
 namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy {
 
-
 /// This is to prevent from appearing in Doxygen documentation.
 /// \cond HIDDEN_CLASS
 template< typename Device >
@@ -17,69 +16,53 @@ class MatrixReaderDeviceDependentCode
 template< typename Matrix >
 class LegacyMatrixReader
 {
-   public:
-
+public:
    typedef typename Matrix::IndexType IndexType;
    typedef typename Matrix::DeviceType DeviceType;
    typedef typename Matrix::RealType RealType;
 
-   static void readMtxFile( const String& fileName,
-                            Matrix& matrix,
-                            bool verbose = false,
-                            bool symReader = false );
+   static void
+   readMtxFile( const String& fileName, Matrix& matrix, bool verbose = false, bool symReader = false );
 
-   static void readMtxFile( std::istream& file,
-                            Matrix& matrix,
-                            bool verbose = false,
-                            bool symReader = false );
+   static void
+   readMtxFile( std::istream& file, Matrix& matrix, bool verbose = false, bool symReader = false );
 
-   static void readMtxFileHostMatrix( std::istream& file,
-                                      Matrix& matrix,
-                                      typename Matrix::RowCapacitiesType& rowLengths,
-                                      bool verbose,
-                                      bool symReader );
+   static void
+   readMtxFileHostMatrix( std::istream& file,
+                          Matrix& matrix,
+                          typename Matrix::RowCapacitiesType& rowLengths,
+                          bool verbose,
+                          bool symReader );
 
+   static void
+   verifyMtxFile( std::istream& file, const Matrix& matrix, bool verbose = false );
 
-   static void verifyMtxFile( std::istream& file,
-                              const Matrix& matrix,
-                              bool verbose = false );
+   static bool
+   findLineByElement( std::istream& file, const IndexType& row, const IndexType& column, String& line, IndexType& lineNumber );
 
-   static bool findLineByElement( std::istream& file,
-                                  const IndexType& row,
-                                  const IndexType& column,
-                                  String& line,
-                                  IndexType& lineNumber );
-   protected:
+protected:
+   static bool
+   checkMtxHeader( const String& header, bool& symmetric );
 
-   static bool checkMtxHeader( const String& header,
-                               bool& symmetric );
+   static void
+   readMtxHeader( std::istream& file, IndexType& rows, IndexType& columns, bool& symmetricMatrix, bool verbose );
 
-   static void readMtxHeader( std::istream& file,
-                              IndexType& rows,
-                              IndexType& columns,
-                              bool& symmetricMatrix,
-                              bool verbose );
+   static void
+   computeCompressedRowLengthsFromMtxFile( std::istream& file,
+                                           Containers::Vector< int, DeviceType, int >& rowLengths,
+                                           const int columns,
+                                           const int rows,
+                                           bool symmetricMatrix,
+                                           bool verbose,
+                                           bool symReader = false );
 
-   static void computeCompressedRowLengthsFromMtxFile( std::istream& file,
-                                             Containers::Vector< int, DeviceType, int >& rowLengths,
-                                             const int columns,
-                                             const int rows,
-                                             bool symmetricMatrix,
-                                             bool verbose,
-                                             bool symReader = false );
+   static void
+   readMatrixElementsFromMtxFile( std::istream& file, Matrix& matrix, bool symmetricMatrix, bool verbose, bool symReader );
 
-   static void readMatrixElementsFromMtxFile( std::istream& file,
-                                              Matrix& matrix,
-                                              bool symmetricMatrix,
-                                              bool verbose,
-                                              bool symReader );
-
-   static void parseMtxLineWithElement( const String& line,
-                                        IndexType& row,
-                                        IndexType& column,
-                                        RealType& value );
+   static void
+   parseMtxLineWithElement( const String& line, IndexType& row, IndexType& column, RealType& value );
 };
 
-} // namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy
+}  // namespace TNL::Benchmarks::SpMV::ReferenceFormats::Legacy
 
 #include "LegacyMatrixReader.hpp"
