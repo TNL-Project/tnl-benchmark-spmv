@@ -1,0 +1,844 @@
+#!/usr/bin/python3
+
+"""
+Parse the log files from tnl-benchmark-spmv, convert them to one big table
+(one row per matrix, one column per format/device/launch config/metric) and
+compute all speed-ups. The results for the original and the transposed
+matrices are processed separately, each giving one table. Both tables are
+stored in a binary (pickle) file, which tnl-spmv-benchmark-analysis-tables.py
+and the scripts in poster-sc2026/ then load. The tables can be also exported
+to HTML or Excel (see --export) and in the flat form, one row per matrix,
+orientation, format, device and launch config, to Parquet or CSV (see
+--flat-export).
+"""
+
+import pandas as pd
+import numpy as np
+import argparse
+import sys
+from pathlib import Path
+from TNL.BenchmarkLogs import *
+import MultiindexCreator as mic
+import Speedup
+import TableChecks
+from MatrixStatColumns import MATRIX_STAT_COLUMNS
+from VendorLibraries import vendor_format
+from LegacyCounterparts import legacy_counterparts
+from BenchmarkTable import save_tables, export_tables, export_flat_tables, print_formats_and_launch_configs
+
+bw_units = "TB/s"
+
+# Symmetry of the matrix as written by the benchmark ("true"/"false"), older logs do not have it.
+symmetry_columns = ["symmetric", "structurally symmetric"]
+
+
+def get_arg_parser():
+    parser = argparse.ArgumentParser(
+        description="Script for parsing log files from tnl-benchmark-spmv and storing "
+        "the complete table, including all computed speed-ups, in a binary file."
+    )
+    parser.add_argument(
+        "-i",
+        "--input",
+        nargs="+",
+        help="Input files",
+        default=["sparse-matrix-benchmark.log"],
+    )
+    parser.add_argument(
+        "-v", "--verbose", help="Set verbose output.", action="store_true", default=True
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        default="spmv-benchmark-table.pkl",
+        metavar="FILE",
+        help="Binary (pickle) file where the complete table is stored "
+        "(default: spmv-benchmark-table.pkl)",
+    )
+    parser.add_argument(
+        "--max-rows",
+        type=int,
+        default=-1,
+        help="Maximum number of rows to process from the input files",
+    )
+    parser.add_argument(
+        "--duplicates",
+        choices=["first", "last", "min", "max"],
+        default="first",
+        help="How to resolve records of the same matrix, format, device and launch config "
+        "appearing more than once, e.g. the CPU results which the CUDA and HIP benchmarks "
+        "repeat: use the first or the last one in the order of the input files, or the one "
+        "with the smaller or the larger median time (default: first)",
+    )
+    parser.add_argument(
+        "--matrix-info",
+        default="matrix-info.jsonl",
+        metavar="FILE",
+        help="JSONL file with the structural matrix info (dimensions, symmetry, "
+        "MatrixStatistics) written once per matrix by tnl-benchmark-spmv-matrix-info, joined in here by "
+        "(matrix name, transposed). If the file does not exist, these fields are taken from "
+        "the benchmark logs instead, as before (default: matrix-info.jsonl)",
+    )
+    parser.add_argument(
+        "--fill-transposed",
+        help="Fill the table for the transposed matrices with the results for the original "
+        "ones for the structurally symmetric matrices, whose transposition is not benchmarked",
+        action="store_true",
+        default=False,
+    )
+    parser.add_argument(
+        "--matrices-report",
+        default="spmv-benchmark-matrices.txt",
+        metavar="FILE",
+        help="File listing the matrices missing in some of the input files, with their "
+        "dimensions, nonzeros and the estimated memory of the CSR format "
+        "(default: spmv-benchmark-matrices.txt)",
+    )
+    parser.add_argument(
+        "--list-matrices",
+        nargs="?",
+        const="processed-matrices.txt",
+        default=None,
+        metavar="FILE",
+        help="Write the names of all processed matrices, one per line, to a text file "
+        "(default file name: processed-matrices.txt)",
+    )
+    parser.add_argument(
+        "--checks-report",
+        default="spmv-benchmark-checks.txt",
+        metavar="FILE",
+        help="File with the results of the integrity checks of the tables, see TableChecks.py "
+        "(default: spmv-benchmark-checks.txt)",
+    )
+    parser.add_argument(
+        "--export",
+        nargs="+",
+        default=[],
+        metavar="FILE",
+        help="Export the complete tables also to the given files, the format is given by "
+        "the extension: .html or .xlsx",
+    )
+    parser.add_argument(
+        "--flat-export",
+        nargs="+",
+        default=[],
+        metavar="FILE",
+        help="Export the complete tables also in the flat form, one row per matrix, orientation, "
+        "format, device and launch config (see BenchmarkTable.get_flat_df()), to the given files, "
+        "the format is given by the extension: .parquet or .csv",
+    )
+    return parser
+
+
+def add_to_multiindex(mc, format, device, launch_config, launch_configs):
+    """
+    Register the output columns for one (format, device, launch_config)
+    combination with the MultiindexCreator `mc`. Each call to mc.add_entry()
+    below adds one column, addressed later as a 5-tuple
+    (format, device, launch_config, metric, reference) - `reference` is only
+    meaningful for "speed-up" columns (empty string otherwise) and names what
+    the speed-up was computed against, e.g. speed-up vs. the vendor library of
+    the device ("cusparse" on CUDA, "hipsparse" on HIP, see
+    VendorLibraries.py) or vs. "non-binary" (the same format's non-Binary
+    counterpart).
+
+    There are two branches:
+      - CSR/Hypre/Ginkgo on CPU: these are the reference solution, so they
+        have no diff.max.
+      - everything else: bandwidth/time/diff.max, plus whichever speed-up
+        comparisons apply to this format (see the comments below).
+    In both branches, CPU runs with "N threads" launch configs get the
+    speed-up and the parallel efficiency ("eff.") w.r.t. the "1 thread" run
+    of the same format, if there is one.
+    """
+    cpu_efficiency_data = []
+    threads = Speedup.cpu_threads_count(launch_config) if device == "CPU" else None
+    if threads is not None and threads > 1 and Speedup.has_single_thread_cpu_run(format, launch_configs):
+        cpu_efficiency_data = ["speed-up", "eff."]
+
+    if (format in ["CSR", "Hypre", "Ginkgo"]) and device == "CPU":
+        bm_data = ["bandwidth", "time median"] + cpu_efficiency_data
+        if format in ["Hypre", "Ginkgo"]:
+            bm_data.append("TNL speed-up")
+        for data in bm_data:
+            mc.add_entry([format, "CPU", launch_config, data])
+            #print(f"   >>> {format} CPU {launch_config} {data}")
+    else:
+        # Here we add all the other formats
+        if (format, device) in launch_configs:
+            for data in [
+                "bandwidth",
+                "time median",
+                "diff.max",
+            ] + cpu_efficiency_data:
+                mc.add_entry([format, device, launch_config, data])
+                #print(f"   >>> {format} {device} {launch_config} {data}")
+        # If there is a legacy counterpart for the format we add speed-up to compare both
+        legacy_format = legacy_counterparts.get(format)
+        if legacy_format:
+            mc.add_entry([format, device, launch_config, "speed-up", legacy_format])
+            #print(f"   >>> {format} {device} {launch_config} speed-up {legacy_format}")
+
+        # Here we add speed-up comparisons with the vendor library of the device
+        # (cusparse on CUDA, hipsparse on HIP), CSR on CPU, Hypre and Ginkgo Libraries
+        vendor = vendor_format(device)
+        if device != "CPU" and format != vendor:
+            for speedup in [vendor, "CSR CPU", "Hypre", "Ginkgo"]:
+                if speedup is not None and speedup != format:
+                    mc.add_entry([format, device, launch_config, "speed-up", speedup])
+                    #print(f"   >>> {format} {device} {launch_config} speed-up {speedup}")
+        # Add speedup of CSR Light compared to Light SpMV
+        if format == "CSR" and launch_config == "Light CSR":
+            mc.add_entry([format, device, "Light CSR", "speed-up", "LightSpMV Vector"])
+            #print(f"   >>> {format} {device} {launch_config} speed-up LightSpMV Vector")
+
+        # Here we add speed-up comparisons for Binary,Symmetric and Sorted formats
+        if device != "CPU":
+            if "Binary" in format:
+                mc.add_entry([format, device, launch_config, "speed-up", "non-binary"])
+                #print(f"   >>> {format} {device} {launch_config} speed-up non-binary")
+            if "Symmetric" in format:
+                mc.add_entry(
+                    [format, device, launch_config, "speed-up", "non-symmetric"]
+                )
+                #print(f"   >>> {format} {device} {launch_config} speed-up non-symmetric")
+            if "Sorted" in format:
+                mc.add_entry([format, device, launch_config, "speed-up", "non-sorted"])
+                #print(f"   >>> {format} {device} {launch_config} speed-up non-sorted")
+            if (format, launch_config) in legacy_counterparts:
+                mc.add_entry(
+                    [
+                        format,
+                        device,
+                        launch_config,
+                        "speed-up",
+                        legacy_counterparts[(format, launch_config)],
+                    ]
+                )
+                #print(
+                #    f"   >>> {format} {device} {launch_config} speed-up {legacy_counterparts[(format, launch_config)]}"
+                #)
+
+
+def get_multiindex(input_df, formats, launch_configs, accelerator_devices):
+    """
+    Build the 5-level column MultiIndex for the final wide-format DataFrame:
+    one column per (format, device, launch_config, metric, reference) - see
+    add_to_multiindex() for what that 5-tuple means.
+
+    Columns are added in three groups, in this order:
+      1. per-matrix identity/metadata (name, size, and the statistics from
+         MatrixStatistics.h) - level 1 only, the other 4 levels stay "".
+      2. one benchmark-result column per (format, device, launch_config)
+         actually present in `launch_configs`, via add_to_multiindex().
+      3. two special-case columns appended per (format, device): which
+         format is fastest for "CSR Light Automatic" ("speed-up" vs.
+         LightSpMV), and "CSR Light Best"'s own timing.
+    """
+    mc = mic.MultiindexCreator(5)
+    mc.add_entries([["Matrix name"], ["rows"], ["columns"], ["nonzeros"], ["nonzeros per row"]])
+    mc.add_entries([[column] for column in symmetry_columns])
+    mc.add_entries([[stat] for stat in MATRIX_STAT_COLUMNS])
+
+    for format in formats:
+        for device in ["CPU"] + accelerator_devices:
+            if (format, device) in launch_configs:
+                for launch_config in launch_configs[(format, device)]:
+                    print(f"Adding to multiindex: {format} {device} {launch_config}")
+                    add_to_multiindex(mc, format, device, launch_config, launch_configs)
+
+            # Finaly we add column with the format exhibiting the best performance for given matrix
+            if (
+                format == "CSR Light Automatic" or format == "CSR Light Automatic Light"
+            ) and device != "CPU":
+                mc.add_entry([format, device, "", "speed-up", "LightSpMV Vector"])
+            if format == "CSR Light Best" and device != "CPU":
+                mc.add_entry(["CSR Light Best", device, "", "TPS"])
+
+    return mc.get_multiindex()
+
+
+def convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=-1):
+    """
+    Convert `input_df` - one row per (matrix, format, device, launch config),
+    "long" format - into the "wide" table the rest of the script works with:
+    one row per matrix, one column per (format, device, launch_config,
+    metric, reference) matching `multicolumns` (see get_multiindex()).
+
+    Reshaping is done with melt() + pivot_table() (vectorized) rather than
+    iterating rows in Python, which matters here since `input_df` can have
+    hundreds of thousands of rows (many matrices x many format/device/
+    launch-config combinations x few metrics each).
+
+    begin_idx/end_idx select a slice of matrices (by first-seen order) to
+    process, e.g. for --max-rows.
+    """
+    if end_idx == -1:
+        end_idx = len(input_df.index)
+    matrix_names = input_df["matrix name"].drop_duplicates().tolist()
+    matrix_names = matrix_names[begin_idx:end_idx]
+
+    if not matrix_names:
+        return pd.DataFrame(columns=multicolumns)
+
+    df = input_df[input_df["matrix name"].isin(matrix_names)].copy()
+
+    df["bandwidth"] = pd.to_numeric(df["bandwidth"], errors="coerce")
+    if bw_units == "TB/s":
+        df["bandwidth"] = df["bandwidth"] / 1024
+    df["time median"] = pd.to_numeric(df["time median"], errors="coerce")
+    df["CSR Diff.Max"] = pd.to_numeric(df["CSR Diff.Max"], errors="coerce")
+
+    # CSR/Ginkgo/Hypre on the CPU are themselves the reference solution that
+    # every other run's "diff.max" is measured against, so a diff.max value
+    # for one of them would just be noise (or a solver artifact) - blank it
+    # out rather than let it show up as a spurious accuracy warning.
+    cpu_no_diff_mask = (df["performer"] == "CPU") & (df["format"].isin(["CSR", "Ginkgo", "Hypre"]))
+    df.loc[cpu_no_diff_mask, "CSR Diff.Max"] = float("nan")
+
+    # Reshape long -> even longer: one row per (matrix, format, performer,
+    # launch cfg., metric) with a single "value" column, dropping rows whose
+    # value is NaN (e.g. diff.max blanked out just above, or a metric that
+    # simply wasn't recorded for that run).
+    melted = df.melt(
+        id_vars=["matrix name", "format", "performer", "launch cfg."],
+        value_vars=["bandwidth", "time median", "CSR Diff.Max"],
+        var_name="metric",
+        value_name="value",
+    )
+    metric_map = {"bandwidth": "bandwidth", "time median": "time median", "CSR Diff.Max": "diff.max"}
+    melted["metric"] = melted["metric"].map(metric_map)
+    melted = melted.dropna(subset=["value"])
+
+    # ... then pivot long -> wide: one row per matrix, one column per
+    # (format, performer, launch cfg., metric) combination that actually has
+    # data. aggfunc="first" is a formality - each (matrix, format, performer,
+    # launch cfg., metric) combination should have exactly one value; if the
+    # input ever had duplicates, this silently keeps the first one.
+    result = melted.pivot_table(
+        index="matrix name",
+        columns=["format", "performer", "launch cfg.", "metric"],
+        values="value",
+        aggfunc="first",
+    )
+
+    # pivot_table only produces 4 column levels (format, performer,
+    # launch cfg., metric); pad on the 5th ("reference", used only by
+    # speed-up columns added below/in Speedup.py) as an empty string so the
+    # columns match multicolumns' 5-level shape.
+    if not result.columns.empty:
+        result.columns = pd.MultiIndex.from_tuples([(*col, "") for col in result.columns])
+
+    # Cosmetic: diff.max values that happen to be whole numbers (most
+    # commonly 0.0, i.e. "no difference") are shown as plain ints ("0")
+    # instead of floats ("0.0") - purely a display choice, made per-column
+    # via an object dtype so the exact (non-integral) diff.max values stay
+    # as floats within the same column.
+    for col in result.columns:
+        if len(col) > 3 and col[3] == "diff.max":
+            vals = result[col]
+            if vals.dtype == np.float64:
+                result[col] = vals.astype(object)
+                mask = vals.notna() & (vals == vals.fillna(0.0).astype(int))
+                result.loc[mask, col] = vals[mask].astype(int).astype(object)
+
+    # Matrix-level fields (name/size/statistics) are constant across every
+    # row of `df` for a given matrix, but not every benchmark writes all of
+    # them (e.g. the reference benchmark does not emit MatrixStatistics), so
+    # take the first non-null value of each field per matrix. Both `result`
+    # and the metadata are indexed by "matrix name" and reindexed to
+    # matrix_names, since pivot_table sorts the matrices by name. The metadata
+    # columns are joined to `result` at once, adding them one by one makes
+    # pandas warn about a fragmented DataFrame.
+    result = result.reindex(matrix_names)
+    metadata = df.groupby("matrix name", sort=False).first()
+    metadata = metadata.reindex(matrix_names)
+
+    # "rows"/"columns"/"nonzeros" are missing only if both the logs and
+    # --matrix-info lack them, e.g. trimmed logs parsed without having run
+    # tnl-benchmark-spmv-matrix-info first (see load_matrix_info()/combine_with_matrix_info())
+    rows = metadata["rows"] if "rows" in metadata.columns else pd.Series(np.nan, index=metadata.index)
+    nonzeros = pd.to_numeric(
+        metadata["nonzeros"] if "nonzeros" in metadata.columns else pd.Series(np.nan, index=metadata.index),
+        errors="coerce",
+    )
+    metadata_columns = {
+        "Matrix name": metadata.index.to_series(index=metadata.index),
+        "rows": rows,
+        "columns": metadata["columns"] if "columns" in metadata.columns else pd.Series(np.nan, index=metadata.index),
+        "nonzeros": nonzeros,
+        "nonzeros per row": nonzeros / pd.to_numeric(rows, errors="coerce"),
+    }
+    for column in symmetry_columns:
+        if column in metadata.columns:
+            metadata_columns[column] = metadata[column].map(
+                {"true": True, "false": False, True: True, False: False}
+            )
+    for stat in MATRIX_STAT_COLUMNS:
+        if stat in metadata.columns:
+            metadata_columns[stat] = pd.to_numeric(metadata[stat], errors="coerce")
+    metadata_df = pd.DataFrame(
+        {(name, "", "", "", ""): values for name, values in metadata_columns.items()}, index=metadata.index
+    )
+    result = pd.concat([result, metadata_df], axis=1)
+
+    # `multicolumns` (from get_multiindex()) is the full, format-independent
+    # set of columns the rest of the pipeline expects; `result` only has
+    # columns for (format, device, launch_config) combinations that actually
+    # had data. reindex(columns=...) adds the missing ones back as all-NaN
+    # (e.g. a format that wasn't run on every device) rather than leaving
+    # them out, so every output DataFrame has the same column shape.
+    result = result.reindex(columns=multicolumns)
+    result = result.reindex(matrix_names)
+    result = result.reset_index(drop=True)
+
+    result.replace("", float("nan"), inplace=True)
+    result = result.copy()
+    return result
+
+
+# The current TNL benchmark logger writes "time_median"/"time_stddev", older
+# builds (e.g. of tnl-benchmark-spmv-reference) wrote "time median"/"time
+# stddev" - normalize to the latter, which is what the rest of the scripts use.
+time_column_aliases = {
+    "time median": "time_median",
+    "time stddev": "time_stddev",
+}
+
+
+def normalize_time_columns(df):
+    """
+    Fill the "time median"/"time stddev" columns from their new-style aliases,
+    so that logs from both old and new TNL builds can be mixed.
+    """
+    for column, alias in time_column_aliases.items():
+        if alias not in df.columns:
+            continue
+        if column in df.columns:
+            df[column] = df[column].fillna(df[alias])
+        else:
+            df[column] = df[alias]
+        df.drop(columns=[alias], inplace=True)
+    return df
+
+
+def normalize_transposed_column(df):
+    """
+    Convert the "transposed" column to bool. Logs from older builds have no
+    "transposed" column, their results are taken as non-transposed.
+    """
+    if "transposed" not in df.columns:
+        df["transposed"] = False
+    else:
+        df["transposed"] = df["transposed"].astype(str).str.lower() == "true"
+    return df
+
+
+def matrix_name(path):
+    """
+    Return the name of the matrix as run-tnl-benchmark-spmv writes it, i.e. the
+    path relative to the matrix collection, e.g.
+    suitesparse/ACUSIM/Pres_Poisson.mtx. Older logs contain the complete path
+    of the file, which differs between machines.
+    """
+    if "mtx_matrices/" in path:
+        return path.split("mtx_matrices/", 1)[1]
+    return path.removeprefix("./")
+
+
+# Structural columns written once per matrix by tnl-benchmark-spmv-matrix-info (see
+# include/matrix-info.h), instead of being repeated on every record of every
+# SpMV benchmark binary.
+matrix_info_columns = ["rows", "columns", "nonzeros"] + symmetry_columns + MATRIX_STAT_COLUMNS
+
+
+def load_matrix_info(path):
+    """
+    Load the structural matrix info (dimensions, symmetry, MatrixStatistics)
+    written by tnl-benchmark-spmv-matrix-info, indexed by (matrix name, transposed). Returns
+    an empty DataFrame when `path` does not exist, so combine_with_matrix_info()
+    falls back to whatever the benchmark logs themselves carry - logs written
+    before tnl-benchmark-spmv-matrix-info existed, or runs where it was not used.
+    """
+    if not path or not Path(path).is_file():
+        print(f"No matrix info file at {path!r}, using the structural columns from the benchmark logs instead.")
+        return pd.DataFrame()
+    print(f"Loading matrix info from {path}")
+    df = get_benchmark_dataframe(path)
+    df = normalize_transposed_column(df)
+    df["matrix name"] = df["matrix name"].map(matrix_name)
+    df = df.set_index(["matrix name", "transposed"])
+    # keep the last record of a (matrix, orientation) pair appearing more than
+    # once, e.g. because tnl-benchmark-spmv-matrix-info was re-run with --continue
+    return df[~df.index.duplicated(keep="last")]
+
+
+def combine_with_matrix_info(df, matrix_info):
+    """
+    Overlay the structural columns (see matrix_info_columns) from `matrix_info`
+    (see load_matrix_info()) onto `df`, matched by each row's own ("matrix
+    name", "transposed") pair. Falls back to whatever `df` already carries for
+    a (matrix, orientation) missing from matrix_info, so logs written before
+    tnl-benchmark-spmv-matrix-info existed keep working unchanged.
+    """
+    if matrix_info.empty:
+        return df
+    keys = pd.MultiIndex.from_arrays([df["matrix name"], df["transposed"]])
+    aligned = matrix_info.reindex(keys)
+    aligned.index = df.index
+    df = df.copy()
+    for column in matrix_info_columns:
+        if column not in aligned.columns:
+            continue
+        if column in df.columns:
+            df[column] = aligned[column].combine_first(df[column])
+        else:
+            df[column] = aligned[column]
+    return df
+
+
+def csr_bytes(rows, nonzeros, precision):
+    """
+    Estimate the memory needed by the CSR format with 32-bit indexes.
+    """
+    real_bytes = 4 if precision == "float" else 8
+    return nonzeros * (real_bytes + 4) + (rows + 1) * 4
+
+
+def get_matrices_properties(input_df):
+    """
+    Return a dataframe indexed by the matrix name with the number of rows,
+    columns and nonzeros and the estimated memory of the CSR format, taken from
+    the records for the original matrices (or the transposed ones, if there are
+    no others).
+    """
+    df = input_df.sort_values("transposed", kind="stable")
+    df = df.groupby("matrix name", sort=True).first()
+    properties = pd.DataFrame(index=df.index)
+    for column in ["rows", "columns", "nonzeros"]:
+        # missing only if both the logs and --matrix-info lack it, e.g. trimmed
+        # logs parsed without having run tnl-benchmark-spmv-matrix-info first
+        values = df[column] if column in df.columns else pd.Series(np.nan, index=df.index)
+        properties[column] = pd.to_numeric(values, errors="coerce").astype("Int64")
+    # the dimensions of the transposed matrix are swapped
+    swap = df["transposed"]
+    properties.loc[swap, ["rows", "columns"]] = properties.loc[swap, ["columns", "rows"]].values
+    precision = df["precision"] if "precision" in df.columns else pd.Series("double", index=df.index)
+    properties["CSR MB"] = [
+        csr_bytes(int(r), int(n), p) / 1e6 if pd.notna(r) and pd.notna(n) else float("nan")
+        for r, n, p in zip(properties["rows"], properties["nonzeros"], precision)
+    ]
+    return properties
+
+
+def write_matrices_report(file_name, matrices_in_files, properties):
+    """
+    Write the number of matrices in each input file and the matrices missing in
+    it from the union of the matrices in all files, or present in it but not in
+    all the files, with their dimensions, nonzeros and the estimated memory of
+    the CSR format. The summary is printed also to the standard output.
+    """
+    all_matrices = set.union(*matrices_in_files.values())
+    common_matrices = set.intersection(*matrices_in_files.values())
+    summary = [f"Matrices in the input files: {len(all_matrices)} in total, {len(common_matrices)} in all files"]
+    for file, matrices in matrices_in_files.items():
+        summary.append(
+            f"   {file}: {len(matrices)} matrices, {len(all_matrices - matrices)} missing, "
+            f"{len(matrices - common_matrices)} not in all files"
+        )
+    print("\n".join(summary))
+
+    def matrix_line(prefix, matrix):
+        rows, columns, nonzeros, mb = (properties.at[matrix, c] for c in ["rows", "columns", "nonzeros", "CSR MB"])
+        dimensions = f"{rows} x {columns}"
+        return f"   {prefix:7} {matrix:60} {dimensions:>21} {nonzeros:>12} nonzeros {mb:12.1f} MB in CSR"
+
+    with open(file_name, "w") as file:
+        file.write("\n".join(summary) + "\n")
+        for file_name_in, matrices in matrices_in_files.items():
+            missing = sorted(all_matrices - matrices)
+            extra = sorted(matrices - common_matrices)
+            if not missing and not extra:
+                continue
+            file.write(f"\n{file_name_in}:\n")
+            for matrix in missing:
+                file.write(matrix_line("missing", matrix) + "\n")
+            for matrix in extra:
+                file.write(matrix_line("extra", matrix) + "\n")
+    print(f"The matrices missing in the input files are listed in {file_name}")
+
+
+def write_matrices_list(file_name, input_df):
+    """
+    Write the names of all processed matrices (one per line) to a text file
+    """
+    names = sorted(input_df["matrix name"].unique())
+    with open(file_name, "w") as file:
+        for name in names:
+            file.write(f"{name}\n")
+    print(f"List of {len(names)} processed matrices written to {file_name}")
+
+
+def parse_input_files(file_list, matrices_report=None, matrix_info=None):
+    """
+    Parse input files and return a single dataframe
+    """
+    input_df = pd.DataFrame()
+    matrices_in_files = {}
+    for file in file_list:
+        df = get_benchmark_dataframe(file)
+        df = normalize_time_columns(df)
+        df = normalize_transposed_column(df)
+        df["matrix name"] = df["matrix name"].map(matrix_name)
+        matrices_in_files[file] = set(df["matrix name"])
+        input_df = pd.concat([input_df, df])
+    if matrix_info is not None:
+        input_df = combine_with_matrix_info(input_df, matrix_info)
+    if "nonzeros" not in input_df.columns:
+        # the logs no longer carry matrix dimensions/statistics themselves (see
+        # include/matrix-info.h), so without --matrix-info there is no source for
+        # them at all - fail here with a clear message instead of further down,
+        # in e.g. TableChecks.py or PosterHeatmapGraphs.py
+        raise ValueError(
+            "No 'nonzeros' column found in the input files, and no (usable) --matrix-info file "
+            "was given either. Run tnl-benchmark-spmv-matrix-info on the same matrices first, or "
+            "pass --matrix-info pointing at its output."
+        )
+    if matrices_report and len(matrices_in_files) > 1:
+        write_matrices_report(matrices_report, matrices_in_files, get_matrices_properties(input_df))
+    if "time median" not in input_df.columns:
+        raise ValueError("No 'time median' (or 'time_median') column found in the input files.")
+    # the index must be unique for resolve_duplicates()
+    input_df.reset_index(drop=True, inplace=True)
+    check_cpu_builds(input_df)
+    transposed_count = input_df["transposed"].sum()
+    print(
+        f"Parsed {len(input_df.index)} records: {len(input_df.index) - transposed_count} for the "
+        f"original matrices, {transposed_count} for the transposed matrices"
+    )
+    return input_df
+
+
+def check_cpu_builds(input_df):
+    """
+    Warn if the CPU results come from several builds of the benchmark (the
+    "build" metadata column written by newer builds), since the GPU builds
+    usually run on a different machine than the host build and so their CPU
+    results are not comparable.
+    """
+    if "build" not in input_df.columns:
+        return
+    cpu_builds = sorted(input_df.loc[input_df["performer"] == "CPU", "build"].dropna().unique())
+    if len(cpu_builds) > 1:
+        print(
+            f"WARNING: The CPU results come from several builds of the benchmark {cpu_builds}, "
+            "they were probably measured on different machines."
+        )
+
+
+# Records with the same values in these columns are results of the same benchmark.
+duplicate_key = ["matrix name", "transposed", "format", "performer", "launch cfg."]
+
+
+def resolve_duplicates(input_df, policy):
+    """
+    Keep only one record of each benchmark (see duplicate_key) which appears
+    more than once in the input files. This happens mainly for the CPU, since
+    the CUDA and HIP builds of the benchmark compute the CSR format (and the
+    Binary and Symmetric formats) on the CPU too - older builds always, newer
+    ones only with --with-cpu-tests. The policy is one of
+      - "first"/"last": the first/last record in the order of the input files,
+      - "min"/"max": the record with the smaller/larger median time.
+    The order of the remaining records is preserved.
+    """
+    if "precision" in input_df.columns and input_df["precision"].nunique() > 1:
+        print(
+            f"WARNING: The input files contain results for several precisions "
+            f"{sorted(input_df['precision'].dropna().unique())}, they are treated as duplicates."
+        )
+    duplicated = input_df.duplicated(subset=duplicate_key, keep=False)
+    if not duplicated.any():
+        return input_df
+
+    groups = input_df[duplicated].groupby(["performer", "format"]).size()
+    print(f"Found {duplicated.sum()} records of benchmarks appearing more than once, keeping the {policy} one:")
+    for (performer, format), count in groups.items():
+        print(f"   {performer} {format}: {count} records")
+
+    if policy in ["first", "last"]:
+        return input_df.drop_duplicates(subset=duplicate_key, keep=policy)
+    time = pd.to_numeric(input_df["time median"], errors="coerce")
+    order = time.sort_values(ascending=(policy == "min"), na_position="last", kind="stable").index
+    return input_df.loc[order].drop_duplicates(subset=duplicate_key, keep="first").sort_index()
+
+
+def get_formats(input_df):
+    """
+    Get the list of formats to generate output columns for: every format
+    name found in the benchmark log, minus the "CSR Light Automatic" family
+    (an internal auto-tuning wrapper around the other CSR Light kernels,
+    not itself a distinct storage format worth its own row/column).
+    """
+    formats = list(
+        set(input_df["format"].values.tolist())
+    )  # list of all formats in the benchmark results
+    if "CSR Light Automatic" in formats:
+        formats.remove("CSR Light Automatic")
+    if "Binary CSR Light Automatic" in formats:
+        formats.remove("Binary CSR Light Automatic")
+    if "Symmetric CSR Light Automatic" in formats:
+        formats.remove("Symmetric CSR Light Automatic")
+    if "Symmetric Binary CSR Light Automatic" in formats:
+        formats.remove("Symmetric Binary CSR Light Automatic")
+    formats.sort()
+    return formats
+
+
+def get_accelerator_devices(input_df):
+    """
+    Get the sorted list of accelerator backends (everything but "CPU") present
+    in the "performer" column, e.g. "CUDA", "HIP", "SYCL".
+    """
+    return sorted(set(input_df["performer"].unique()) - {"CPU"})
+
+
+def get_launch_configs(input_df):
+    """
+    Build {(format, device): [launch_config, ...]} - the set of launch
+    configs actually present in the log for each (format, device) pair, in
+    first-seen order. get_multiindex()/add_to_multiindex() use this to know
+    which columns to create; convert_data_frame() doesn't need it (it derives
+    columns straight from the data via pivot_table).
+    """
+    launch_configs = {}
+    combinations = input_df[["format", "performer", "launch cfg."]].drop_duplicates()
+    for format, device, launch_cfg in combinations.itertuples(index=False):
+        launch_configs.setdefault((format, device), []).append(launch_cfg)
+    return launch_configs
+
+
+def build_table(input_df, args):
+    """
+    Convert the records of the input files to the multiindex table and compute speed-ups
+    """
+    formats = get_formats(input_df)
+    accelerator_devices = get_accelerator_devices(input_df)
+    print(f"Accelerator devices found in the data: {accelerator_devices}")
+    launch_configs = get_launch_configs(input_df)
+    if args.verbose:
+        print_formats_and_launch_configs(formats, launch_configs, accelerator_devices)
+
+    print("Converting data...")
+    multicolumns, df_data = get_multiindex(input_df, formats, launch_configs, accelerator_devices)
+    result = convert_data_frame(
+        input_df, multicolumns, df_data, begin_idx=0, end_idx=args.max_rows
+    )
+
+    print("Computing speed-ups...")
+    speedup_getter = Speedup.Speedup(
+        result, formats, launch_configs, legacy_counterparts, accelerator_devices
+    )
+    result = speedup_getter.compute_speedup()
+    result.replace(to_replace=" ", value=np.nan, inplace=True)
+    return {
+        "df": result,
+        "formats": formats,
+        "launch_configs": launch_configs,
+        "accelerator_devices": accelerator_devices,
+    }
+
+
+def fill_transposed_table(original, transposed):
+    """
+    Add the rows of the structurally symmetric matrices from the table for the
+    original matrices to the table for the transposed matrices. The benchmark
+    does not benchmark their transposition, since it has the same pattern.
+    """
+    if original is None:
+        return transposed
+    df = original["df"]
+    name_column = ("Matrix name", "", "", "", "")
+    symmetry_column = ("structurally symmetric", "", "", "", "")
+    if symmetry_column not in df.columns or df[symmetry_column].isna().all():
+        print(
+            "WARNING: The logs do not tell which matrices are structurally symmetric, "
+            "the table for the transposed matrices is not filled."
+        )
+        return transposed
+    symmetric = df[df[symmetry_column] == True]
+    if transposed is not None:
+        symmetric = symmetric[~symmetric[name_column].isin(transposed["df"][name_column])]
+    if symmetric.empty:
+        return transposed
+    print(
+        f"Filling the table for the transposed matrices with the results for "
+        f"{len(symmetric.index)} structurally symmetric matrices."
+    )
+    if transposed is None:
+        return {**original, "df": symmetric.reset_index(drop=True)}
+    filled = pd.concat(
+        [transposed["df"], symmetric.reindex(columns=transposed["df"].columns)], ignore_index=True
+    )
+    return {**transposed, "df": filled}
+
+
+def build_tables(args):
+    """
+    Parse the input files and build one table for the original and one for the
+    transposed matrices (None if there are no results for them). Returns the
+    tables and the results of their integrity checks.
+    """
+    matrix_info = load_matrix_info(args.matrix_info)
+    print(f"Parsing input files: {args.input}")
+    input_df = parse_input_files(args.input, args.matrices_report, matrix_info)
+    input_df = resolve_duplicates(input_df, args.duplicates)
+    if args.list_matrices:
+        write_matrices_list(args.list_matrices, input_df)
+    tables = {}
+    checks = []
+    # the table stores the bandwidth in other units than the logs, see convert_data_frame()
+    bandwidth_factor = 1 / 1024 if bw_units == "TB/s" else 1.0
+    for name, transposed in [("original", False), ("transposed", True)]:
+        records = input_df[input_df["transposed"] == transposed]
+        if records.empty:
+            print(f"No results for the {name} matrices.")
+            tables[name] = None
+            continue
+        print(f"Building the table for the {name} matrices...")
+        tables[name] = build_table(records, args)
+        print(f"Checking the table for the {name} matrices...")
+        checks.append(TableChecks.check_table(name, tables[name], records, bandwidth_factor))
+    if args.fill_transposed:
+        tables["transposed"] = fill_transposed_table(tables["original"], tables["transposed"])
+    return tables, checks
+
+
+def report_checks(file_name, checks):
+    """
+    Write the results of the integrity checks to the file, print the errors
+    and the warnings and return True if there was no error
+    """
+    with open(file_name, "w") as file:
+        file.write("\n\n".join(check.report() for check in checks) + "\n")
+    for check in checks:
+        print(check.summary())
+    print(f"The results of the integrity checks are written to {file_name}")
+    return not any(check.errors for check in checks)
+
+
+def main():
+    argparser = get_arg_parser()
+    args = argparser.parse_args()
+    tables, checks = build_tables(args)
+    save_tables(args.output, tables)
+    for file_name in args.export:
+        export_tables(file_name, tables)
+    for file_name in args.flat_export:
+        export_flat_tables(file_name, tables)
+    if not report_checks(args.checks_report, checks):
+        print("ERROR: The integrity checks of the tables failed.", file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
