@@ -8,56 +8,211 @@
 #
 #include( cmake/BuildCSR5.cmake )
 
-# PETSc requires MPI
-#if( TNL_BUILD_MPI AND TNL_USE_PETSC )
-#   find_package( PETSc COMPONENTS CXX )
-#endif()
+find_package(MPI COMPONENTS CXX)
+if(MPI_CXX_FOUND)
+    find_package(Hypre)
+    find_package(Ginkgo)
+endif()
 
-#if( PETSC_FOUND )
-#   message( "PETSC library found: ${PETSC_VERSION}")
-#   set( PETSC_CXX_FLAGS -DHAVE_PETSC ${PETSC_DEFINITIONS} )
-#   message( "   PETSC_INCLUDES  = ${PETSC_INCLUDES}" )
-#   message( "   PETSC_CXX_FLAGS = ${PETSC_CXX_FLAGS}" )
-#   message( "   PETSC_LIBRARIES = ${PETSC_LIBRARIES}" )
-#endif()
+# Add the reference libraries (Hypre, Ginkgo) to a reference benchmark target.
+# `backend` is one of HOST, CUDA, HIP. Hypre keeps its data in the memory space
+# it was built for, so it is added only to the target with the matching backend
+# (a CPU build of Hypre to the host target, a CUDA build to the CUDA target and
+# a HIP build to the HIP target).
+function(add_reference_libraries target backend)
+    set(use_hypre FALSE)
+    if(HYPRE_FOUND)
+        if(backend STREQUAL "HOST" AND NOT HYPRE_WITH_CUDA AND NOT HYPRE_WITH_HIP)
+            set(use_hypre TRUE)
+        elseif(backend STREQUAL "CUDA" AND HYPRE_WITH_CUDA)
+            set(use_hypre TRUE)
+        elseif(backend STREQUAL "HIP" AND HYPRE_WITH_HIP)
+            set(use_hypre TRUE)
+        endif()
+    endif()
+
+    if(use_hypre OR Ginkgo_FOUND)
+        # MPI must be initialized when using Hypre or Ginkgo
+        target_compile_definitions(${target} PUBLIC HAVE_MPI)
+        target_link_libraries(${target} PUBLIC MPI::MPI_CXX)
+    endif()
+
+    if(use_hypre)
+        message(STATUS "${target}: using Hypre")
+        target_compile_definitions(${target} PUBLIC HAVE_HYPRE)
+        target_include_directories(${target} SYSTEM PUBLIC ${HYPRE_INCLUDE_DIRS})
+        target_link_libraries(${target} PUBLIC ${HYPRE_LIBRARIES} m)
+    elseif(HYPRE_FOUND)
+        message(STATUS "${target}: Hypre was built for a different backend, benchmarking without Hypre")
+    endif()
+
+    if(Ginkgo_FOUND)
+        message(STATUS "${target}: using Ginkgo")
+        target_compile_definitions(${target} PUBLIC HAVE_GINKGO)
+        target_link_libraries(${target} PUBLIC Ginkgo::ginkgo)
+    endif()
+endfunction()
+
+# TNL enables OpenMP only for the CXX language, so the host code of the CUDA
+# and HIP binaries runs sequentially. For large matrices, the host part of the
+# benchmark (conversion of the input matrix, its transposition and copying the
+# matrices to the GPU) takes most of the time, so OpenMP is enabled for the
+# host code of the GPU binaries here. nvcc passes -fopenmp to the host
+# compiler, clang compiles the host code of HIP with its own OpenMP runtime
+# (libomp).
+option(
+    TNL_BENCHMARK_GPU_OPENMP
+    "Enable OpenMP in the host code of the CUDA and HIP binaries"
+    ON
+)
+
+function(enable_gpu_openmp target language)
+    if(NOT TNL_BENCHMARK_GPU_OPENMP)
+        return()
+    endif()
+    if(language STREQUAL "CUDA")
+        find_package(OpenMP COMPONENTS CXX)
+        if(NOT OpenMP_CXX_FOUND)
+            message(WARNING "${target}: OpenMP was not found, building without OpenMP")
+            return()
+        endif()
+        target_compile_definitions(
+            ${target}
+            PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:HAVE_OPENMP>
+        )
+        target_compile_options(
+            ${target}
+            PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=-fopenmp>
+        )
+        target_link_libraries(${target} PRIVATE ${OpenMP_CXX_LIBRARIES})
+    elseif(language STREQUAL "HIP")
+        # libomp is installed next to clang by the openmp-extras package of ROCm
+        get_filename_component(hip_compiler_dir "${CMAKE_HIP_COMPILER}" DIRECTORY)
+        get_filename_component(libomp_dir "${hip_compiler_dir}/../lib" ABSOLUTE)
+        find_library(LIBOMP_LIBRARY omp HINTS "${libomp_dir}" NO_DEFAULT_PATH)
+        if(NOT LIBOMP_LIBRARY)
+            message(WARNING "${target}: libomp was not found in ${libomp_dir}, building without OpenMP")
+            return()
+        endif()
+        get_filename_component(libomp_dir "${LIBOMP_LIBRARY}" DIRECTORY)
+        target_compile_definitions(
+            ${target}
+            PRIVATE $<$<COMPILE_LANGUAGE:HIP>:HAVE_OPENMP>
+        )
+        target_compile_options(
+            ${target}
+            PRIVATE $<$<COMPILE_LANGUAGE:HIP>:-fopenmp>
+        )
+        target_link_libraries(${target} PRIVATE ${LIBOMP_LIBRARY})
+        target_link_options(${target} PRIVATE "LINKER:-rpath,${libomp_dir}")
+    endif()
+    message(STATUS "${target}: OpenMP enabled in the host code")
+endfunction()
+
+# Links MPI and defines HAVE_MPI for a target, when MPI is available. Unlike
+# add_reference_libraries() (needed because Hypre/Ginkgo themselves require MPI), this is for the
+# plain SpMV benchmark binaries: it lets several MPI ranks split one matrix's format sweep between
+# them, each bound to its own GPU via TNL::MPI::selectGPU() (see src/tnl-benchmark-spmv.h) - a
+# single-rank run (no mpirun) is unaffected either way.
+function(add_mpi_support target)
+    if(MPI_CXX_FOUND)
+        target_compile_definitions(${target} PUBLIC HAVE_MPI)
+        target_link_libraries(${target} PUBLIC MPI::MPI_CXX)
+    endif()
+endfunction()
 
 # host binaries
-add_executable( tnl-benchmark-spmv tnl-benchmark-spmv.cpp )
-target_link_libraries( tnl-benchmark-spmv PUBLIC TNL::TNL )
+add_executable(tnl-benchmark-spmv tnl-benchmark-spmv.cpp)
+target_link_libraries(tnl-benchmark-spmv PUBLIC TNL::TNL)
+tnl_set_host_arch(tnl-benchmark-spmv)
+add_mpi_support(tnl-benchmark-spmv)
 
-add_executable( tnl-benchmark-spmv-legacy tnl-benchmark-spmv-legacy.cpp )
-target_link_libraries( tnl-benchmark-spmv-legacy PUBLIC TNL::TNL )
+# computes the structural info (dimensions, symmetry, MatrixStatistics) of a matrix once, so the
+# SpMV benchmark binaries below don't need to recompute and repeat it in every log record. Named
+# tnl-benchmark-spmv-matrix-info (not tnl-matrix-info) because TNL itself already ships a
+# differently-scoped tool of that name (src/Tools/tnl-matrix-info.cpp), which would otherwise
+# collide with this CMake target.
+add_executable(tnl-benchmark-spmv-matrix-info tnl-benchmark-spmv-matrix-info.cpp)
+target_link_libraries(tnl-benchmark-spmv-matrix-info PUBLIC TNL::TNL)
+tnl_set_host_arch(tnl-benchmark-spmv-matrix-info)
 
-add_executable( tnl-benchmark-spmv-reference tnl-benchmark-spmv-reference.cpp )
-target_link_libraries( tnl-benchmark-spmv-reference PUBLIC TNL::TNL )
-#target_compile_options( tnl-benchmark-spmv-reference PRIVATE ${PETSC_CXX_FLAGS} )
-#target_include_directories( tnl-benchmark-spmv-reference PRIVATE ${PETSC_INCLUDES} )
-#target_link_libraries( tnl-benchmark-spmv-reference ${PETSC_LIBRARIES} )
+add_executable(tnl-benchmark-spmv-legacy tnl-benchmark-spmv-legacy.cpp)
+target_link_libraries(tnl-benchmark-spmv-legacy PUBLIC TNL::TNL)
+tnl_set_host_arch(tnl-benchmark-spmv-legacy)
+
+add_executable(tnl-benchmark-spmv-reference tnl-benchmark-spmv-reference.cpp)
+target_link_libraries(tnl-benchmark-spmv-reference PUBLIC TNL::TNL)
+tnl_set_host_arch(tnl-benchmark-spmv-reference)
+add_reference_libraries(tnl-benchmark-spmv-reference HOST)
 
 # separate CUDA binaries
-add_executable( tnl-benchmark-spmv-cuda tnl-benchmark-spmv.cu )
-target_link_libraries( tnl-benchmark-spmv-cuda PUBLIC TNL::TNL )
+if(BUILD_CUDA)
+    add_executable(tnl-benchmark-spmv-cuda tnl-benchmark-spmv.cu)
+    target_link_libraries(tnl-benchmark-spmv-cuda PUBLIC TNL::TNL)
+    add_mpi_support(tnl-benchmark-spmv-cuda)
+    enable_gpu_openmp(tnl-benchmark-spmv-cuda CUDA)
 
-add_executable( tnl-benchmark-spmv-legacy-cuda tnl-benchmark-spmv-legacy.cu )
-target_link_libraries( tnl-benchmark-spmv-legacy-cuda PUBLIC TNL::TNL )
+    add_executable(tnl-benchmark-spmv-legacy-cuda tnl-benchmark-spmv-legacy.cu)
+    target_link_libraries(tnl-benchmark-spmv-legacy-cuda PUBLIC TNL::TNL)
 
-add_executable( tnl-benchmark-spmv-reference-cuda tnl-benchmark-spmv-reference.cu LightSpMV-1.0/SpMV.cu LightSpMV-1.0/SpMVCSR.cu )
-target_link_libraries( tnl-benchmark-spmv-reference-cuda PUBLIC TNL::TNL )
-find_package( CUDAToolkit REQUIRED )
-target_link_libraries( tnl-benchmark-spmv-reference-cuda PUBLIC CUDA::cusparse )
+    find_package(CUDAToolkit REQUIRED)
+    add_executable(
+        tnl-benchmark-spmv-reference-cuda
+        tnl-benchmark-spmv-reference.cu
+        LightSpMV-1.0/SpMV.cu
+        LightSpMV-1.0/SpMVCSR.cu
+    )
+    target_link_libraries(
+        tnl-benchmark-spmv-reference-cuda
+        PUBLIC TNL::TNL CUDA::cusparse
+    )
+    add_reference_libraries(tnl-benchmark-spmv-reference-cuda CUDA)
+endif()
 
-if( TNL_BUILD_MPI )
-   find_package(Hypre)
-   if( HYPRE_FOUND )
-      # enable MPI support in TNL
-      target_compile_definitions( tnl-benchmark-spmv-reference PUBLIC "-DHAVE_MPI" )
-      # add MPI to the target: https://cliutils.gitlab.io/modern-cmake/chapters/packages/MPI.html
-      target_link_libraries( tnl-benchmark-spmv-reference PUBLIC MPI::MPI_CXX )
+# separate HIP binaries
+if(BUILD_HIP)
+    add_executable(tnl-benchmark-spmv-hip tnl-benchmark-spmv.hip)
+    target_link_libraries(tnl-benchmark-spmv-hip PUBLIC TNL::TNL)
+    add_mpi_support(tnl-benchmark-spmv-hip)
+    enable_gpu_openmp(tnl-benchmark-spmv-hip HIP)
+    target_compile_definitions(
+        tnl-benchmark-spmv-hip
+        PUBLIC "-DHIP_ENABLE_PRINTF"
+    )
 
-      # enable Hypre support in TNL
-      target_compile_definitions( tnl-benchmark-spmv-reference PUBLIC "-DHAVE_HYPRE" )
-      # add Hypre to the target
-      target_include_directories( tnl-benchmark-spmv-reference SYSTEM PUBLIC ${HYPRE_INCLUDE_DIRS} )
-      target_link_libraries( tnl-benchmark-spmv-reference PUBLIC ${HYPRE_LIBRARIES} -lm )
-   endif()
+    find_package(hipsparse)
+    if(hipsparse_FOUND)
+        add_executable(
+            tnl-benchmark-spmv-reference-hip
+            tnl-benchmark-spmv-reference.hip
+        )
+        target_link_libraries(
+            tnl-benchmark-spmv-reference-hip
+            PUBLIC TNL::TNL roc::hipsparse
+        )
+        # rocSPARSE is called directly to benchmark all its SpMV algorithms,
+        # hipSPARSE exposes only some of them
+        find_package(rocsparse)
+        if(rocsparse_FOUND)
+            target_link_libraries(
+                tnl-benchmark-spmv-reference-hip
+                PUBLIC roc::rocsparse
+            )
+            target_compile_definitions(
+                tnl-benchmark-spmv-reference-hip
+                PUBLIC "-DHAVE_ROCSPARSE"
+            )
+        else()
+            message(
+                WARNING
+                "rocsparse was not found and so its SpMV algorithms will not be benchmarked."
+            )
+        endif()
+        add_reference_libraries(tnl-benchmark-spmv-reference-hip HIP)
+    else()
+        message(
+            WARNING
+            "hipsparse was not found and so tnl-benchmark-spmv-reference-hip cannot be built."
+        )
+    endif()
 endif()
