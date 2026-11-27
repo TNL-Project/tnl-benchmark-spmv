@@ -1,0 +1,294 @@
+#!/usr/bin/env bash
+
+# Uncomment if you want to exit as soon as there is an error
+# set -o errexit
+
+# abort when an unset variable is used
+set -o nounset
+# enable recursive globbing
+shopt -s globstar
+
+matrices_base_path="./mtx_matrices"
+OMP_ENABLED="yes"
+MAX_OMP_THREADS="auto"
+DEBUG="no"
+SIZE_LIMIT=-1 # no size limit
+COUNT_LIMIT=-1 # no count limit
+log_file="sparse-matrix-benchmark.log"
+progress_dir="progress"
+continue_benchmark="no"
+MPI_ENABLED="no"
+MPI_PROCESSES=1
+MPI_EXTRA_ARGS=""
+PRECISION="float"
+LOOPS=""
+MAX_TIME=""
+WARMUP_LOOPS=""
+WARMUP_MAX_TIME=""
+REUSE_LONG_WARMUP=""
+MAX_CONSECUTIVE_FAILURES=3
+
+# Loop through all the positional arguments
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        -b|--benchmark)  # Binary to benchmark
+            BENCHMARK="$2"
+            shift  # Move past the value to the next key
+            ;;
+        -i|--input-dir)  # Input directory
+            matrices_base_path="$2"
+            shift
+            ;;
+        -l|--log-file)  # Log file
+            log_file="$2"
+            shift
+            ;;
+        -g|--progress-dir)  # Directory for the per-matrix progress files
+            progress_dir="$2"
+            shift
+            ;;
+        -c|--continue)  # Continue from a previous run
+            continue_benchmark="$2"
+            shift
+            ;;
+        -s|--size-limit)  # Size limit for matrices
+            SIZE_LIMIT="$2"
+            shift
+            ;;
+        -n|--count-limit)  # Count limit for matrices
+            COUNT_LIMIT="$2"
+            shift
+            ;;
+        -d|--debug)  # Debug mode
+            DEBUG="$2"
+            shift
+            ;;
+        -o|--openmp-enabled)  # Enable OpenMP
+            OMP_ENABLED="$2"
+            shift
+            ;;
+        -t|--openmp-max-threads)  # Maximum number of OpenMP threads
+            MAX_OMP_THREADS="$2"
+            shift
+            ;;
+        -m|--mpi-enabled)  # Enable MPI
+            MPI_ENABLED="$2"
+            shift
+            ;;
+        -p|--mpi-processes)  # Number of MPI processes
+            MPI_PROCESSES="$2"
+            shift
+            ;;
+        -e|--mpi-extra-args)  # Extra arguments passed to mpirun, before -np
+            MPI_EXTRA_ARGS="$2"
+            shift
+            ;;
+        -r|--precision)  # Precision passed to the benchmark binary
+            PRECISION="$2"
+            shift
+            ;;
+        --loops)  # Maximal number of benchmark loops passed to the benchmark binary
+            LOOPS="$2"
+            shift
+            ;;
+        --max-time)  # Time after which no further benchmark loop is started, passed to the benchmark binary
+            MAX_TIME="$2"
+            shift
+            ;;
+        --warmup-loops)  # Maximal number of warmup loops passed to the benchmark binary
+            WARMUP_LOOPS="$2"
+            shift
+            ;;
+        --warmup-max-time)  # Time after which no further warmup loop is started, passed to the benchmark binary
+            WARMUP_MAX_TIME="$2"
+            shift
+            ;;
+        --reuse-long-warmup)  # Use a warmup loop taking at least --max-time as the only sample
+            REUSE_LONG_WARMUP="$2"
+            shift
+            ;;
+        --max-consecutive-failures)  # Give up on a matrix after this many crashes with no progress
+            MAX_CONSECUTIVE_FAILURES="$2"
+            shift
+            ;;
+        -h|--help)  # Display help
+            echo "Usage: $0 [options]"
+            echo "Options:"
+            echo "  -b, --benchmark BINARY        Binary to benchmark"
+            echo "  -i, --input-dir DIR           Input directory. Default: ./mtx_matrices"
+            echo "  -l, --log-file FILE           Log file. Default: sparse-matrix-benchmark.log"
+            echo "  -g, --progress-dir DIR        Directory for the per-matrix progress files. Default: progress"
+            echo "  -c, --continue yes/no         Continue from a previous run. Default: no"
+            echo "  -s, --size-limit SIZE         Size limit for matrices, -1 for no limit. Default: -1"
+            echo "  -n, --count-limit NUM         Maximum number of matrices to benchmark, -1 for no limit. Default: -1"
+            echo "  -d, --debug  yes/no           Debug mode. Default: no"
+            echo "  -o, --openmp-enabled yes/no   Enable OpenMP. Default: yes"
+            echo "  -t, --openmp-max-threads MAX  Maximum number of OpenMP threads. Default: auto"
+            echo "  -m, --mpi-enabled yes/no      Run the benchmark via mpirun. Default: no"
+            echo "  -p, --mpi-processes NUM       Number of MPI processes (mpirun -np). Default: 1"
+            echo "  -e, --mpi-extra-args STRING   Extra mpirun arguments, inserted before -np. Default: (none)"
+            echo "  -r, --precision VALUE         Precision passed to the benchmark binary. Default: float"
+            echo "      --loops NUM               Maximal number of benchmark loops. Default: (binary's own default)"
+            echo "      --max-time SECONDS        Time after which no further benchmark loop is started, 0 for no limit;"
+            echo "                                long computations are measured fewer times, at least once."
+            echo "                                Default: (binary's own default)"
+            echo "      --warmup-loops NUM        Maximal number of warmup loops, 0 to disable. Default: (binary's own default)"
+            echo "      --warmup-max-time SECONDS Time after which no further warmup loop is started, 0 for no limit."
+            echo "                                Default: (binary's own default)"
+            echo "      --reuse-long-warmup true/false"
+            echo "                                Use a warmup loop taking at least --max-time as the only sample."
+            echo "                                Default: (binary's own default)"
+            echo "      --max-consecutive-failures NUM"
+            echo "                                Give up on (and skip) a matrix after this many consecutive"
+            echo "                                crashes with no progress recorded for it. Default: 3"
+            echo "  -h, --help                    Display help"
+            exit 0
+            ;;
+        *)  # Handle unknown options
+            echo "Unknown option: $1"
+            exit 1
+            ;;
+    esac
+    shift  # Move to the next key or value
+done
+
+
+if [[ ! -d "$matrices_base_path" ]]; then
+    echo "The path '$matrices_base_path' does not exist." >&2
+    exit 1
+fi
+
+if [[ ! -d "$(dirname "$log_file")" ]]; then
+    mkdir -p "$(dirname "$log_file")"
+fi
+
+if [[ -f "$log_file" ]] && [[ "$continue_benchmark" != "yes" ]]; then
+    echo "WARNING: deleting an existing log file $log_file."
+    rm -f "$log_file"
+fi
+
+if [[ -f "input-files" ]] && [[ "$continue_benchmark" != "yes" ]]; then
+    echo "WARNING: deleting an existing list of input files."
+    rm -f input-files
+fi
+
+if [[ ! -f "input-files" ]]; then
+   echo "Creating list of input files..."
+   touch input-files
+   for matrix in "$matrices_base_path"/**/*.mtx; do
+      file_size=$(stat --format="%s" "$matrix")
+      if [ $SIZE_LIMIT -eq -1 ] || [ $file_size -lt $SIZE_LIMIT ]; then
+         echo "$matrix"
+         echo "$matrix" >> input-files
+      else
+         echo "Matrix $matrix is too large - SKIPPING."
+      fi
+   done
+   if [[ $COUNT_LIMIT -gt -1 ]]; then
+      head -n $COUNT_LIMIT input-files > input-files-tmp
+      mv input-files-tmp input-files
+   fi
+fi
+
+# set the default number of OpenMP threads to the number of CPU cores
+if [[ "$MAX_OMP_THREADS" == "auto" ]]; then
+    if [[ $(command -v lscpu) ]]; then
+        # get the number of physical cores present on the system, even with multiple NUMA nodes
+        # see https://unix.stackexchange.com/a/279354
+        MAX_OMP_THREADS=$(lscpu --all --parse=CORE,SOCKET | grep -Ev "^#" | sort -u | wc -l)
+    elif [[ $(command -v sysctl) && $OSTYPE == 'darwin'* ]]; then
+        # get the number of physical cores present on the system for MacOS
+        MAX_OMP_THREADS=$(sysctl -n hw.ncpu)
+    fi
+fi
+
+# set parameters for the benchmark
+COMMAND=()
+if [[ "$MPI_ENABLED" == "yes" ]]; then
+    COMMAND+=(mpirun)
+    # mpirun binds each process to one core by default (Open MPI does so for
+    # up to two processes), so all OpenMP threads of the process would share
+    # this core
+    if [[ "$OMP_ENABLED" == "yes" && "$MPI_EXTRA_ARGS" != *bind-to* ]]; then
+        COMMAND+=(--bind-to none)
+    fi
+    if [[ -n "$MPI_EXTRA_ARGS" ]]; then
+        COMMAND+=($MPI_EXTRA_ARGS)
+    fi
+    COMMAND+=(-np "$MPI_PROCESSES")
+fi
+COMMAND+=("$BENCHMARK" --precision "$PRECISION" --log-file "$log_file" --output-mode append --verbose 1)
+COMMAND+=(--matrix-list input-files --matrix-list-base-path "$matrices_base_path" --progress-dir "$progress_dir")
+
+if [[ -n "$LOOPS" ]]; then
+    COMMAND+=(--loops "$LOOPS")
+fi
+if [[ -n "$MAX_TIME" ]]; then
+    COMMAND+=(--max-time "$MAX_TIME")
+fi
+if [[ -n "$WARMUP_LOOPS" ]]; then
+    COMMAND+=(--warmup-loops "$WARMUP_LOOPS")
+fi
+if [[ -n "$WARMUP_MAX_TIME" ]]; then
+    COMMAND+=(--warmup-max-time "$WARMUP_MAX_TIME")
+fi
+if [[ -n "$REUSE_LONG_WARMUP" ]]; then
+    COMMAND+=(--reuse-long-warmup "$REUSE_LONG_WARMUP")
+fi
+
+if [[ "$OMP_ENABLED" == "yes" ]]; then
+    COMMAND+=(--openmp-enabled yes)
+    if [[ $MAX_OMP_THREADS != "" ]]; then
+        COMMAND+=(--openmp-max-threads $MAX_OMP_THREADS)
+    fi
+else
+    COMMAND+=(--openmp-enabled no)
+fi
+
+# The binary now manages the whole list itself in one process (see --matrix-list above), removing
+# each matrix only once it is fully benchmarked - a crash (e.g. a segfault) leaves it at the head
+# of the list, so simply re-running the same command resumes from there, continuing mid-matrix via
+# its progress file. This loop only matters when that happens: the common case is a single pass
+# through it. consecutive_failures guards against spinning forever on one matrix that crashes
+# before ever recording any progress for itself.
+consecutive_failures=0
+while [[ -s input-files ]]; do
+   before_count=$(wc -l < input-files)
+   head_matrix=$(head -n 1 input-files)
+
+   echo "${COMMAND[@]}"
+   if [[ "$DEBUG" == "yes" ]]; then
+      gdb --args "${COMMAND[@]}"
+      status=$?
+   else
+      "${COMMAND[@]}"
+      status=$?
+   fi
+   if [ $status -eq 139 ]; then
+      echo "Caught segfault, but continuing script execution."
+      touch segfaults.log
+      echo "${COMMAND[@]}" >> segfaults.log
+   fi
+   rm -f core*
+
+   if [[ ! -s input-files ]]; then
+      break
+   fi
+   after_count=$(wc -l < input-files)
+   after_head=$(head -n 1 input-files)
+   if [[ "$after_count" -lt "$before_count" || "$after_head" != "$head_matrix" ]]; then
+      # at least one matrix got fully processed since the last attempt
+      consecutive_failures=0
+   else
+      consecutive_failures=$((consecutive_failures + 1))
+      echo "No progress on matrix $head_matrix after exit status $status (consecutive failures: $consecutive_failures)"
+      if [[ $consecutive_failures -ge $MAX_CONSECUTIVE_FAILURES ]]; then
+         echo "WARNING: giving up on $head_matrix after $consecutive_failures consecutive failures with no progress - skipping it."
+         touch failed-matrices.txt
+         echo "$head_matrix" >> failed-matrices.txt
+         sed -i.bak '1d' input-files && rm -f input-files.bak
+         consecutive_failures=0
+      fi
+   fi
+done
+rm -f input-files

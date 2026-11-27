@@ -1,0 +1,44 @@
+#!/bin/bash
+
+# exit whenever a command fails
+set -e
+
+# enable recursive globbing
+shopt -s globstar
+
+# unzip (keep the original archive)
+for f in math.nist.gov/**/*.mtx.gz; do
+   gunzip --keep --force "$f"
+done
+for f in suitesparse-collection-website.herokuapp.com/**/*.tar.gz; do
+   pushd $(dirname "$f") >/dev/null
+   tar -xaf $(basename "$f")
+   rm -f **/*_b.mtx  # these are usualy in array format
+   popd >/dev/null
+done
+
+# Alternative if gunzip does not support keep
+# unzip (keep the original archive)
+#for f in math.nist.gov/**/*.mtx.gz; do
+#   if [ -f "$f-unzipped" ]; then
+#        echo "Skipping unzipped file $f ..."
+#   else
+#      echo "Unzipping $f ..."
+#      cp "$f" "$f.bak"
+#      gunzip --force "$f"
+#      mv "$f.bak" "$f"
+#      touch "$f-unzipped"
+#   fi
+#done
+#for f in suitesparse-collection-website.herokuapp.com/**/*.tar.gz; do
+#   if [ -f "$f-untared" ]; then
+#        echo "Skipping untarred file $f..."
+#   else
+#      pushd $(dirname "$f") >/dev/null
+#      echo "Untarring $f ..."
+#      tar -xaf $(basename "$f")
+#      rm -f **/*_b.mtx  # these are usualy in array format
+#      popd >/dev/null
+#      touch "$f-untared"
+#   fi
+#done
