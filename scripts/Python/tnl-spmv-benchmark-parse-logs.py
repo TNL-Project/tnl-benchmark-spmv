@@ -6,8 +6,10 @@ Parse the log files from tnl-benchmark-spmv, convert them to one big table
 compute all speed-ups. The results for the original and the transposed
 matrices are processed separately, each giving one table. Both tables are
 stored in a binary (pickle) file, which tnl-spmv-benchmark-analysis-tables.py
-and the scripts in poster-sc2026/ then load. The tables can be also
-exported to HTML or Excel (see --export).
+and the scripts in poster-sc2026/ then load. The tables can be also exported
+to HTML or Excel (see --export) and in the flat form, one row per matrix,
+orientation, format, device and launch config, to Parquet or CSV (see
+--flat-export).
 """
 
 import pandas as pd
@@ -22,7 +24,7 @@ import TableChecks
 from MatrixStatColumns import MATRIX_STAT_COLUMNS
 from VendorLibraries import vendor_format
 from LegacyCounterparts import legacy_counterparts
-from BenchmarkTable import save_tables, export_tables, print_formats_and_launch_configs
+from BenchmarkTable import save_tables, export_tables, export_flat_tables, print_formats_and_launch_configs
 
 bw_units = "TB/s"
 
@@ -115,6 +117,15 @@ def get_arg_parser():
         metavar="FILE",
         help="Export the complete tables also to the given files, the format is given by "
         "the extension: .html or .xlsx",
+    )
+    parser.add_argument(
+        "--flat-export",
+        nargs="+",
+        default=[],
+        metavar="FILE",
+        help="Export the complete tables also in the flat form, one row per matrix, orientation, "
+        "format, device and launch config (see BenchmarkTable.get_flat_df()), to the given files, "
+        "the format is given by the extension: .parquet or .csv",
     )
     return parser
 
@@ -822,6 +833,8 @@ def main():
     save_tables(args.output, tables)
     for file_name in args.export:
         export_tables(file_name, tables)
+    for file_name in args.flat_export:
+        export_flat_tables(file_name, tables)
     if not report_checks(args.checks_report, checks):
         print("ERROR: The integrity checks of the tables failed.", file=sys.stderr)
         sys.exit(1)

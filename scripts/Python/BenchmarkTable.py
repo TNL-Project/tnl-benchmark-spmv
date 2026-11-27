@@ -1,7 +1,8 @@
 """
 Binary (pickle) storage of the complete benchmark tables for the original and
 the transposed matrices, including all computed speed-ups, together with the
-metadata needed to analyze them, and their export to HTML or Excel.
+metadata needed to analyze them, their export to HTML or Excel and their
+flat export to Parquet or CSV.
 
 Written by tnl-spmv-benchmark-parse-logs.py and read by
 tnl-spmv-benchmark-analysis-tables.py and the scripts in poster-sc2026/.
@@ -98,6 +99,69 @@ def export_tables(file_name, tables):
     else:
         raise ValueError(f"Unknown export format of {file_name}, use .html or .xlsx.")
     print(f"Complete tables exported to {file_name}")
+
+
+def get_flat_df(df, transposed):
+    """
+    Convert the complete table to the flat (long) form: one row per matrix,
+    format, device and launch config, with the columns
+
+      - "matrix name", "transposed", "format", "device", "launch config",
+      - the metrics: "time median" (in seconds), "bandwidth" (in TB/s, as in
+        the complete table), "diff.max", ...; the speed-ups
+        get the name "speed-up vs <reference>", e.g. "speed-up vs cusparse",
+        where the reference is given, otherwise just "speed-up" (the
+        multi-threaded CPU runs compared to one thread),
+      - the properties of the matrix ("rows", "nonzeros", "symmetric", the
+        statistics of MatrixStatColumns.py, ...), repeated on all rows of the
+        matrix.
+
+    The combinations without any value (e.g. a format which was not run on
+    some device) are left out.
+    """
+    name_column = ("Matrix name", "", "", "", "")
+    matrix_columns = [column for column in df.columns if column[1] == "" and column != name_column]
+    result_columns = [column for column in df.columns if column[1] != ""]
+
+    matrices = df[matrix_columns].copy()
+    matrices.columns = [column[0] for column in matrix_columns]
+    matrices.insert(0, "transposed", transposed)
+    matrices.insert(0, "matrix name", df[name_column].to_numpy())
+
+    results = df[result_columns].apply(pd.to_numeric, errors="coerce")
+    results.columns = pd.MultiIndex.from_tuples(
+        [
+            (format, device, launch_config, f"{metric} vs {reference}" if reference else metric)
+            for format, device, launch_config, metric, reference in result_columns
+        ],
+        names=["format", "device", "launch config", None],
+    )
+    results.index = df.index
+    flat = results.stack(level=["format", "device", "launch config"], future_stack=True)
+    flat = flat.dropna(axis="index", how="all").reset_index(level=["format", "device", "launch config"])
+    flat = matrices.join(flat, how="inner")
+    return flat.reset_index(drop=True)
+
+
+def export_flat_tables(file_name, tables):
+    """
+    Export the complete tables for the original and the transposed matrices in
+    the flat form (see get_flat_df()) to one Parquet or CSV file, depending on
+    the file extension
+    """
+    flat = pd.concat(
+        [get_flat_df(tables[name]["df"], name == "transposed") for name in table_names if tables.get(name)],
+        ignore_index=True,
+    )
+    extension = os.path.splitext(file_name)[1].lower()
+    print(f"Exporting the flat table to {file_name} ...")
+    if extension == ".parquet":
+        flat.to_parquet(file_name, index=False)
+    elif extension == ".csv":
+        flat.to_csv(file_name, index=False)
+    else:
+        raise ValueError(f"Unknown flat export format of {file_name}, use .parquet or .csv.")
+    print(f"Flat table with {len(flat.index)} rows exported to {file_name}")
 
 
 def print_formats_and_launch_configs(formats, launch_configs, accelerator_devices):

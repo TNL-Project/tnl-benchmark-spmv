@@ -174,11 +174,12 @@ its beginning as appropriate.
 
 The results are processed by the Python scripts in
 [scripts/Python](./scripts/Python). They need pandas, NumPy, Matplotlib,
-openpyxl (for the Excel export) and the `TNL` Python package
-(`src/Python` in the TNL repository, installed together with TNL). The
-main step is the first one, which builds the complete table with the
-speed-ups. Further analyses are meant to be done by scripts working on
-this table.
+openpyxl (for the Excel export), pyarrow (for the Parquet export) and the
+`TNL` Python package (`src/Python` in the TNL repository, installed
+together with TNL). The main step is the first one, which builds the
+complete table with the speed-ups. Further analyses are meant to be done
+by scripts working on this table, preferably on its flat form (see
+`--flat-export` below).
 
 1. [tnl-spmv-benchmark-parse-logs.py](./scripts/Python/tnl-spmv-benchmark-parse-logs.py)
    parses the log files and builds one table for the original and one for
@@ -194,6 +195,8 @@ this table.
 
    - `--export <file.html|file.xlsx>` – export the complete tables also to
      HTML or Excel (one sheet per table)
+   - `--flat-export <file.parquet|file.csv>` – export both tables also in
+     the flat (long) form to one Parquet or CSV file, see below
    - `--duplicates first|last|min|max` – which record to keep when the same
      benchmark appears more than once in the input (default: `first`). The
      CPU results should come from one machine only, the script warns if
@@ -217,6 +220,22 @@ this table.
    matrices with only a few results). The script prints the errors and the
    warnings and returns a nonzero exit code if a check fails, the table is
    stored anyway.
+
+   The flat table has one row per matrix, orientation, format, device and
+   launch configuration for which there is a result, with the columns
+
+   - `matrix name`, `transposed`, `format`, `device` (`CPU`, `CUDA`, `HIP`),
+     `launch config`,
+   - the metrics: `time median` (in seconds), `bandwidth` (in TB/s),
+     `diff.max` (the difference from the CSR result on the CPU), the
+     speed-ups `speed-up vs <reference>` (e.g. `speed-up vs cusparse`,
+     `speed-up vs CSR CPU`, `speed-up vs non-binary`) and, for the
+     multi-threaded CPU runs, `speed-up` and `eff.` compared to one thread,
+   - the properties of the matrix (`rows`, `columns`, `nonzeros`,
+     `symmetric`, `structurally symmetric` and the statistics written by
+     `tnl-benchmark-spmv-matrix-info`), repeated on all rows of the matrix.
+
+   It can be loaded by `pandas.read_parquet("spmv-table.parquet")`.
 
 2. [tnl-spmv-benchmark-analysis-tables.py](./scripts/Python/tnl-spmv-benchmark-analysis-tables.py)
    loads the stored table and writes the tables analyzing the results (see
