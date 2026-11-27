@@ -6,6 +6,8 @@ Standard: c++17
 
 # max line length
 ColumnLimit: 128
+LineEnding: LF
+InsertNewlineAtEOF: true
 
 IndentWidth: 3
 ContinuationIndentWidth: 3
@@ -21,22 +23,27 @@ IndentWrappedFunctionNames: false
 NamespaceIndentation: None
 FixNamespaceComments: true
 CompactNamespaces: false
-#ShortnamespaceLines: 10  # Clang 14
+ShortNamespaceLines: 10
 
 EmptyLineAfterAccessModifier: Never
 EmptyLineBeforeAccessModifier: LogicalBlock
 KeepEmptyLinesAtTheStartOfBlocks: false
 MaxEmptyLinesToKeep: 1
+SeparateDefinitionBlocks: Leave  # 'Always' breaks formatting of __cuda_callable__ etc.
 
-SpacesInParentheses: true
+SpacesInParens: Custom
+SpacesInParensOptions:
+  ExceptDoubleParentheses: false
+  InConditionalStatements: true
+  InCStyleCasts: false
+  InEmptyParentheses: false
+  Other: true
 SpacesInSquareBrackets: true
 SpacesInAngles: Always
-SpacesInConditionalStatement: true
 SpacesInContainerLiterals: true
-SpacesInCStyleCastParentheses: false
-
 SpaceAfterCStyleCast: true
 SpaceAfterLogicalNot: true
+SpaceAfterTemplateKeyword: false
 SpaceBeforeCtorInitializerColon: true
 SpaceBeforeInheritanceColon: true
 BitFieldColonSpacing: Both
@@ -47,19 +54,15 @@ SpaceBeforeAssignmentOperators: true
 SpaceBeforeCaseColon: false
 SpaceBeforeCpp11BracedList: false
 SpaceInEmptyBlock: false
-SpaceInEmptyParentheses: false
-
 SpacesInLineCommentPrefix:
   Minimum: 0
 SpacesBeforeTrailingComments: 2
 Cpp11BracedListStyle: false
 
-#PackConstructorInitializers: Never  # Clang 14
-AllowAllConstructorInitializersOnNextLine: false  # deprecated
-ConstructorInitializerAllOnOneLineOrOnePerLine: false  # deprecated
+PackConstructorInitializers: Never
 ConstructorInitializerIndentWidth: 0
 
-AlwaysBreakAfterReturnType: All
+BreakAfterReturnType: All
 AlwaysBreakBeforeMultilineStrings: false
 BreakBeforeBraces: Custom
 BraceWrapping:
@@ -80,16 +83,13 @@ BraceWrapping:
   SplitEmptyFunction: false
   SplitEmptyRecord: false
   SplitEmptyNamespace: true
-
 BreakBeforeBinaryOperators: NonAssignment
 BreakBeforeTernaryOperators: true
 BreakInheritanceList: BeforeColon
 BreakConstructorInitializers: BeforeColon
-#BreakBeforeConceptDeclarations: true
-#BreakStringLiterals: true
-
-AlwaysBreakTemplateDeclarations: Yes
-SpaceAfterTemplateKeyword: false
+BreakTemplateDeclarations: Yes
+BreakBeforeConceptDeclarations: Always
+BreakAfterAttributes: Never
 
 AlignAfterOpenBracket: Align
 AlignArrayOfStructures: None
@@ -99,18 +99,49 @@ AlignConsecutiveBitFields: None
 AlignConsecutiveDeclarations: None
 AlignEscapedNewlines: Left
 AlignOperands:   AlignAfterOperator
-AlignTrailingComments: true
-
+AlignTrailingComments:
+  Kind: Always
+  OverEmptyLines: 0
 DerivePointerAlignment: false
 PointerAlignment: Left
 ReferenceAlignment: Pointer
 
+# this is needed so that clang-format does not treat these macros as function calls and formats the arguments accordingly
+# (notably, it must not remove parentheses in ASSERT_TRUE((foo<x,y>(0,1))) etc. because then the comma would become
+# a separator of the macro arguments rather than template arguments)
+Macros:
+  - ASSERT_THAT(x)=abc<<x
+  - ASSERT_TRUE(x)=abc<<x
+  - ASSERT_FALSE(x)=abc<<x
+  - ASSERT_EQ(x,y)=abc<<(x==y)
+  - ASSERT_NE(x,y)=abc<<(x!=y)
+  - ASSERT_LT(x,y)=abc<<(x<y)
+  - ASSERT_LE(x,y)=abc<<(x<=y)
+  - ASSERT_GT(x,y)=abc<<(x>y)
+  - ASSERT_GE(x,y)=abc<<(x>=y)
+  - EXPECT_THAT(x)=abc<<x
+  - EXPECT_TRUE(x)=abc<<x
+  - EXPECT_FALSE(x)=abc<<x
+  - EXPECT_EQ(x,y)=abc<<(x==y)
+  - EXPECT_NE(x,y)=abc<<(x!=y)
+  - EXPECT_LT(x,y)=abc<<(x<y)
+  - EXPECT_LE(x,y)=abc<<(x<=y)
+  - EXPECT_GT(x,y)=abc<<(x>y)
+  - EXPECT_GE(x,y)=abc<<(x>=y)
 # statement macros are typically formatted on their own lines
 StatementMacros:
   - __global__
   - __host__
   - __device__
   - __cuda_callable__
+# Note: forcing qualifier alignment does not work with __cuda_callable__ etc. (no way to force them to the left)
+#QualifierAlignment: Custom
+#QualifierOrder:
+#  - static
+#  - inline
+#  - constexpr
+#  - const
+#  - type
 
 AllowAllArgumentsOnNextLine: true
 AllowAllParametersOfDeclarationOnNextLine: false
@@ -159,6 +190,10 @@ SortIncludes: Never
 
 # NOTE: disabling this option breaks indentation of comments, see https://github.com/llvm/llvm-project/issues/53425
 ReflowComments:  true
+
+InsertTrailingCommas: Wrapped
+RemoveParentheses: ReturnStatement
+RemoveSemicolon: true
 
 ...
 # vim: ft=yaml

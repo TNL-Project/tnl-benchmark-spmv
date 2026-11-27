@@ -1,5 +1,7 @@
 # build directory
 /build
+/build-cuda
+/build-hip
 
 # VSCode cache
 /.cache
@@ -8,6 +10,9 @@
 *.log
 *.json
 *.html
+
+# Python compiled byte code
+*.pyc
 
 # directory (or symlink to directory) with sparse matrices
 mtx_matrices
