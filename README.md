@@ -112,7 +112,7 @@ Basic command line options (see `--help` for all of them):
 | `--with-all-cpu-tests` | on the CPU, benchmark all formats, not only CSR, Binary and Symmetric |
 | `--cpu-threads-sweep` | benchmark also the other formats than CSR on the CPU with 1, 2, 4, … threads |
 | `--openmp-enabled`, `--openmp-max-threads` | OpenMP settings for the CPU |
-| `--loops`, `--min-time`, `--warmup-loops`, `--warmup-min-time` | number of repetitions and warm-up of every measurement |
+| `--loops`, `--max-time`, `--warmup-loops`, `--warmup-max-time`, `--reuse-long-warmup` | maximal number of repetitions and warm-up iterations of every measurement and their time limits, see the [common benchmark options of TNL](https://gitlab.com/tnl-project/tnl/-/blob/main/src/Benchmarks/README.md#number-of-iterations) |
 
 For example:
 
