@@ -4,7 +4,6 @@
 
 #include <stdexcept>
 
-
 namespace TNL {
 /////
 // Currently CSR5 for CUDA cannot be build because of conflict of atomicAdd for `double` type:
@@ -14,15 +13,15 @@ namespace TNL {
 namespace CSR5Benchmark {
 
 #ifdef HAVE_CSR5
-#include <CSR5_cuda/anonymouslib_cuda.h>
+   #include <CSR5_cuda/anonymouslib_cuda.h>
 #endif
 
 #ifdef HAVE_CSR5
-template< typename CsrMatrix,
-          typename Real = typename CsrMatrix::RealType >
+template< typename CsrMatrix, typename Real = typename CsrMatrix::RealType >
 struct CSR5SpMVCaller
 {
-   static_assert( std::is_same< typename CsrMatrix::DeviceType, TNL::Devices::Cuda >::value, "Only CUDA device is allowed for CSR matrix for CSR5 benchmark." );
+   static_assert( std::is_same< typename CsrMatrix::DeviceType, TNL::Devices::Cuda >::value,
+                  "Only CUDA device is allowed for CSR matrix for CSR5 benchmark." );
    using RealType = typename CsrMatrix::RealType;
    using DeviceType = TNL::Devices::Cuda;
    using IndexType = typename CsrMatrix::IndexType;
@@ -30,15 +29,18 @@ struct CSR5SpMVCaller
    using VectorView = typename VectorType::ViewType;
    using CSR5Type = anonymouslibHandle< IndexType, typename std::make_unsigned< IndexType >::type, RealType >;
 
-   static void spmv( CSR5Type& csr5, VectorView& outVector ) {
-      csr5.spmv( ( RealType ) 1.0, outVector.getData() );
-   };
+   static void
+   spmv( CSR5Type& csr5, VectorView& outVector )
+   {
+      csr5.spmv( (RealType) 1.0, outVector.getData() );
+   }
 };
 
 template< typename CsrMatrix >
 struct CSR5SpMVCaller< CsrMatrix, float >
 {
-   static_assert( std::is_same< typename CsrMatrix::DeviceType, TNL::Devices::Cuda >::value, "Only CUDA device is allowed for CSR matrix for CSR5 benchmark." );
+   static_assert( std::is_same< typename CsrMatrix::DeviceType, TNL::Devices::Cuda >::value,
+                  "Only CUDA device is allowed for CSR matrix for CSR5 benchmark." );
    using RealType = typename CsrMatrix::RealType;
    using DeviceType = TNL::Devices::Cuda;
    using IndexType = typename CsrMatrix::IndexType;
@@ -46,18 +48,19 @@ struct CSR5SpMVCaller< CsrMatrix, float >
    using VectorView = typename VectorType::ViewType;
    using CSR5Type = anonymouslibHandle< IndexType, typename std::make_unsigned< IndexType >::type, RealType >;
 
-   static void spmv( CSR5Type& csr5, VectorView& outVector )
+   static void
+   spmv( CSR5Type& csr5, VectorView& outVector )
    {
       //csr5.spmv( ( RealType ) 1.0, outVector.getData() );
-   };
+   }
 };
 #endif
-
 
 template< typename CsrMatrix >
 struct CSR5Benchmark
 {
-   static_assert( std::is_same< typename CsrMatrix::DeviceType, TNL::Devices::Cuda >::value, "Only CUDA device is allowed for CSR matrix for CSR5 benchmark." );
+   static_assert( std::is_same< typename CsrMatrix::DeviceType, TNL::Devices::Cuda >::value,
+                  "Only CUDA device is allowed for CSR matrix for CSR5 benchmark." );
    using RealType = typename CsrMatrix::RealType;
    using DeviceType = TNL::Devices::Cuda;
    using IndexType = typename CsrMatrix::IndexType;
@@ -70,9 +73,10 @@ struct CSR5Benchmark
    CSR5Benchmark( CsrMatrix& matrix, VectorType& inVector, VectorType& outVector )
    :
 #ifdef HAVE_CSR5
-   csr5( matrix.getRows(), matrix.getColumns() ),
+     csr5( matrix.getRows(), matrix.getColumns() ),
 #endif
-     inVectorView( inVector ), outVectorView( outVector )
+     inVectorView( inVector ),
+     outVectorView( outVector )
    {
 #ifdef HAVE_CSR5
       // err = A.inputCSR(nnzA, d_csrRowPtrA, d_csrColIdxA, d_csrValA);
@@ -86,7 +90,7 @@ struct CSR5Benchmark
       //cout << "setX err = " << err << endl;
       this->csr5.setX( inVector.getData() );
 
-      this->csr5.setSigma(ANONYMOUSLIB_AUTO_TUNED_SIGMA);
+      this->csr5.setSigma( ANONYMOUSLIB_AUTO_TUNED_SIGMA );
 
       // warmup device
       this->csr5.warmup();
@@ -96,14 +100,16 @@ struct CSR5Benchmark
 #endif
    }
 
-   void vectorProduct()
+   void
+   vectorProduct()
    {
 #ifdef HAVE_CSR5
       CSR5SpMVCaller< CsrMatrix >::spmv( this->csr5, outVectorView );
 #endif
    }
 
-   const VectorView& getCudaOutVector()
+   const VectorView&
+   getCudaOutVector()
    {
       return this->outVectorView;
    }
@@ -115,12 +121,12 @@ struct CSR5Benchmark
 #endif
    }
 
-   protected:
+protected:
 #ifdef HAVE_CSR5
-      CSR5Type csr5;
+   CSR5Type csr5;
 #endif
-      VectorView inVectorView, outVectorView;
+   VectorView inVectorView, outVectorView;
 };
 
-   } // namespace CSR5Benchmark
-} // namespace TNL
+}  // namespace CSR5Benchmark
+}  // namespace TNL

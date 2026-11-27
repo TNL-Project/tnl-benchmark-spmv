@@ -9,20 +9,19 @@
 #include <TNL/Config/parseCommandLine.h>
 
 #include "spmv-legacy.h"
+#include "matrix-list.h"
 
 using namespace TNL::Matrices;
 
 #include <exception>
-#include <ctime> // Used for file naming, so logs don't get overwritten.
-#include <filesystem> // check file existence
 
 using namespace TNL;
 using namespace TNL::Benchmarks;
 
 template< typename Real >
 void
-runSpMVBenchmarks( TNL::Benchmarks::SpMV::BenchmarkType & benchmark,
-                   const String & inputFileName,
+runSpMVBenchmarks( Benchmark& benchmark,
+                   const String& inputFileName,
                    const Config::ParameterContainer& parameters,
                    bool verboseMR = false )
 {
@@ -35,35 +34,43 @@ runSpMVBenchmarks( TNL::Benchmarks::SpMV::BenchmarkType & benchmark,
    }
 }
 
-// Get current date time to have different log files names and avoid overwriting.
-std::string getCurrDateTime()
-{
-   time_t rawtime;
-   struct tm * timeinfo;
-   char buffer[ 80 ];
-   time( &rawtime );
-   timeinfo = localtime( &rawtime );
-   strftime( buffer, sizeof( buffer ), "%Y-%m-%d--%H:%M:%S", timeinfo );
-   std::string curr_date_time( buffer );
-   return curr_date_time;
-}
-
 void
-setupConfig( Config::ConfigDescription & config )
+setupConfig( Config::ConfigDescription& config )
 {
-   config.addDelimiter( "Benchmark settings:" );
-   config.addRequiredEntry< String >( "input-file", "Input file name." );
-   config.addEntry< bool >( "with-all-cpu-tests", "All matrix formats are tested on both CPU and GPU. ", false );
-   config.addEntry< String >( "log-file", "Log file name.", "tnl-benchmark-spmv-legacy::" + getCurrDateTime() + ".log");
-   config.addEntry< String >( "output-mode", "Mode for opening the log file.", "append" );
-   config.addEntryEnum( "append" );
-   config.addEntryEnum( "overwrite" );
+   Benchmark::configSetup( config );
+
+   config.addDelimiter( "SpMV legacy benchmark settings:" );
+   config.addEntry< String >(
+      "input-file", "Input file name. Required, unless --matrix-list is given instead.", "" );
+   config.addEntry< String >( "matrix-name", "Matrix name used in the log. Defaults to the input file name.", "" );
+   config.addEntry< String >(
+      "matrix-list",
+      "File listing the remaining matrices to benchmark, one path per line (the format "
+      "scripts/run-tnl-benchmark-spmv's directory scan writes). When given, takes priority over "
+      "--input-file: every matrix in the list is benchmarked in this single process, and removed "
+      "from the list only once it is fully done, so a crash leaves it at the head of the list for "
+      "the next run to resume (together with --progress-dir).",
+      "" );
+   config.addEntry< String >(
+      "matrix-list-base-path",
+      "Base path stripped from each --matrix-list entry to derive its matrix name.",
+      "./mtx_matrices" );
+   config.addEntry< String >(
+      "progress-dir",
+      "Directory for the per-matrix progress files, used to resume a matrix that was interrupted "
+      "partway through its sweep of formats/launch configs instead of redoing it from scratch.",
+      "progress" );
+   config.addEntry< bool >( "with-ellpack-formats", "Perform benchmark for Ellpack based matrix formats.", true );
+   config.addEntry< bool >( "with-cpu-tests",
+                            "Benchmark also the CPU. The GPU builds skip it by default, the reference result "
+                            "the other formats are compared with is computed anyway.",
+                            TNL::Benchmarks::SpMV::cpuTestsByDefault );
+   config.addEntry< bool >(
+      "with-all-cpu-tests", "Benchmark all matrix formats on the CPU, not only CSR. Requires with-cpu-tests.", false );
    config.addEntry< String >( "precision", "Precision of the arithmetics.", "double" );
    config.addEntryEnum( "float" );
    config.addEntryEnum( "double" );
    config.addEntryEnum( "all" );
-   config.addEntry< int >( "loops", "Number of iterations for every computation.", 10 );
-   config.addEntry< int >( "verbose", "Verbose mode.", 1 );
    config.addEntry< int >( "verbose-MReader", "Verbose mode for Matrix Reader.", 0 );
 
    config.addDelimiter( "Device settings:" );
@@ -85,44 +92,33 @@ main( int argc, char* argv[] )
    Devices::Host::setup( parameters );
    Devices::Cuda::setup( parameters );
 
-   const String & inputFileName = parameters.getParameter< String >( "input-file" );
-   const String & logFileName = parameters.getParameter< String >( "log-file" );
-   String outputMode = parameters.getParameter< String >( "output-mode" );
-   const String & precision = parameters.getParameter< String >( "precision" );
-   const int loops = parameters.getParameter< int >( "loops" );
-   const int verbose = parameters.getParameter< int >( "verbose" );
-   const int verboseMR = parameters.getParameter< int >( "verbose-MReader" );
+   Benchmark benchmark;
+   benchmark.setup( parameters, argv[ 0 ] );
 
-   // open log file
-   if( inputFileName.empty() ) {
-      std::cerr << "ERROR: Input file name is required." << std::endl;
-      return EXIT_FAILURE;
+   auto processCurrentMatrix = [ & ]()
+   {
+      const String& inputFileName = parameters.getParameter< String >( "input-file" );
+      const String& precision = parameters.getParameter< String >( "precision" );
+      const int verboseMR = parameters.getParameter< int >( "verbose-MReader" );
+      if( precision == "all" || precision == "float" )
+         runSpMVBenchmarks< float >( benchmark, inputFileName, parameters, verboseMR );
+      if( precision == "all" || precision == "double" )
+         runSpMVBenchmarks< double >( benchmark, inputFileName, parameters, verboseMR );
+   };
+
+   const String& matrixListFile = parameters.getParameter< String >( "matrix-list" );
+   if( ! matrixListFile.empty() ) {
+      const std::string basePath = parameters.getParameter< String >( "matrix-list-base-path" ).getString();
+      const std::string progressDir = parameters.getParameter< String >( "progress-dir" ).getString();
+      SpMV::runOverMatrixList( parameters, matrixListFile.getString(), basePath, progressDir, processCurrentMatrix );
    }
-   if( std::filesystem::exists(logFileName.getString()) ) {
-      std::cout << "Log file " << logFileName << " exists and ";
-      if( outputMode == "append" )
-         std::cout << "new logs will be appended." << std::endl;
-      else
-         std::cout << "will be overwritten." << std::endl;
+   else {
+      if( parameters.getParameter< String >( "input-file" ).empty() ) {
+         std::cerr << "ERROR: Input file name is required (or pass --matrix-list)." << std::endl;
+         return EXIT_FAILURE;
+      }
+      processCurrentMatrix();
    }
-
-   auto mode = std::ios::out;
-   if( outputMode == "append" )
-       mode |= std::ios::app;
-   std::ofstream logFile( logFileName, mode );
-
-   // init benchmark and set parameters
-   TNL::Benchmarks::SpMV::BenchmarkType benchmark( logFile, loops, verbose );
-
-   // write global metadata into a separate file
-   std::map< std::string, std::string > metadata = getHardwareMetadata();
-   writeMapAsJson( metadata, logFileName, ".metadata.json" );
-
-   // Initiate setup of benchmarks
-   if( precision == "all" || precision == "float" )
-      runSpMVBenchmarks< float >( benchmark, inputFileName, parameters, verboseMR );
-   if( precision == "all" || precision == "double" )
-      runSpMVBenchmarks< double >( benchmark, inputFileName, parameters, verboseMR );
 
    // Confirm that the benchmark has finished
    std::cout << "\n==> BENCHMARK FINISHED" << std::endl;

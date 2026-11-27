@@ -2,9 +2,10 @@
 
 #include <cstdint>
 
-#include <TNL/Benchmarks/Benchmarks.h>
-#include <TNL/Benchmarks/JsonLogging.h>
+#include <TNL/Benchmarks/Benchmark.h>
 #include "SpmvBenchmarkResult.h"
+#include "CpuBenchmarking.h"
+#include "benchmark-progress.h"
 
 #include "Legacy/MatrixInfo.h"
 #include "Legacy/CSR.h"
@@ -15,57 +16,66 @@
 #include "Legacy/BiEllpack.h"
 #include "Legacy/LegacyMatrixReader.h"
 
-#include <TNL/Algorithms/sort.h>
-
 using namespace TNL::Matrices;
 
 namespace TNL::Benchmarks::SpMV {
 
-using BenchmarkType = TNL::Benchmarks::Benchmark< JsonLogging >;
+using BenchmarkType = TNL::Benchmarks::Benchmark;
 
 /////
 // Legacy formats
 //
 template< typename Real, typename Device, typename Index >
-using SparseMatrixLegacy_CSR_Scalar = Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRScalar >;
+using SparseMatrixLegacy_CSR_Scalar = Benchmarks::SpMV::ReferenceFormats::Legacy::
+   CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRScalar >;
 
 template< typename Real, typename Device, typename Index >
-using SparseMatrixLegacy_CSR_Vector = Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRVector >;
+using SparseMatrixLegacy_CSR_Vector = Benchmarks::SpMV::ReferenceFormats::Legacy::
+   CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRVector >;
 
 template< typename Real, typename Device, typename Index >
-using SparseMatrixLegacy_CSR_Light = Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRLight >;
+using SparseMatrixLegacy_CSR_Light =
+   Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRLight >;
 
 template< typename Real, typename Device, typename Index >
-using SparseMatrixLegacy_CSR_Light2 = Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRLight2 >;
+using SparseMatrixLegacy_CSR_Light2 = Benchmarks::SpMV::ReferenceFormats::Legacy::
+   CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRLight2 >;
 
 template< typename Real, typename Device, typename Index >
-using SparseMatrixLegacy_CSR_Light3 = Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRLight3 >;
+using SparseMatrixLegacy_CSR_Light3 = Benchmarks::SpMV::ReferenceFormats::Legacy::
+   CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRLight3 >;
 
 template< typename Real, typename Device, typename Index >
-using SparseMatrixLegacy_CSR_Light4 = Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRLight4 >;
+using SparseMatrixLegacy_CSR_Light4 = Benchmarks::SpMV::ReferenceFormats::Legacy::
+   CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRLight4 >;
 
 template< typename Real, typename Device, typename Index >
-using SparseMatrixLegacy_CSR_Light5 = Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRLight5 >;
+using SparseMatrixLegacy_CSR_Light5 = Benchmarks::SpMV::ReferenceFormats::Legacy::
+   CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRLight5 >;
 
 template< typename Real, typename Device, typename Index >
-using SparseMatrixLegacy_CSR_Light6 = Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRLight6 >;
+using SparseMatrixLegacy_CSR_Light6 = Benchmarks::SpMV::ReferenceFormats::Legacy::
+   CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRLight6 >;
 
 template< typename Real, typename Device, typename Index >
-using SparseMatrixLegacy_CSR_Adaptive = Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRAdaptive >;
+using SparseMatrixLegacy_CSR_Adaptive = Benchmarks::SpMV::ReferenceFormats::Legacy::
+   CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRAdaptive >;
 
 template< typename Real, typename Device, typename Index >
-using SparseMatrixLegacy_CSR_MultiVector = Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRMultiVector >;
+using SparseMatrixLegacy_CSR_MultiVector = Benchmarks::SpMV::ReferenceFormats::Legacy::
+   CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRMultiVector >;
 
 template< typename Real, typename Device, typename Index >
-using SparseMatrixLegacy_CSR_LightWithoutAtomic = Benchmarks::SpMV::ReferenceFormats::Legacy::CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRLightWithoutAtomic >;
+using SparseMatrixLegacy_CSR_LightWithoutAtomic = Benchmarks::SpMV::ReferenceFormats::Legacy::
+   CSR< Real, Device, Index, Benchmarks::SpMV::ReferenceFormats::Legacy::CSRLightWithoutAtomic >;
 
 template< typename Real, typename Device, typename Index >
 using SlicedEllpackAlias = Benchmarks::SpMV::ReferenceFormats::Legacy::SlicedEllpack< Real, Device, Index >;
 
-template< typename Real,
-          template< typename, typename, typename > class Matrix >
+template< typename Real, template< typename, typename, typename > class Matrix >
 void
 benchmarkSpMVLegacy( BenchmarkType& benchmark,
+                     BenchmarkProgress& progress,
                      const TNL::Containers::Vector< Real, Devices::Host, int >& csrResultVector,
                      const String& inputFileName,
                      const Config::ParameterContainer& parameters,
@@ -75,80 +85,93 @@ benchmarkSpMVLegacy( BenchmarkType& benchmark,
    using CudaMatrix = Matrix< Real, TNL::Devices::Cuda, int >;
    using HostVector = Containers::Vector< Real, Devices::Host, int >;
 
-   bool allCpuTests = parameters.getParameter< bool >( "with-all-cpu-tests" );
-   benchmark.setMetadataElement({ "format", MatrixInfo< HostMatrix >::getFormat() });
+   const bool cpuTests =
+      parameters.getParameter< bool >( "with-cpu-tests" ) && parameters.getParameter< bool >( "with-all-cpu-tests" );
+   const std::string format = MatrixInfo< HostMatrix >::getFormat();
+   benchmark.setMetadataElement( { "format", format } );
+   benchmark.setMetadataElement( { "launch cfg.", "Default" } );
 
    HostMatrix hostMatrix;
    CudaMatrix cudaMatrix;
 
-   try
-   {
+   try {
       SpMV::ReferenceFormats::Legacy::LegacyMatrixReader< HostMatrix >::readMtxFile( inputFileName, hostMatrix, verboseMR );
    }
-   catch(const std::exception& e)
-   {
-      benchmark.addErrorMessage( "Unable to read the matrix:" + String(e.what()) );
+   catch( const std::exception& e ) {
+      benchmark.addErrorMessage( "Unable to read the matrix:" + String( e.what() ) );
       return;
    }
 
    const int nonzeros = hostMatrix.getNonzeroElementsCount();
-   const double datasetSize = (double) nonzeros * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
+   const std::size_t datasetSize = static_cast< std::size_t >( nonzeros ) * ( 2 * sizeof( Real ) + sizeof( int ) );  // in bytes
    benchmark.setDatasetSize( datasetSize );
 
    /////
    // Benchmark SpMV on host
    //
-   if( allCpuTests )
-   {
+   if( cpuTests ) {
       HostVector hostInVector( hostMatrix.getColumns() );
       HostVector hostOutVector( hostMatrix.getRows() );
 
-      auto resetHostVectors = [&]() {
+      auto resetHostVectors = [ & ]()
+      {
          hostInVector = 1.0;
          hostOutVector = 0.0;
       };
 
-      auto spmvHost = [&]() {
+      auto spmvHost = [ & ]()
+      {
          hostMatrix.vectorProduct( hostInVector, hostOutVector );
-
       };
       SpmvBenchmarkResult< Real, Devices::Host, int > hostBenchmarkResults( csrResultVector, hostOutVector );
-      benchmark.time< Devices::Host >( resetHostVectors, "CPU", spmvHost, hostBenchmarkResults );
+      forEachCpuThreadsCount( false,
+                              [ & ]( const std::string& launchConfig )
+                              {
+                                 if( progress.isDone( getType< Real >(), format, "CPU", launchConfig ) )
+                                    return;
+                                 benchmark.setMetadataElement( { "launch cfg.", launchConfig } );
+                                 benchmark.time< Devices::Host >( resetHostVectors, "CPU", spmvHost, hostBenchmarkResults );
+                                 progress.markDone( getType< Real >(), format, "CPU", launchConfig );
+                              } );
    }
 
    /////
    // Benchmark SpMV on CUDA
    //
 #ifdef __CUDACC__
-   try
-   {
+   try {
       cudaMatrix = hostMatrix;
    }
-   catch(const std::exception& e)
-   {
-      benchmark.addErrorMessage( "Unable to copy the matrix on GPU: " + String(e.what()) );
+   catch( const std::exception& e ) {
+      benchmark.addErrorMessage( "Unable to copy the matrix on GPU: " + String( e.what() ) );
       return;
    }
 
    using CudaVector = Containers::Vector< Real, Devices::Cuda, int >;
    CudaVector cudaInVector( hostMatrix.getColumns() ), cudaOutVector( hostMatrix.getRows() );
 
-   auto resetCudaVectors = [&]() {
+   auto resetCudaVectors = [ & ]()
+   {
       cudaInVector = 1.0;
       cudaOutVector = 0.0;
    };
 
-   auto spmvCuda = [&]() {
+   auto spmvCuda = [ & ]()
+   {
       cudaMatrix.vectorProduct( cudaInVector, cudaOutVector );
    };
    SpmvBenchmarkResult< Real, Devices::Cuda, int > cudaBenchmarkResults( csrResultVector, cudaOutVector );
-   benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvCuda, cudaBenchmarkResults );
- #endif
+   if( ! progress.isDone( getType< Real >(), format, "GPU", "Default" ) ) {
+      benchmark.time< Devices::Cuda >( resetCudaVectors, "GPU", spmvCuda, cudaBenchmarkResults );
+      progress.markDone( getType< Real >(), format, "GPU", "Default" );
+   }
+#endif
 }
 
 template< typename Real >
 void
 dispatchLegacy( BenchmarkType& benchmark,
+                BenchmarkProgress& progress,
                 const TNL::Containers::Vector< Real, Devices::Host, int >& hostOutVector,
                 const String& inputFileName,
                 const Config::ParameterContainer& parameters,
@@ -156,30 +179,37 @@ dispatchLegacy( BenchmarkType& benchmark,
 {
    using namespace Benchmarks::SpMV::ReferenceFormats;
    bool withEllpack = parameters.getParameter< bool >( "with-ellpack-formats" );
-   benchmarkSpMVLegacy< Real, SparseMatrixLegacy_CSR_Scalar             >( benchmark, hostOutVector, inputFileName, parameters, verboseMR );
-   benchmarkSpMVLegacy< Real, SparseMatrixLegacy_CSR_Vector             >( benchmark, hostOutVector, inputFileName, parameters, verboseMR );
-   //benchmarkSpMVLegacy< Real, SparseMatrixLegacy_CSR_Light              >( benchmark, hostOutVector, inputFileName, verboseMR );
-   //benchmarkSpMVLegacy< Real, SparseMatrixLegacy_CSR_Light2             >( benchmark, hostOutVector, inputFileName, verboseMR );
-   //benchmarkSpMVLegacy< Real, SparseMatrixLegacy_CSR_Light3             >( benchmark, hostOutVector, inputFileName, verboseMR );
-   //benchmarkSpMVLegacy< Real, SparseMatrixLegacy_CSR_Light4             >( benchmark, hostOutVector, inputFileName, verboseMR );
-   //benchmarkSpMVLegacy< Real, SparseMatrixLegacy_CSR_Light5             >( benchmark, hostOutVector, inputFileName, verboseMR );
-   //benchmarkSpMVLegacy< Real, SparseMatrixLegacy_CSR_Light6             >( benchmark, hostOutVector, inputFileName, verboseMR );
-   benchmarkSpMVLegacy< Real, SparseMatrixLegacy_CSR_Adaptive           >( benchmark, hostOutVector, inputFileName, parameters, verboseMR );
-   benchmarkSpMVLegacy< Real, SparseMatrixLegacy_CSR_MultiVector        >( benchmark, hostOutVector, inputFileName, parameters, verboseMR );
-   benchmarkSpMVLegacy< Real, SparseMatrixLegacy_CSR_LightWithoutAtomic >( benchmark, hostOutVector, inputFileName, parameters, verboseMR );
-   if( withEllpack )
-   {
-      benchmarkSpMVLegacy< Real, Legacy::Ellpack                           >( benchmark, hostOutVector, inputFileName, parameters, verboseMR );
-      benchmarkSpMVLegacy< Real, SlicedEllpackAlias                        >( benchmark, hostOutVector, inputFileName, parameters, verboseMR );
-      benchmarkSpMVLegacy< Real, Legacy::ChunkedEllpack                    >( benchmark, hostOutVector, inputFileName, parameters, verboseMR );
-      benchmarkSpMVLegacy< Real, Legacy::BiEllpack                         >( benchmark, hostOutVector, inputFileName, parameters, verboseMR );
+   benchmarkSpMVLegacy< Real, SparseMatrixLegacy_CSR_Scalar >(
+      benchmark, progress, hostOutVector, inputFileName, parameters, verboseMR );
+   benchmarkSpMVLegacy< Real, SparseMatrixLegacy_CSR_Vector >(
+      benchmark, progress, hostOutVector, inputFileName, parameters, verboseMR );
+   //benchmarkSpMVLegacy< Real, SparseMatrixLegacy_CSR_Light              >( benchmark, hostOutVector, inputFileName, verboseMR
+   //); benchmarkSpMVLegacy< Real, SparseMatrixLegacy_CSR_Light2             >( benchmark, hostOutVector, inputFileName,
+   //verboseMR ); benchmarkSpMVLegacy< Real, SparseMatrixLegacy_CSR_Light3             >( benchmark, hostOutVector,
+   //inputFileName, verboseMR ); benchmarkSpMVLegacy< Real, SparseMatrixLegacy_CSR_Light4             >( benchmark,
+   //hostOutVector, inputFileName, verboseMR ); benchmarkSpMVLegacy< Real, SparseMatrixLegacy_CSR_Light5             >(
+   //benchmark, hostOutVector, inputFileName, verboseMR ); benchmarkSpMVLegacy< Real, SparseMatrixLegacy_CSR_Light6 >(
+   //benchmark, hostOutVector, inputFileName, verboseMR );
+   benchmarkSpMVLegacy< Real, SparseMatrixLegacy_CSR_Adaptive >(
+      benchmark, progress, hostOutVector, inputFileName, parameters, verboseMR );
+   benchmarkSpMVLegacy< Real, SparseMatrixLegacy_CSR_MultiVector >(
+      benchmark, progress, hostOutVector, inputFileName, parameters, verboseMR );
+   benchmarkSpMVLegacy< Real, SparseMatrixLegacy_CSR_LightWithoutAtomic >(
+      benchmark, progress, hostOutVector, inputFileName, parameters, verboseMR );
+   if( withEllpack ) {
+      benchmarkSpMVLegacy< Real, Legacy::Ellpack >( benchmark, progress, hostOutVector, inputFileName, parameters, verboseMR );
+      benchmarkSpMVLegacy< Real, SlicedEllpackAlias >(
+         benchmark, progress, hostOutVector, inputFileName, parameters, verboseMR );
+      benchmarkSpMVLegacy< Real, Legacy::ChunkedEllpack >(
+         benchmark, progress, hostOutVector, inputFileName, parameters, verboseMR );
+      benchmarkSpMVLegacy< Real, Legacy::BiEllpack >(
+         benchmark, progress, hostOutVector, inputFileName, parameters, verboseMR );
       // AdEllpack is broken
       //benchmarkSpMV< Real, Matrices::AdEllpack              >( benchmark, hostOutVector, inputFileName, verboseMR );
    }
 }
 
-template< typename Real = double,
-          typename Index = int >
+template< typename Real = double, typename Index = int >
 void
 benchmarkSpmv( BenchmarkType& benchmark,
                const String& inputFileName,
@@ -197,68 +227,62 @@ benchmarkSpmv( BenchmarkType& benchmark,
    //
    SpMV::ReferenceFormats::Legacy::LegacyMatrixReader< CSRHostMatrix >::readMtxFile( inputFileName, csrHostMatrix, verboseMR );
    const int nonzeros = csrHostMatrix.getNonzeroElementsCount();
-   const double datasetSize = (double) nonzeros * ( 2 * sizeof( Real ) + sizeof( int ) ) / oneGB;
+   const std::size_t datasetSize = static_cast< std::size_t >( nonzeros ) * ( 2 * sizeof( Real ) + sizeof( int ) );  // in bytes
    benchmark.setDatasetSize( datasetSize );
 
-   ////
-   // Nonzero elements per row statistics
-   //
-   TNL::Containers::Vector< int > nonzerosPerRow( csrHostMatrix.getRows() );
-   TNL::Containers::Vector< double > aux;
-   csrHostMatrix.getCompressedRowLengths( nonzerosPerRow );
-   double average = sum( nonzerosPerRow ) / nonzerosPerRow.getSize();
-   aux = nonzerosPerRow - average;
-   double std_dev = lpNorm( aux, 2.0 ) / nonzerosPerRow.getSize();
-   TNL::Algorithms::ascendingSort( nonzerosPerRow );
-   double percentile_25 = nonzerosPerRow[ nonzerosPerRow.getSize() * 0.25 ];
-   double percentile_50 = nonzerosPerRow[ nonzerosPerRow.getSize() * 0.5 ];
-   double percentile_75 = nonzerosPerRow[ nonzerosPerRow.getSize() * 0.75 ];
+   String matrixName = parameters.getParameter< String >( "matrix-name" );
+   if( matrixName.empty() )
+      matrixName = inputFileName;
 
+   const std::string progressDir = parameters.getParameter< String >( "progress-dir" ).getString();
+   BenchmarkProgress progress( progressDir, matrixName, false );
 
    ////
    // Perform benchmark on host with CSR as a reference CPU format
    //
-   benchmark.setMetadataColumns({
-      { "matrix name", inputFileName },
+   // Matrix dimensions and row-length statistics are not logged here anymore - they are written
+   // once per matrix by tnl-benchmark-spmv-matrix-info and joined in by "matrix name" when the logs are parsed,
+   // instead of being repeated on every record here.
+   benchmark.setMetadataColumns( {
+      { "matrix name", matrixName },
       { "precision", getType< Real >() },
-      { "rows", convertToString( csrHostMatrix.getRows() ) },
-      { "columns", convertToString( csrHostMatrix.getColumns() ) },
-      { "nonzeros", convertToString( nonzeros ) },
-      { "nonzeros per row std_dev", convertToString( std_dev ) },
-      { "nonzeros per row percentile 25", convertToString( percentile_25 ) },
-      { "nonzeros per row percentile 50", convertToString( percentile_50 ) },
-      { "nonzeros per row percentile 75", convertToString( percentile_75 ) }
-      // NOTE: 'nonzeros per row average' can be easily calculated with Pandas based on the other metadata
-   });
-   benchmark.setMetadataWidths({
-      { "matrix name", 32 },
-      { "format", 46 },
-      { "threads", 5 },
-   });
+      { "build", getBuildName() },
+   } );
 
    HostVector hostInVector( csrHostMatrix.getColumns() );
    HostVector hostOutVector( csrHostMatrix.getRows() );
 
-   auto resetHostVectors = [&]() {
+   auto resetHostVectors = [ & ]()
+   {
       hostInVector = 1.0;
       hostOutVector = 0.0;
    };
 
-   auto spmvCSRHost = [&]() {
-       csrHostMatrix.vectorProduct( hostInVector, hostOutVector );
+   auto spmvCSRHost = [ & ]()
+   {
+      csrHostMatrix.vectorProduct( hostInVector, hostOutVector );
    };
 
-   SpmvBenchmarkResult< Real, Devices::Host, int > csrBenchmarkResults( hostOutVector, hostOutVector );
-   const int maxThreadsCount = Devices::Host::getMaxThreadsCount();
-   int threads = 1;
-   while( true ) {
-      benchmark.setMetadataElement({ "format", "CSR" });
-      benchmark.setMetadataElement({ "threads", convertToString( threads ).getString() });
-      Devices::Host::setMaxThreadsCount( threads );
-      benchmark.time< Devices::Host >( resetHostVectors, "CPU", spmvCSRHost, csrBenchmarkResults );
-      if( threads == maxThreadsCount )
-         break;
-      threads = min( 2 * threads, maxThreadsCount );
+   // The result other formats are compared with is established once, unconditionally, as a
+   // separate copy - decoupled from the timed/logged sweep below, so that skipping an
+   // already-done combination on resume never leaves it uninitialized.
+   resetHostVectors();
+   spmvCSRHost();
+   const HostVector csrResultVector( hostOutVector );
+
+   if( parameters.getParameter< bool >( "with-cpu-tests" ) ) {
+      SpmvBenchmarkResult< Real, Devices::Host, int > csrBenchmarkResults( csrResultVector, hostOutVector );
+      const std::string format = "CSR Legacy";
+      benchmark.setMetadataElement( { "format", format } );
+      forEachCpuThreadsCount( true,
+                              [ & ]( const std::string& launchConfig )
+                              {
+                                 if( progress.isDone( getType< Real >(), format, "CPU", launchConfig ) )
+                                    return;
+                                 benchmark.setMetadataElement( { "launch cfg.", launchConfig } );
+                                 benchmark.time< Devices::Host >( resetHostVectors, "CPU", spmvCSRHost, csrBenchmarkResults );
+                                 progress.markDone( getType< Real >(), format, "CPU", launchConfig );
+                              } );
    }
 
    csrHostMatrix.reset();
@@ -266,7 +290,7 @@ benchmarkSpmv( BenchmarkType& benchmark,
    /////
    // Benchmarking of TNL legacy formats
    //
-   dispatchLegacy< Real >( benchmark, hostOutVector, inputFileName, parameters, verboseMR );
+   dispatchLegacy< Real >( benchmark, progress, hostOutVector, inputFileName, parameters, verboseMR );
 }
 
-} // namespace TNL::Benchmarks::SpMV
+}  // namespace TNL::Benchmarks::SpMV
