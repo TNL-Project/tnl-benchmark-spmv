@@ -5,8 +5,8 @@ Parse the log files from tnl-benchmark-spmv, convert them to one big table
 (one row per matrix, one column per format/device/launch config/metric) and
 compute all speed-ups. The results for the original and the transposed
 matrices are processed separately, each giving one table. Both tables are
-stored in a binary (pickle) file, which tnl-spmv-benchmark-make-tables-json.py
-then loads to generate the reports and graphs. The tables can be also
+stored in a binary (pickle) file, which tnl-spmv-benchmark-analysis-tables.py
+and the scripts in poster-sc2026/ then load. The tables can be also
 exported to HTML or Excel (see --export).
 """
 
@@ -19,7 +19,7 @@ from TNL.BenchmarkLogs import *
 import MultiindexCreator as mic
 import Speedup
 import TableChecks
-import PosterHeatmapGraphs
+from MatrixStatColumns import MATRIX_STAT_COLUMNS
 from VendorLibraries import vendor_format
 from LegacyCounterparts import legacy_counterparts
 from BenchmarkTable import save_tables, export_tables, print_formats_and_launch_configs
@@ -227,7 +227,7 @@ def get_multiindex(input_df, formats, launch_configs, accelerator_devices):
     mc = mic.MultiindexCreator(5)
     mc.add_entries([["Matrix name"], ["rows"], ["columns"], ["nonzeros"], ["nonzeros per row"]])
     mc.add_entries([[column] for column in symmetry_columns])
-    mc.add_entries([[stat] for stat in PosterHeatmapGraphs.MATRIX_STAT_COLUMNS])
+    mc.add_entries([[stat] for stat in MATRIX_STAT_COLUMNS])
 
     for format in formats:
         for device in ["CPU"] + accelerator_devices:
@@ -363,7 +363,7 @@ def convert_data_frame(input_df, multicolumns, df_data, begin_idx=0, end_idx=-1)
             metadata_columns[column] = metadata[column].map(
                 {"true": True, "false": False, True: True, False: False}
             )
-    for stat in PosterHeatmapGraphs.MATRIX_STAT_COLUMNS:
+    for stat in MATRIX_STAT_COLUMNS:
         if stat in metadata.columns:
             metadata_columns[stat] = pd.to_numeric(metadata[stat], errors="coerce")
     metadata_df = pd.DataFrame(
@@ -438,7 +438,7 @@ def matrix_name(path):
 # Structural columns written once per matrix by tnl-benchmark-spmv-matrix-info (see
 # include/matrix-info.h), instead of being repeated on every record of every
 # SpMV benchmark binary.
-matrix_info_columns = ["rows", "columns", "nonzeros"] + symmetry_columns + PosterHeatmapGraphs.MATRIX_STAT_COLUMNS
+matrix_info_columns = ["rows", "columns", "nonzeros"] + symmetry_columns + MATRIX_STAT_COLUMNS
 
 
 def load_matrix_info(path):
@@ -666,9 +666,7 @@ def get_formats(input_df):
     Get the list of formats to generate output columns for: every format
     name found in the benchmark log, minus the "CSR Light Automatic" family
     (an internal auto-tuning wrapper around the other CSR Light kernels,
-    not itself a distinct storage format worth its own row/column), plus
-    the synthetic "CSR Best" format (computed later, not present in the raw
-    log) representing "whichever CSR launch config was fastest".
+    not itself a distinct storage format worth its own row/column).
     """
     formats = list(
         set(input_df["format"].values.tolist())
@@ -681,7 +679,6 @@ def get_formats(input_df):
         formats.remove("Symmetric CSR Light Automatic")
     if "Symmetric Binary CSR Light Automatic" in formats:
         formats.remove("Symmetric Binary CSR Light Automatic")
-    formats.append("CSR Best")
     formats.sort()
     return formats
 
@@ -694,27 +691,18 @@ def get_accelerator_devices(input_df):
     return sorted(set(input_df["performer"].unique()) - {"CPU"})
 
 
-def get_launch_configs(input_df, accelerator_devices):
+def get_launch_configs(input_df):
     """
     Build {(format, device): [launch_config, ...]} - the set of launch
     configs actually present in the log for each (format, device) pair, in
     first-seen order. get_multiindex()/add_to_multiindex() use this to know
     which columns to create; convert_data_frame() doesn't need it (it derives
     columns straight from the data via pivot_table).
-
-    "CSR Best" is a synthetic format (computed later, see BestFormats.py) so
-    it never appears in the log itself; give it a single "" (no-op) launch
-    config on every device so it still gets a column added for it.
     """
     launch_configs = {}
     combinations = input_df[["format", "performer", "launch cfg."]].drop_duplicates()
     for format, device, launch_cfg in combinations.itertuples(index=False):
         launch_configs.setdefault((format, device), []).append(launch_cfg)
-    for device in accelerator_devices:
-        launch_configs[("CSR Best", device)] = []
-        launch_configs[("CSR Best", device)].append("")
-    launch_configs[("CSR Best", "CPU")] = []
-    launch_configs[("CSR Best", "CPU")].append("")
     return launch_configs
 
 
@@ -725,7 +713,7 @@ def build_table(input_df, args):
     formats = get_formats(input_df)
     accelerator_devices = get_accelerator_devices(input_df)
     print(f"Accelerator devices found in the data: {accelerator_devices}")
-    launch_configs = get_launch_configs(input_df, accelerator_devices)
+    launch_configs = get_launch_configs(input_df)
     if args.verbose:
         print_formats_and_launch_configs(formats, launch_configs, accelerator_devices)
 

@@ -27,7 +27,7 @@ import numpy as np
 import pandas as pd
 
 from VendorLibraries import vendor_label
-from PosterGraphsCommon import (
+from FormatFilters import (
     _min_time_per_matrix,
     _is_csr_baseline_format,
     _vendor_format_filter,

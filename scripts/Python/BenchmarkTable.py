@@ -4,7 +4,7 @@ the transposed matrices, including all computed speed-ups, together with the
 metadata needed to analyze them, and their export to HTML or Excel.
 
 Written by tnl-spmv-benchmark-parse-logs.py and read by
-tnl-spmv-benchmark-make-tables-json.py.
+tnl-spmv-benchmark-analysis-tables.py and the scripts in poster-sc2026/.
 """
 
 import os

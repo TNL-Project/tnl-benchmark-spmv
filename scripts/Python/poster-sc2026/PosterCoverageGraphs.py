@@ -6,10 +6,8 @@ Also Ellpack? ..." See PosterGraphsCommon.py for the shared color palette and
 baseline-filter building blocks, PosterOverviewGraphs.py for the row/bar
 overview charts, PosterHeatmapGraphs.py for the threshold heatmap.
 
-This module is a scratch space: functions here are added/removed/reshaped
-while we figure out how the results should be presented. Nothing here is
-expected to be stable API - once we settle on a presentation, it should move
-into Report.py as a proper, systematic report.
+The charts were made for the poster at SC2026 and the module is kept as it
+was then, it is not expected to be developed further.
 
 Entry point:
   - cumulative_coverage_vs_best: for every accelerator device, a waterfall

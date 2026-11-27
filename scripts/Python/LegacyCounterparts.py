@@ -3,9 +3,8 @@ Maps a (new format, launch config) to the name of the "legacy" (pre-rewrite)
 TNL implementation it replaces, so a speed-up column comparing the two can be
 added - i.e. "did the rewrite actually help?".
 
-Shared by the speed-up computation (Speedup.py, called from
-tnl-spmv-benchmark-parse-logs.py) and the HTML report (Report.py, called from
-tnl-spmv-benchmark-make-tables-json.py).
+Used by the speed-up computation (Speedup.py, called from
+tnl-spmv-benchmark-parse-logs.py).
 """
 
 legacy_counterparts = {

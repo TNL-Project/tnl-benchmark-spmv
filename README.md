@@ -172,10 +172,13 @@ its beginning as appropriate.
 
 ## Processing the results
 
-The results are processed in two steps by the Python scripts in
+The results are processed by the Python scripts in
 [scripts/Python](./scripts/Python). They need pandas, NumPy, Matplotlib,
-openpyxl (for the Excel export) and the `TNL` Python package (`src/Python`
-in the TNL repository, installed together with TNL).
+openpyxl (for the Excel export) and the `TNL` Python package
+(`src/Python` in the TNL repository, installed together with TNL). The
+main step is the first one, which builds the complete table with the
+speed-ups. Further analyses are meant to be done by scripts working on
+this table.
 
 1. [tnl-spmv-benchmark-parse-logs.py](./scripts/Python/tnl-spmv-benchmark-parse-logs.py)
    parses the log files and builds one table for the original and one for
@@ -215,17 +218,28 @@ in the TNL repository, installed together with TNL).
    warnings and returns a nonzero exit code if a check fails, the table is
    stored anyway.
 
-2. [tnl-spmv-benchmark-make-tables-json.py](./scripts/Python/tnl-spmv-benchmark-make-tables-json.py)
-   loads the stored table and writes the reports to the output directory
-   (default: `spmv-benchmark-report`):
+2. [tnl-spmv-benchmark-analysis-tables.py](./scripts/Python/tnl-spmv-benchmark-analysis-tables.py)
+   loads the stored table and writes the tables analyzing the results (see
+   [AnalysisTables.py](./scripts/Python/AnalysisTables.py)), each as HTML,
+   LaTeX (a `tabular` to `\input` and a standalone document) and CSV, for
+   the original and the transposed matrices, to `Tables/` in the output
+   directory (default: `spmv-benchmark-report`): the percentage of matrices
+   on which TNL CSR, TNL ELLPACK, the vendor library, Ginkgo and hypre are
+   the fastest on each GPU, by the number of nonzeros (`winners-by-size`),
+   and the same for the wins by at least 10 % over the second best
+   implementation (`winners-by-size-margin-10`):
 
-       ./tnl-spmv-benchmark-make-tables-json.py -i spmv-benchmark-table.pkl -o spmv-benchmark-report --draw-graphs
+       ./tnl-spmv-benchmark-analysis-tables.py -i spmv-benchmark-table.pkl -o spmv-benchmark-report
 
-   - always: the best formats per matrix and their statistics
-   - `--draw-graphs` – the full report with graphs of the speed-ups and the
-     CPU scalability
-   - `--poster-graphs` – the summary charts prepared for a poster, including
-     the performance profiles (Dolan-Moré) of TNL CSR, Hypre and Ginkgo on
+3. [poster-sc2026/tnl-spmv-benchmark-poster-graphs.py](./scripts/Python/poster-sc2026/tnl-spmv-benchmark-poster-graphs.py)
+   draws the charts of the poster at SC2026 to the output directory
+   (default: `spmv-benchmark-poster`). The scripts in
+   [poster-sc2026](./scripts/Python/poster-sc2026) are kept as they were
+   for the poster:
+
+       ./poster-sc2026/tnl-spmv-benchmark-poster-graphs.py -i spmv-benchmark-table.pkl -o spmv-benchmark-poster
+
+   The charts include the performance profiles (Dolan-Moré) of TNL CSR, Hypre and Ginkgo on
      the CPU for each number of threads, the heatmap of the fastest library,
      the performance profile with the best number of threads for each
      matrix and library (per-matrix oracle) and the parallel efficiency of
@@ -245,13 +259,7 @@ in the TNL repository, installed together with TNL).
      of the CSR and Ellpack formats (`speedup-<variant>-csr-vs-*` and
      `speedup-<variant>-ellpack-vs-*`), with the change w.r.t. the base
      format on the same matrices in parentheses.
-   - `--with-tables` – the tables analyzing the results, each as HTML,
-     LaTeX (a `tabular` to `\input` and a standalone document) and CSV, for
-     the original and the transposed matrices, in `Tables/`: the percentage
-     of matrices on which TNL CSR, TNL ELLPACK, the vendor library, Ginkgo
-     and hypre are the fastest on each GPU, by the number of nonzeros
-     (`winners-by-size`), and the same for the wins by at least 10 % over
-     the second best implementation (`winners-by-size-margin-10`)
+
    - `--with-cpu-threads <all|list>` – the numbers of threads compared in
      the graphs in `CPU-libraries/`, e.g. `1,4,16,32` (default: `all`)
    - `--transposed` – process the table for the transposed matrices

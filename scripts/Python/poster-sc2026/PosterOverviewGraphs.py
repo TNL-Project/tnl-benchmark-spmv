@@ -7,10 +7,8 @@ palette and baseline-filter building blocks, PosterHeatmapGraphs.py for the
 threshold heatmap, PosterCoverageGraphs.py for the cumulative-coverage
 waterfall chart.
 
-This module is a scratch space: functions here are added/removed/reshaped
-while we figure out how the results should be presented. Nothing here is
-expected to be stable API - once we settle on a presentation, it should move
-into Report.py as a proper, systematic report.
+The charts were made for the poster at SC2026 and the module is kept as it
+was then, it is not expected to be developed further.
 
 Every comparison with a library stays on one device: CUDA results are
 compared with cuSPARSE, HIP results with hipSPARSE (see VendorLibraries.py),

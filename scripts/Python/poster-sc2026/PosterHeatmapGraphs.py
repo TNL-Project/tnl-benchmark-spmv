@@ -7,10 +7,8 @@ PosterGraphsCommon.py for the shared color palette and baseline-filter
 building blocks, PosterOverviewGraphs.py for the row/bar overview charts,
 PosterCoverageGraphs.py for the cumulative-coverage waterfall chart.
 
-This module is a scratch space: functions here are added/removed/reshaped
-while we figure out how the results should be presented. Nothing here is
-expected to be stable API - once we settle on a presentation, it should move
-into Report.py as a proper, systematic report.
+The charts were made for the poster at SC2026 and the module is kept as it
+was then, it is not expected to be developed further.
 
 Entry points:
   - speedup_heatmap_vs_best_csr: for every accelerator device, a heatmap with
@@ -49,6 +47,7 @@ from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.ticker import FuncFormatter
 
 from VendorLibraries import vendor_label
+from MatrixStatColumns import MATRIX_STAT_COLUMNS
 from PosterGraphsCommon import (
     SEQUENTIAL_BLUE,
     INK_PRIMARY,
@@ -513,34 +512,10 @@ def speedup_heatmap_vs_best_csr(
 # each matrix's per-matrix statistics for context.
 # ---------------------------------------------------------------------------
 
-# Per-matrix statistics computed by MatrixStatistics.h and emitted via
-# spmv.h's setMetadataColumns(), in the exact key spelling used there - see
-# write_speedup_matrices(), which lists these (with their dataset-wide
-# min/max/avg) next to every matrix in the Markdown report.
-MATRIX_STAT_COLUMNS = [
-    "nonzeros/row average",
-    "nonzeros/row std_dev",
-    "nonzeros/row P50",
-    "nonzeros/row P95",
-    "nonzeros/row P99",
-    "nonzeros/row R50",
-    "nonzeros/row R95",
-    "nonzeros/row R99",
-    "warps/row average",
-    "rho ELL",
-    "rho SELL 2",
-    "rho SELL 4",
-    "rho SELL 8",
-    "rho SELL 16",
-    "rho SELL 32",
-    "eta SELL 2",
-    "eta SELL 4",
-    "eta SELL 8",
-    "eta SELL 16",
-    "eta SELL 32",
-    "entropy",
-    "Gini",
-]
+# MATRIX_STAT_COLUMNS (see MatrixStatColumns.py) are the per-matrix statistics
+# computed by MatrixStatistics.h - see write_speedup_matrices(), which lists
+# these (with their dataset-wide min/max/avg) next to every matrix in the
+# Markdown report.
 
 
 def _matrix_stat_series(df):
